@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"encoding/xml"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -15,20 +16,31 @@ type User struct {
 }
 
 type UserService struct {
-	db *badger.DB
+	DBService
+	Username string
 }
 
-func newUserService(db *badger.DB) *UserService {
+type UserPagemonitor struct {
+	URL     string `xml:"url,attr"`
+	Title   string `xml:",chardata"`
+	Match   string `xml:"match,attr"`
+	Replace string `xml:"replace,attr"`
+	Flags   string `xml:"flags,attr"`
+}
+
+func (dbService *DBService) newUserService(username string) *UserService {
 	return &UserService{
-		db: db,
+		DBService: *dbService,
+		Username:  username,
 	}
 }
 
-func (s *UserService) Get(username string) (*User, error) {
-	var user *User
+func (s *UserService) Get() (*User, error) {
+	user := &User{}
 	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(CreateKey(&User{}, username))
+		item, err := txn.Get(user.CreateKey(s.Username))
 		if err == badger.ErrKeyNotFound {
+			user = nil
 			return nil
 		}
 
@@ -36,22 +48,25 @@ func (s *UserService) Get(username string) (*User, error) {
 		if err != nil {
 			return err
 		}
-		user, err = decodeValue(value)
+		err = json.Unmarshal(value, user)
+		if err != nil {
+			user = nil
+		}
 		return err
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read User %v", username)
+		return nil, errors.Wrapf(err, "Cannot read User %v", s.Username)
 	}
 	return user, nil
 }
 
 func (s *UserService) Save(user *User) (err error) {
-	value, err := user.encode()
+	value, err := json.Marshal(user)
 	if err != nil {
 		return err
 	}
 	err = s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set([]byte(CreateKey(user, "default")), value)
+		return txn.Set(user.CreateKey(s.Username), value)
 	})
 	return err
 }
@@ -69,20 +84,16 @@ func (user *User) ValidatePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 }
 
-func (user *User) encode() (encoded []byte, err error) {
-	encoded, err = json.Marshal(user)
-	if err != nil {
-		err = errors.Wrap(err, "Cannot encode User")
+func (user *User) GetPages() ([]UserPagemonitor, error) {
+	type UserPages struct {
+		XMLName xml.Name          `xml:"pages"`
+		Pages   []UserPagemonitor `xml:"page"`
 	}
-	return
-}
-
-func decodeValue(data []byte) (user *User, err error) {
-	user = &User{}
-	err = json.Unmarshal(data, user)
+	items := &UserPages{}
+	err := xml.Unmarshal([]byte(user.Pagemonitor), items)
 	if err != nil {
-		err = errors.Wrap(err, "Cannot decode User")
+		err = errors.Wrap(err, "Cannot parse pagemonitor xml")
 		return nil, err
 	}
-	return
+	return items.Pages, nil
 }

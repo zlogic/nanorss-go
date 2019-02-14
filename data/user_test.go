@@ -9,10 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func createOpts() (badger.Options, error) {
+const defaultUsername = "default"
+
+func createDb() (dbService *DBService, cleanupFunc func(), err error) {
 	dir, err := ioutil.TempDir("", "nanorss")
 	if err != nil {
-		return badger.Options{}, err
+		return nil, func() {}, err
 	}
 
 	var opts = badger.DefaultOptions
@@ -20,54 +22,33 @@ func createOpts() (badger.Options, error) {
 	opts.SyncWrites = false
 	opts.Dir = dir
 	opts.ValueDir = dir
-	return opts, nil
-}
 
-func cleanupTestDb(s *Service, opts badger.Options) {
-	s.Close()
-	os.RemoveAll(opts.Dir)
-}
-
-func (s *Service) clearDb() error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-
-		it := txn.NewIterator(opts)
-		defer it.Close()
-
-		for it.Rewind(); it.Valid(); it.Next() {
-			k := it.Item().Key()
-
-			if err := txn.Delete(k); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
+	dbService, err = Open(opts)
+	if err != nil {
+		return nil, func() {}, err
+	}
+	return dbService, func() {
+		dbService.Close()
+		os.RemoveAll(opts.Dir)
+	}, nil
 }
 
 func TestGetUserEmpty(t *testing.T) {
-	opts, err := createOpts()
+	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
-	dbService, err := Open(opts)
-	assert.NoError(t, err)
-	defer cleanupTestDb(dbService, opts)
-	err = dbService.clearDb()
-	assert.NoError(t, err)
+	defer cleanup()
+	userService := dbService.newUserService(defaultUsername)
 
-	user, err := dbService.userService.Get("Hello")
+	user, err := userService.Get()
 	assert.NoError(t, err)
 	assert.Nil(t, user)
 }
 
 func TestCreateGetUser(t *testing.T) {
-	opts, err := createOpts()
+	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
-	dbService, err := Open(opts)
-	defer cleanupTestDb(dbService, opts)
-	assert.NoError(t, err)
-	err = dbService.clearDb()
+	defer cleanup()
+	userService := dbService.newUserService(defaultUsername)
 	assert.NoError(t, err)
 
 	user := &User{
@@ -75,10 +56,10 @@ func TestCreateGetUser(t *testing.T) {
 		Opml:        "opml",
 		Pagemonitor: "pagemonitor",
 	}
-	err = dbService.userService.Save(user)
+	err = userService.Save(user)
 	assert.NoError(t, err)
 
-	user, err = dbService.userService.Get("default")
+	user, err = userService.Get()
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
 	assert.Equal(t, "password", user.Password)
@@ -98,4 +79,18 @@ func TestSetUserPassword(t *testing.T) {
 
 	err = user.ValidatePassword("hellow")
 	assert.Error(t, err)
+}
+
+func TestParsePagemonitor(t *testing.T) {
+	user := &User{Pagemonitor: `<pages>` +
+		`<page url="https://site1.com" match="m1" replace="r1" flags="f1">Page 1</page>` +
+		`<page url="http://site2.com">Page 2</page>` +
+		`</pages>`}
+	items, err := user.GetPages()
+	assert.NoError(t, err)
+	assert.NotNil(t, items)
+	assert.Equal(t, []UserPagemonitor{
+		UserPagemonitor{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1", Flags: "f1"},
+		UserPagemonitor{URL: "http://site2.com", Title: "Page 2"},
+	}, items)
 }

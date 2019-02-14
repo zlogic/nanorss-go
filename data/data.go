@@ -21,24 +21,20 @@ func DefaultOptions() (opts badger.Options) {
 	return
 }
 
-type Service struct {
-	db          *badger.DB
-	userService *UserService
+type DBService struct {
+	db *badger.DB
 }
 
-func Open(options badger.Options) (*Service, error) {
+func Open(options badger.Options) (*DBService, error) {
 	log.Print("Opening database in ", options.Dir)
 	db, err := badger.Open(options)
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		db:          db,
-		userService: newUserService(db),
-	}, nil
+	return &DBService{db: db}, nil
 }
 
-func (service *Service) Close() {
+func (service *DBService) Close() {
 	if service.db != nil {
 		err := service.db.Close()
 		if err != nil {
