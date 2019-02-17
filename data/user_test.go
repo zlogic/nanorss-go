@@ -1,37 +1,12 @@
 package data
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 
-	"github.com/dgraph-io/badger"
 	"github.com/stretchr/testify/assert"
 )
 
 const defaultUsername = "default"
-
-func createDb() (dbService *DBService, cleanupFunc func(), err error) {
-	dir, err := ioutil.TempDir("", "nanorss")
-	if err != nil {
-		return nil, func() {}, err
-	}
-
-	var opts = badger.DefaultOptions
-	opts.ValueLogFileSize = 1 << 20
-	opts.SyncWrites = false
-	opts.Dir = dir
-	opts.ValueDir = dir
-
-	dbService, err = Open(opts)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	return dbService, func() {
-		dbService.Close()
-		os.RemoveAll(opts.Dir)
-	}, nil
-}
 
 func TestGetUserEmpty(t *testing.T) {
 	dbService, cleanup, err := createDb()
@@ -92,5 +67,27 @@ func TestParsePagemonitor(t *testing.T) {
 	assert.Equal(t, []UserPagemonitor{
 		UserPagemonitor{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1", Flags: "f1"},
 		UserPagemonitor{URL: "http://site2.com", Title: "Page 2"},
+	}, items)
+}
+
+func TestParseOPML(t *testing.T) {
+	user := &User{Opml: `<opml version="1.0">` +
+		`<head><title>My OPML list</title></head>` +
+		`<body>` +
+		`<outline text="Sites" title="Sites"><outline text="Site 1" title="Site 1" type="rss" xmlUrl="http://sites-site1.com" htmlUrl="http://sites-site1.com"/></outline>` +
+		`<outline text="Updates" title="Updates">` +
+		`<outline text="Site 2" title="Site 2" type="rss" xmlUrl="http://updates-site2.com" htmlUrl="http://updates-site2.com"/>` +
+		`<outline text="Site 3" title="Site 3" type="rss" xmlUrl="http://updates-site3.com" htmlUrl="http://updates-site3.com"/>` +
+		`</outline>` +
+		`</body>` +
+		`</opml>`}
+	items, err := user.GetFeeds()
+	assert.NoError(t, err)
+	assert.NotNil(t, items)
+
+	assert.Equal(t, []UserFeed{
+		UserFeed{URL: "http://sites-site1.com", Title: "Site 1"},
+		UserFeed{URL: "http://updates-site2.com", Title: "Site 2"},
+		UserFeed{URL: "http://updates-site3.com", Title: "Site 3"},
 	}, items)
 }

@@ -28,6 +28,11 @@ type UserPagemonitor struct {
 	Flags   string `xml:"flags,attr"`
 }
 
+type UserFeed struct {
+	URL   string `xml:"xmlUrl,attr"`
+	Title string `xml:"title,attr"`
+}
+
 func (dbService *DBService) newUserService(username string) *UserService {
 	return &UserService{
 		DBService: *dbService,
@@ -96,4 +101,33 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 		return nil, err
 	}
 	return items.Pages, nil
+}
+
+func (user *User) GetFeeds() ([]UserFeed, error) {
+	type UserOPMLOutline struct {
+		UserFeed
+		Children []UserOPMLOutline `xml:"outline"`
+	}
+	type UserOPML struct {
+		XMLName xml.Name          `xml:"opml"`
+		Feeds   []UserOPMLOutline `xml:"body>outline"`
+	}
+	items := &UserOPML{}
+	err := xml.Unmarshal([]byte(user.Opml), items)
+	if err != nil {
+		err = errors.Wrap(err, "Cannot parse opml xml")
+		return nil, err
+	}
+	feeds := []UserFeed{}
+	var findFeeds func([]UserOPMLOutline)
+	findFeeds = func(outlines []UserOPMLOutline) {
+		for _, outline := range outlines {
+			if outline.URL != "" {
+				feeds = append(feeds, outline.UserFeed)
+			}
+			findFeeds(outline.Children)
+		}
+	}
+	findFeeds(items.Feeds)
+	return feeds, nil
 }

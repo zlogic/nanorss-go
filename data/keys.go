@@ -54,3 +54,31 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	}
 	return res, nil
 }
+
+const FeeditemKeyPrefix = "feeditem" + separator
+
+func CreateFeeditemKey(feedUrl, guid string) []byte {
+	keyURL := url.PathEscape(feedUrl)
+	keyGUID := url.PathEscape(guid)
+	return []byte(FeeditemKeyPrefix + keyURL + separator + keyGUID)
+}
+
+func DecodeFeeditemKey(key []byte) (feedURL, guid string, err error) {
+	keyString := string(key)
+	if !strings.HasPrefix(keyString, FeeditemKeyPrefix) {
+		return "", "", errors.Errorf("Not a Feeditem key: %v", keyString)
+	}
+	parts := strings.Split(keyString, separator)
+	if len(parts) != 3 {
+		return "", "", errors.Errorf("Invalid format of Feeditem key: %v", keyString)
+	}
+	feedURL, err = url.PathUnescape(parts[1])
+	if err != nil {
+		return "", "", errors.Errorf("Failed to decode Feed URL of Feeditem key: %v because of %v", keyString, err)
+	}
+	guid, err = url.PathUnescape(parts[2])
+	if err != nil {
+		return "", "", errors.Errorf("Failed to decode GUID of Feeditem key: %v because of %v", keyString, err)
+	}
+	return
+}

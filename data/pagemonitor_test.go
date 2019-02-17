@@ -2,6 +2,7 @@ package data
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -18,62 +19,25 @@ func checkPages(t *testing.T, dbService *DBService, userPages *[]UserPagemonitor
 	assert.ElementsMatch(t, *pages, dbPages)
 }
 
-func TestCreatePages(t *testing.T) {
+func TestGetPage(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
 
-	user := &User{Pagemonitor: `<pages>` +
-		`<page url="https://site1.com" match="m1" replace="r1" flags="f1">Page 1</page>` +
-		`<page url="http://site2.com">Page 2</page>` +
-		`</pages>`}
-	err = dbService.SavePages(user)
-	assert.NoError(t, err)
-
-	// Ignore title in comparison
-	pages, err := user.GetPages()
-	assert.NoError(t, err)
-	for i := 0; i < len(pages); i++ {
-		pages[i].Title = ""
+	userPage := UserPagemonitor{
+		URL:     "http://site1.com",
+		Match:   "m1",
+		Replace: "r1",
+		Flags:   "f1",
 	}
-
-	dbPages := make([]UserPagemonitor, 0, 2)
-	err = dbService.ReadAllPages(func(pm *UserPagemonitor, page *PagemonitorPage) {
-		assert.Equal(t, &PagemonitorPage{}, page)
-		dbPages = append(dbPages, *pm)
-	})
+	page := PagemonitorPage{Contents: "c1", Delta: "d1", Error: "e1"}
+	err = dbService.SavePage(&userPage, &page)
 	assert.NoError(t, err)
-	assert.ElementsMatch(t, pages, dbPages)
+
+	dbPage, err := dbService.GetPage(&userPage)
+	assert.NoError(t, err)
+	assert.Equal(t, &page, dbPage)
 }
-
-func TestReadAllPages(t *testing.T) {
-	dbService, cleanup, err := createDb()
-	assert.NoError(t, err)
-	defer cleanup()
-
-	user := &User{Pagemonitor: `<pages>` +
-		`<page url="https://site1.com" match="m1" replace="r1" flags="f1">Page 1</page>` +
-		`<page url="http://site2.com">Page 2</page>` +
-		`</pages>`}
-	err = dbService.SavePages(user)
-	assert.NoError(t, err)
-
-	// Ignore title in comparison
-	pages, err := user.GetPages()
-	assert.NoError(t, err)
-	for i := 0; i < len(pages); i++ {
-		pages[i].Title = ""
-	}
-
-	dbPages := make([]UserPagemonitor, 0, 2)
-	err = dbService.ReadAllPages(func(pm *UserPagemonitor, page *PagemonitorPage) {
-		assert.Equal(t, &PagemonitorPage{}, page)
-		dbPages = append(dbPages, *pm)
-	})
-	assert.NoError(t, err)
-	assert.ElementsMatch(t, pages, dbPages)
-}
-
 func TestSavePage(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
@@ -110,45 +74,25 @@ func TestSavePage(t *testing.T) {
 	checkPages(t, dbService, &userPages, &pages)
 }
 
-func TestDeleteNonExistingPage(t *testing.T) {
+func TestSaveReadPageTTL(t *testing.T) {
+	var oldTTL = itemTTL
+	itemTTL = time.Nanosecond * 1
+	defer func() { itemTTL = oldTTL }()
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
 
 	userPage := UserPagemonitor{
-		URL: "http://site1.com",
+		URL:     "http://site1.com",
+		Match:   "m1",
+		Replace: "r1",
+		Flags:   "f1",
 	}
-	page := PagemonitorPage{}
-
+	page := PagemonitorPage{Contents: "c1", Delta: "d1", Error: "e1"}
 	err = dbService.SavePage(&userPage, &page)
 	assert.NoError(t, err)
 
-	userPageNonExisting := UserPagemonitor{
-		URL: "http://site2.com",
-	}
-	err = dbService.DeletePage(&userPageNonExisting)
+	dbPage, err := dbService.GetPage(&userPage)
 	assert.NoError(t, err)
-	userPages := []UserPagemonitor{userPage}
-	pages := []PagemonitorPage{page}
-	checkPages(t, dbService, &userPages, &pages)
-}
-
-func TestDeleteExistingPage(t *testing.T) {
-	dbService, cleanup, err := createDb()
-	assert.NoError(t, err)
-	defer cleanup()
-
-	userPage := UserPagemonitor{
-		URL: "http://site1.com",
-	}
-	page := PagemonitorPage{}
-
-	err = dbService.SavePage(&userPage, &page)
-	assert.NoError(t, err)
-
-	err = dbService.DeletePage(&userPage)
-	assert.NoError(t, err)
-	userPages := []UserPagemonitor{}
-	pages := []PagemonitorPage{}
-	checkPages(t, dbService, &userPages, &pages)
+	assert.Nil(t, dbPage)
 }

@@ -18,35 +18,29 @@ type PagemonitorService struct {
 	db *badger.DB
 }
 
-func (s *DBService) SavePages(user *User) (err error) {
-	pages, err := user.GetPages()
-	if err != nil {
-		return errors.Wrap(err, "Cannot parse pagemonitor configuration")
-	}
-	if err != nil {
-		return err
-	}
-	err = s.db.Update(func(txn *badger.Txn) error {
-		for _, page := range pages {
-			//Upsert
-			key := page.CreateKey()
-			_, err := txn.Get(key)
-			if err == badger.ErrKeyNotFound {
-				value, err := json.Marshal(page)
-				if err != nil {
-					return errors.Wrap(err, "Cannot marshal page")
-				}
-				err = txn.Set(key, value)
-				if err != nil {
-					return errors.Wrap(err, "Cannot save page")
-				}
-			} else if err != nil {
-				return errors.Wrap(err, "Cannot read page")
-			}
+func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
+	page := &PagemonitorPage{}
+	err := s.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(pm.CreateKey())
+		if err == badger.ErrKeyNotFound {
+			page = nil
+			return nil
 		}
-		return nil
+
+		value, err := item.Value()
+		if err != nil {
+			return err
+		}
+		err = json.Unmarshal(value, page)
+		if err != nil {
+			page = nil
+		}
+		return err
 	})
-	return err
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot read page %v", page)
+	}
+	return page, nil
 }
 
 func (s *DBService) SavePage(pm *UserPagemonitor, page *PagemonitorPage) error {
@@ -56,14 +50,7 @@ func (s *DBService) SavePage(pm *UserPagemonitor, page *PagemonitorPage) error {
 		return errors.Wrap(err, "Cannot marshal page")
 	}
 	return s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(key, value)
-	})
-}
-
-func (s *DBService) DeletePage(pm *UserPagemonitor) error {
-	key := pm.CreateKey()
-	return s.db.Update(func(txn *badger.Txn) error {
-		return txn.Delete(key)
+		return txn.SetWithTTL(key, value, itemTTL)
 	})
 }
 
