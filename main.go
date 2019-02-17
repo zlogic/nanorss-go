@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/zlogic/nanorss/data"
+	"github.com/zlogic/nanorss-go/data"
 )
 
 func main() {

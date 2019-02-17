@@ -3,6 +3,7 @@ package data
 import (
 	"encoding/json"
 	"encoding/xml"
+	"log"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -25,7 +26,6 @@ type UserPagemonitor struct {
 	Title   string `xml:",chardata"`
 	Match   string `xml:"match,attr"`
 	Replace string `xml:"replace,attr"`
-	Flags   string `xml:"flags,attr"`
 }
 
 type UserFeed struct {
@@ -33,11 +33,48 @@ type UserFeed struct {
 	Title string `xml:"title,attr"`
 }
 
-func (dbService *DBService) newUserService(username string) *UserService {
+func (dbService *DBService) NewUserService(username string) *UserService {
 	return &UserService{
 		DBService: *dbService,
 		Username:  username,
 	}
+}
+
+func (s *DBService) ReadAllUsers(handler func(username string, user *User)) error {
+	err := s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		prefix := []byte(UserKeyPrefix)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			k := item.Key()
+			username, err := DecodeUserKey(k)
+			if err != nil {
+				log.Printf("Failed to decode key of user %v because of %v", k, err)
+				continue
+			}
+
+			v, err := item.Value()
+			if err != nil {
+				log.Printf("Failed to read value of user %v because of %v", k, err)
+				continue
+			}
+
+			user := &User{}
+			err = json.Unmarshal(v, &user)
+			if err != nil {
+				log.Printf("Failed to unmarshal value of user %v because of %v", k, err)
+				continue
+			}
+			handler(*username, user)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Wrapf(err, "Cannot read users")
+	}
+	return nil
 }
 
 func (s *UserService) Get() (*User, error) {

@@ -8,8 +8,8 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-func DefaultOptions() (opts badger.Options) {
-	opts = badger.DefaultOptions
+func DefaultOptions() badger.Options {
+	opts := badger.DefaultOptions
 	if opts.Dir == "" || opts.ValueDir == "" {
 		dbPath, ok := os.LookupEnv("DATABASE_DIR")
 		if !ok {
@@ -18,7 +18,7 @@ func DefaultOptions() (opts badger.Options) {
 		opts.Dir = dbPath
 		opts.ValueDir = dbPath
 	}
-	return
+	return opts
 }
 
 type DBService struct {

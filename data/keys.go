@@ -15,14 +15,25 @@ func (user *User) CreateKey(id string) []byte {
 	return []byte(UserKeyPrefix + id)
 }
 
+func DecodeUserKey(key []byte) (*string, error) {
+	keyString := string(key)
+	if !strings.HasPrefix(keyString, UserKeyPrefix) {
+		return nil, errors.Errorf("Not a user key: %v", keyString)
+	}
+	parts := strings.Split(keyString, separator)
+	if len(parts) != 2 {
+		return nil, errors.Errorf("Invalid format of user key: %v", keyString)
+	}
+	return &parts[1], nil
+}
+
 const PagemonitorKeyPrefix = "pagemonitor" + separator
 
 func (pm *UserPagemonitor) CreateKey() []byte {
 	keyURL := url.PathEscape(pm.URL)
 	keyMatch := url.PathEscape(pm.Match)
 	keyReplace := url.PathEscape(pm.Replace)
-	keyFlags := url.PathEscape(pm.Flags)
-	return []byte(PagemonitorKeyPrefix + keyURL + separator + keyMatch + separator + keyReplace + separator + keyFlags)
+	return []byte(PagemonitorKeyPrefix + keyURL + separator + keyMatch + separator + keyReplace)
 }
 
 func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
@@ -31,7 +42,7 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 		return nil, errors.Errorf("Not a Pagemonitor key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
-	if len(parts) != 5 {
+	if len(parts) != 4 {
 		return nil, errors.Errorf("Invalid format of Pagemonitor key: %v", keyString)
 	}
 	res := &UserPagemonitor{}
@@ -47,10 +58,6 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	res.Replace, err = url.PathUnescape(parts[3])
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode Replace of Pagemonitor key: %v because of %v", keyString, err)
-	}
-	res.Flags, err = url.PathUnescape(parts[4])
-	if err != nil {
-		return nil, errors.Errorf("Failed to decode Flags of Pagemonitor key: %v because of %v", keyString, err)
 	}
 	return res, nil
 }

@@ -12,7 +12,7 @@ func TestGetUserEmpty(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
-	userService := dbService.newUserService(defaultUsername)
+	userService := dbService.NewUserService(defaultUsername)
 
 	user, err := userService.Get()
 	assert.NoError(t, err)
@@ -23,7 +23,7 @@ func TestCreateGetUser(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
-	userService := dbService.newUserService(defaultUsername)
+	userService := dbService.NewUserService(defaultUsername)
 	assert.NoError(t, err)
 
 	user := &User{
@@ -42,6 +42,47 @@ func TestCreateGetUser(t *testing.T) {
 	assert.Equal(t, "pagemonitor", user.Pagemonitor)
 }
 
+func TestReadAllUsers(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	type UserWithUsername struct {
+		username string
+		user     User
+	}
+	user1 := UserWithUsername{
+		username: "user01",
+		user: User{
+			Password:    "pass1",
+			Opml:        "opml1",
+			Pagemonitor: "pagemonitor1",
+		},
+	}
+	user2 := UserWithUsername{
+		username: "user02",
+		user: User{
+			Password:    "pass2",
+			Opml:        "opml2",
+			Pagemonitor: "pagemonitor2",
+		},
+	}
+	users := []UserWithUsername{user1, user2}
+	for _, user := range users {
+		err = dbService.NewUserService(user.username).Save(&user.user)
+		assert.NoError(t, err)
+	}
+
+	dbItems := []UserWithUsername{}
+	dbService.ReadAllUsers(func(username string, user *User) {
+		dbItems = append(dbItems, UserWithUsername{
+			username: username,
+			user:     *user,
+		})
+	})
+	assert.EqualValues(t, users, dbItems)
+}
+
 func TestSetUserPassword(t *testing.T) {
 	user := &User{}
 	err := user.SetPassword("hello")
@@ -58,14 +99,14 @@ func TestSetUserPassword(t *testing.T) {
 
 func TestParsePagemonitor(t *testing.T) {
 	user := &User{Pagemonitor: `<pages>` +
-		`<page url="https://site1.com" match="m1" replace="r1" flags="f1">Page 1</page>` +
+		`<page url="https://site1.com" match="m1" replace="r1">Page 1</page>` +
 		`<page url="http://site2.com">Page 2</page>` +
 		`</pages>`}
 	items, err := user.GetPages()
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
 	assert.Equal(t, []UserPagemonitor{
-		UserPagemonitor{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1", Flags: "f1"},
+		UserPagemonitor{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1"},
 		UserPagemonitor{URL: "http://site2.com", Title: "Page 2"},
 	}, items)
 }

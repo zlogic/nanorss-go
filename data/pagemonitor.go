@@ -3,6 +3,7 @@ package data
 import (
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -11,7 +12,7 @@ import (
 type PagemonitorPage struct {
 	Contents string
 	Delta    string
-	Error    string
+	Updated  time.Time
 }
 
 type PagemonitorService struct {

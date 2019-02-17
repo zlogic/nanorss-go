@@ -28,9 +28,8 @@ func TestGetPage(t *testing.T) {
 		URL:     "http://site1.com",
 		Match:   "m1",
 		Replace: "r1",
-		Flags:   "f1",
 	}
-	page := PagemonitorPage{Contents: "c1", Delta: "d1", Error: "e1"}
+	page := PagemonitorPage{Contents: "c1", Delta: "d1", Updated: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)}
 	err = dbService.SavePage(&userPage, &page)
 	assert.NoError(t, err)
 
@@ -47,7 +46,6 @@ func TestSavePage(t *testing.T) {
 		URL:     "http://site1.com",
 		Match:   "m1",
 		Replace: "r1",
-		Flags:   "f1",
 	}
 	userPage2 := UserPagemonitor{
 		URL: "http://site1.com",
@@ -67,7 +65,7 @@ func TestSavePage(t *testing.T) {
 	//Update one page
 	page1.Contents = "c1"
 	page1.Delta = "d1"
-	page1.Error = "e1"
+	page1.Updated = time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
 	pages[0] = page1
 	err = dbService.SavePage(&userPage1, &page1)
 	assert.NoError(t, err)
@@ -86,9 +84,8 @@ func TestSaveReadPageTTL(t *testing.T) {
 		URL:     "http://site1.com",
 		Match:   "m1",
 		Replace: "r1",
-		Flags:   "f1",
 	}
-	page := PagemonitorPage{Contents: "c1", Delta: "d1", Error: "e1"}
+	page := PagemonitorPage{Contents: "c1", Delta: "d1", Updated: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)}
 	err = dbService.SavePage(&userPage, &page)
 	assert.NoError(t, err)
 
