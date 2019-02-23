@@ -40,7 +40,8 @@ func (dbService *DBService) NewUserService(username string) *UserService {
 	}
 }
 
-func (s *DBService) ReadAllUsers(handler func(username string, user *User)) error {
+func (s *DBService) ReadAllUsers(ch chan *User) error {
+	defer close(ch)
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
@@ -49,11 +50,6 @@ func (s *DBService) ReadAllUsers(handler func(username string, user *User)) erro
 			item := it.Item()
 
 			k := item.Key()
-			username, err := DecodeUserKey(k)
-			if err != nil {
-				log.Printf("Failed to decode key of user %v because of %v", k, err)
-				continue
-			}
 
 			v, err := item.Value()
 			if err != nil {
@@ -67,7 +63,7 @@ func (s *DBService) ReadAllUsers(handler func(username string, user *User)) erro
 				log.Printf("Failed to unmarshal value of user %v because of %v", k, err)
 				continue
 			}
-			handler(*username, user)
+			ch <- user
 		}
 		return nil
 	})

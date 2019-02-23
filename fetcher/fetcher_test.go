@@ -26,8 +26,8 @@ func (m *DBMock) SavePage(pm *data.UserPagemonitor, page *data.PagemonitorPage) 
 	return args.Error(0)
 }
 
-func (m *DBMock) ReadAllUsers(handler func(username string, user *data.User)) error {
-	args := m.Called(handler)
+func (m *DBMock) ReadAllUsers(ch chan *data.User) error {
+	args := m.Called(ch)
 	return args.Error(0)
 }
 

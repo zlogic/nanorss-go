@@ -57,6 +57,7 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 }
 
 func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
+	defer close(ch)
 	err = s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
@@ -86,6 +87,5 @@ func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 		}
 		return nil
 	})
-	close(ch)
 	return err
 }

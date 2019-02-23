@@ -1,6 +1,7 @@
 package data
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -51,36 +52,35 @@ func TestReadAllUsers(t *testing.T) {
 		username string
 		user     User
 	}
-	user1 := UserWithUsername{
-		username: "user01",
-		user: User{
-			Password:    "pass1",
-			Opml:        "opml1",
-			Pagemonitor: "pagemonitor1",
-		},
+	user1 := User{
+		Password:    "pass1",
+		Opml:        "opml1",
+		Pagemonitor: "pagemonitor1",
 	}
-	user2 := UserWithUsername{
-		username: "user02",
-		user: User{
-			Password:    "pass2",
-			Opml:        "opml2",
-			Pagemonitor: "pagemonitor2",
-		},
+	user2 := User{
+		Password:    "pass2",
+		Opml:        "opml2",
+		Pagemonitor: "pagemonitor2",
 	}
-	users := []UserWithUsername{user1, user2}
-	for _, user := range users {
-		err = dbService.NewUserService(user.username).Save(&user.user)
+	users := []User{user1, user2}
+	for i, user := range users {
+		err = dbService.NewUserService("user" + strconv.Itoa(i)).Save(&user)
 		assert.NoError(t, err)
 	}
 
-	dbItems := []UserWithUsername{}
-	dbService.ReadAllUsers(func(username string, user *User) {
-		dbItems = append(dbItems, UserWithUsername{
-			username: username,
-			user:     *user,
-		})
-	})
-	assert.EqualValues(t, users, dbItems)
+	dbUsers := []User{}
+	ch := make(chan *User)
+	done := make(chan bool)
+	go func() {
+		for user := range ch {
+			dbUsers = append(dbUsers, *user)
+		}
+		close(done)
+	}()
+	err = dbService.ReadAllUsers(ch)
+	<-done
+	assert.NoError(t, err)
+	assert.EqualValues(t, users, dbUsers)
 }
 
 func TestSetUserPassword(t *testing.T) {

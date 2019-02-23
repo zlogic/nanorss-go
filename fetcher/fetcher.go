@@ -11,7 +11,7 @@ type DB interface {
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
 	SavePage(pm *data.UserPagemonitor, page *data.PagemonitorPage) error
 	SaveFeeditems(feedItems ...*data.Feeditem) (err error)
-	ReadAllUsers(handler func(username string, user *data.User)) error
+	ReadAllUsers(chan *data.User) error
 }
 
 type Fetcher struct {

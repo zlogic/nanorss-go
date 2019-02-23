@@ -80,29 +80,39 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 
 func (fetcher *Fetcher) FetchAllPages() error {
 	failed := false
-	fetcher.DB.ReadAllUsers(func(username string, user *data.User) {
-		pages, err := user.GetPages()
-		if err != nil {
-			log.Printf("Failed to get pages for user %v %v", user, err)
-			failed = true
-			return
+	ch := make(chan *data.User)
+	done := make(chan bool)
+	go func() {
+		for user := range ch {
+			pages, err := user.GetPages()
+			if err != nil {
+				log.Printf("Failed to get pages for user %v %v", user, err)
+				failed = true
+				continue
+			}
+			countPages := len(pages)
+			completed := make(chan int)
+			for i, page := range pages {
+				go func(config data.UserPagemonitor, index int) {
+					err := fetcher.FetchPage(&config)
+					if err != nil {
+						log.Printf("Failed to get page %v %v", config, err)
+						failed = true
+					}
+					completed <- index
+				}(page, i)
+			}
+			for i := 0; i < countPages; i++ {
+				<-completed
+			}
 		}
-		countPages := len(pages)
-		completed := make(chan int)
-		for i, page := range pages {
-			go func(config data.UserPagemonitor, index int) {
-				err := fetcher.FetchPage(&config)
-				if err != nil {
-					log.Printf("Failed to get page %v %v", config, err)
-					failed = true
-				}
-				completed <- index
-			}(page, i)
-		}
-		for i := 0; i < countPages; i++ {
-			<-completed
-		}
-	})
+		close(done)
+	}()
+	err := fetcher.DB.ReadAllUsers(ch)
+	<-done
+	if err != nil {
+		return err
+	}
 	if failed {
 		return fmt.Errorf("At least one page failed to fetch properly")
 	}

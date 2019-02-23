@@ -129,16 +129,17 @@ func TestFetchAllFeeds(t *testing.T) {
 		Client: &http.Client{},
 	}
 
-	dbMock.On("ReadAllUsers", mock.AnythingOfType("func(string, *data.User)")).Return(nil).Once().
+	dbMock.On("ReadAllUsers", mock.AnythingOfType("chan *data.User")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			handler := args.Get(0).(func(string, *data.User))
+			ch := args.Get(0).(chan *data.User)
+			defer close(ch)
 			user := data.User{Opml: `<opml version="1.0">` +
 				`<body>` +
 				`<outline title="Feed 1" type="rss" xmlUrl="http://site1/rss"/>` +
 				`<outline title="Feed 2" type="rss" xmlUrl="http://site2/rss"/>` +
 				`</body>` +
 				`</opml>`}
-			handler("user01", &user)
+			ch <- &user
 		})
 
 	beforeUpdate := time.Now()
