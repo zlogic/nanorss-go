@@ -10,6 +10,7 @@ import (
 type DB interface {
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
 	SavePage(pm *data.UserPagemonitor, page *data.PagemonitorPage) error
+	SaveFeeditems(feedItems ...*data.Feeditem) (err error)
 	ReadAllUsers(handler func(username string, user *data.User)) error
 }
 
@@ -25,6 +26,12 @@ func (fetcher *Fetcher) Refresh() {
 	errPagemonitor := fetcher.FetchAllPages()
 	if errPagemonitor != nil {
 		log.Println("Failed to fetch at least one page")
+	} else {
+		log.Println("Pages fetched successfully")
+	}
+	errFeed := fetcher.FetchAllFeeds()
+	if errFeed != nil {
+		log.Println("Failed to fetch at least one feed")
 	} else {
 		log.Println("Pages fetched successfully")
 	}

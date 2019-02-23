@@ -10,14 +10,14 @@ import (
 
 	"github.com/jaytaylor/html2text"
 	"github.com/pkg/errors"
-	"github.com/sergi/go-diff/diffmatchpatch"
+	"github.com/pmezard/go-difflib/difflib"
 	"github.com/zlogic/nanorss-go/data"
 )
 
 func (fetcher *Fetcher) getPreviousResult(config *data.UserPagemonitor) *data.PagemonitorPage {
 	page, err := fetcher.DB.GetPage(config)
 	if err != nil {
-		log.Printf("Failed to fetch previous result %v", err)
+		log.Printf("Failed to fetch previous result %v for %v", err, config)
 	}
 	if page == nil {
 		return &data.PagemonitorPage{}
@@ -29,6 +29,9 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	page := fetcher.getPreviousResult(config)
 
 	resp, err := fetcher.Client.Get(config.URL)
+	if err != nil {
+		defer resp.Body.Close()
+	}
 
 	if err == nil && resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("Cannot GET page (status code %v)", resp.StatusCode)
@@ -36,8 +39,6 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	if err != nil {
 		return errors.Wrapf(err, "Cannot GET page %v", config)
 	}
-
-	defer resp.Body.Close()
 
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -63,9 +64,15 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		return nil
 	}
 
-	dmp := diffmatchpatch.New()
-	diffs := dmp.DiffCleanupEfficiency(dmp.DiffMain(previousTextFiltered, textFiltered, false))
-	page.Delta = dmp.DiffToDelta(diffs)
+	diff, err := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
+		A:       difflib.SplitLines(previousTextFiltered),
+		B:       difflib.SplitLines(textFiltered),
+		Context: 3,
+	})
+	if err != nil {
+		return errors.Wrapf(err, "Cannot create diff for page %v", config)
+	}
+	page.Delta = diff
 	page.Contents = text
 	page.Updated = time.Now()
 	return fetcher.DB.SavePage(config, page)

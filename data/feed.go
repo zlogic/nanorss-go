@@ -2,6 +2,7 @@ package data
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -19,6 +20,7 @@ type Feeditem struct {
 	URL      string
 	Date     time.Time
 	Contents string
+	Updated  time.Time
 	Key      *FeeditemKey `json:"-"`
 }
 
@@ -49,16 +51,55 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 	return feeditem, nil
 }
 
-func (s *DBService) SaveFeeditem(item *Feeditem) (err error) {
-	value, err := json.Marshal(item)
-	if err != nil {
-		return errors.Wrap(err, "Cannot marshal feed item")
-	}
+func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
+	timeUpdated := time.Now()
+
 	err = s.db.Update(func(txn *badger.Txn) error {
-		key := item.Key.CreateKey()
-		err = txn.SetWithTTL(key, value, itemTTL)
-		if err != nil {
-			return errors.Wrap(err, "Cannot save feed item")
+		failed := false
+
+		getPreviousUpdatedTime := func(key []byte) (*time.Time, error) {
+			item, err := txn.Get(key)
+			if err != nil && err != badger.ErrKeyNotFound {
+				return nil, errors.Wrapf(err, "Failed to get feed item %v", string(key))
+			}
+			if err == nil {
+				value, err := item.Value()
+				if err != nil {
+					return nil, errors.Wrapf(err, "Failed to get read value of feed item %v", string(key))
+				}
+				existingFeedItem := Feeditem{}
+				err = json.Unmarshal(value, &existingFeedItem)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Failed to get unmarshal value of feed item %v", string(key))
+				}
+				return &existingFeedItem.Updated, nil
+			}
+			return &timeUpdated, nil
+		}
+
+		for _, feedItem := range feedItems {
+			key := feedItem.Key.CreateKey()
+
+			previousTimeUpdated, err := getPreviousUpdatedTime(key)
+			if err != nil {
+				log.Printf("Failed to read previous updated time %v", err)
+				feedItem.Updated = timeUpdated
+			} else {
+				feedItem.Updated = *previousTimeUpdated
+			}
+
+			value, err := json.Marshal(feedItem)
+			if err != nil {
+				return errors.Wrap(err, "Cannot marshal feed item")
+			}
+
+			err = txn.SetWithTTL(key, value, itemTTL)
+			if err != nil {
+				return errors.Wrap(err, "Cannot save feed item")
+			}
+		}
+		if failed {
+			return fmt.Errorf("At least one feed failed to save properly")
 		}
 		return nil
 	})

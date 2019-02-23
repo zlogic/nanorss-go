@@ -18,6 +18,21 @@ func TestGetItemEmpty(t *testing.T) {
 	assert.Nil(t, item)
 }
 
+func assertTimeBetween(t *testing.T, before, after time.Time, check time.Time) {
+	before, err := time.Parse(time.RFC3339Nano, before.Format(time.RFC3339Nano))
+	assert.NoError(t, err)
+	after, err = time.Parse(time.RFC3339Nano, after.Format(time.RFC3339Nano))
+	assert.NoError(t, err)
+
+	assert.True(t, before == check || before.Before(check))
+	assert.True(t, after == check || after.After(check))
+}
+
+func assertItemEqual(t *testing.T, expected *Feeditem, actual *Feeditem) {
+	actual.Updated = expected.Updated
+	assert.Equal(t, expected, actual)
+}
+
 func TestSaveReadItem(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
@@ -31,7 +46,9 @@ func TestSaveReadItem(t *testing.T) {
 		Contents: "c1",
 		Key:      &key1,
 	}
-	err = dbService.SaveFeeditem(&item1)
+	timeStarted1 := time.Now()
+	err = dbService.SaveFeeditems(&item1)
+	timeSaved1 := time.Now()
 	assert.NoError(t, err)
 
 	key2 := FeeditemKey{FeedURL: "http://feed2", GUID: "g1"}
@@ -42,18 +59,22 @@ func TestSaveReadItem(t *testing.T) {
 		Contents: "c2",
 		Key:      &key2,
 	}
-	err = dbService.SaveFeeditem(&item2)
+	timeStarted2 := time.Now()
+	err = dbService.SaveFeeditems(&item2)
+	timeSaved2 := time.Now()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(&key1)
 	assert.NoError(t, err)
 	assert.NotNil(t, dbItem)
-	assert.Equal(t, &item1, dbItem)
+	assertTimeBetween(t, timeStarted1, timeSaved1, dbItem.Updated)
+	assertItemEqual(t, &item1, dbItem)
 
 	dbItem, err = dbService.GetFeeditem(&key2)
 	assert.NoError(t, err)
 	assert.NotNil(t, dbItem)
-	assert.Equal(t, &item2, dbItem)
+	assertTimeBetween(t, timeStarted2, timeSaved2, dbItem.Updated)
+	assertItemEqual(t, &item2, dbItem)
 }
 
 func TestUpdateReadItem(t *testing.T) {
@@ -69,20 +90,23 @@ func TestUpdateReadItem(t *testing.T) {
 		Contents: "c1",
 		Key:      &key,
 	}
-	err = dbService.SaveFeeditem(&item)
+	err = dbService.SaveFeeditems(&item)
 	assert.NoError(t, err)
 
 	item.Title = "t2"
 	item.URL = "http://item2"
 	item.Date = time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
 	item.Contents = "c2"
-	err = dbService.SaveFeeditem(&item)
+	timeStarted2 := time.Now()
+	err = dbService.SaveFeeditems(&item)
+	timeSaved2 := time.Now()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(&key)
 	assert.NoError(t, err)
 	assert.NotNil(t, dbItem)
-	assert.Equal(t, &item, dbItem)
+	assertTimeBetween(t, timeStarted2, timeSaved2, dbItem.Updated)
+	assertItemEqual(t, &item, dbItem)
 }
 
 func TestSaveReadItemTTL(t *testing.T) {
@@ -101,7 +125,7 @@ func TestSaveReadItemTTL(t *testing.T) {
 		Contents: "c1",
 		Key:      &key,
 	}
-	err = dbService.SaveFeeditem(&item)
+	err = dbService.SaveFeeditems(&item)
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(&key)
@@ -109,7 +133,7 @@ func TestSaveReadItemTTL(t *testing.T) {
 	assert.Nil(t, dbItem)
 }
 
-func TestReadAllItems(t *testing.T) {
+func TestSaveReadAllItems(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
@@ -136,16 +160,18 @@ func TestReadAllItems(t *testing.T) {
 		Key:      &FeeditemKey{FeedURL: "http://feed2", GUID: "g2"},
 	}
 	items := []Feeditem{item1, item2, item3}
-	for _, item := range items {
-		err = dbService.SaveFeeditem(&item)
-		assert.NoError(t, err)
-	}
+	timeStarted := time.Now()
+	err = dbService.SaveFeeditems(&item1, &item2, &item3)
+	timeSaved := time.Now()
+	assert.NoError(t, err)
 
 	dbItems := []Feeditem{}
 	ch := make(chan *Feeditem)
 	done := make(chan bool)
 	go func() {
 		for item := range ch {
+			assertTimeBetween(t, timeStarted, timeSaved, item.Updated)
+			item.Updated = time.Time{}
 			dbItems = append(dbItems, *item)
 		}
 		close(done)
