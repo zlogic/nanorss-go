@@ -35,5 +35,6 @@ func CreateRouter(db *data.DBService) (*mux.Router, error) {
 	api.HandleFunc("/login", LoginHandler(&services)).Methods("POST")
 	api.HandleFunc("/configuration", SettingsHandler(&services)).Methods("POST")
 	api.HandleFunc("/items/{key}", HtmlItemHandler(&services)).Methods("GET")
+	api.HandleFunc("/refresh", RefreshHandler(&services)).Methods("GET")
 	return r, nil
 }

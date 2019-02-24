@@ -1,4 +1,10 @@
 {{ define "content" }}
+<div class="py-1">
+  <button id="refreshButton" class="btn btn-primary" type="button">
+    <span id="refreshSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
+    Fetch items
+  </button>
+</div>
 {{ range $i, $e := .Items }}
 <div>
   <h3>
@@ -35,6 +41,17 @@ $(document).ready(function() {
     placeholder.children(".progress").show();
     placeholder.children("#item").empty().hide();
   });
+  // Refresh button
+  $('#refreshButton').click(function() {
+    var button = jQuery(this);
+    var spinner = button.children("#refreshSpinner");
+    button.prop("disabled", true)
+    spinner.prop("hidden", false);
+    $.get("api/refresh", function() {
+      button.prop("disabled", false)
+      spinner.prop("hidden", true);
+    });
+  })
 });
 </script>
 {{ end }}

@@ -24,7 +24,6 @@ func createTicker() *time.Ticker {
 var quit chan struct{}
 
 func Start(task func()) {
-	task()
 	ticker := createTicker()
 	quit = make(chan struct{})
 	go func() {

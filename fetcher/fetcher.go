@@ -19,6 +19,10 @@ type Fetcher struct {
 	Client *http.Client
 }
 
+func NewFetcher(db DB) *Fetcher {
+	return &Fetcher{DB: db}
+}
+
 func (fetcher *Fetcher) Refresh() {
 	if fetcher.Client == nil {
 		fetcher.Client = &http.Client{}

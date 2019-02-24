@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/zlogic/nanorss-go/fetcher"
 )
 
 func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
@@ -104,5 +105,18 @@ func SettingsHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 			handleError(w, r, err)
 		}
 		_, err = io.WriteString(w, "OK")
+	}
+}
+
+func RefreshHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username := s.cookieHandler.GetUsername(w, r)
+		if username == "" {
+			handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
+			return
+		}
+
+		fetcher := fetcher.NewFetcher(s.db)
+		fetcher.Refresh()
 	}
 }

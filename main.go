@@ -56,7 +56,7 @@ func main() {
 
 	// Schedule the fetcher worker
 	worker.Start(func() {
-		fetcher := fetcher.Fetcher{DB: db}
+		fetcher := fetcher.NewFetcher(db)
 		fetcher.Refresh()
 	})
 
