@@ -1,6 +1,7 @@
 package fetcher
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 
@@ -31,12 +32,12 @@ func (fetcher *Fetcher) Refresh() {
 	if errPagemonitor != nil {
 		log.Println("Failed to fetch at least one page")
 	} else {
-		log.Println("Pages fetched successfully")
+		fmt.Println("Pages fetched successfully")
 	}
 	errFeed := fetcher.FetchAllFeeds()
 	if errFeed != nil {
 		log.Println("Failed to fetch at least one feed")
 	} else {
-		log.Println("Feeds fetched successfully")
+		fmt.Println("Feeds fetched successfully")
 	}
 }

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"path"
@@ -21,7 +22,7 @@ func DefaultOptions() badger.Options {
 	if ok {
 		valueLogFileSizeInt, err := strconv.ParseInt(valueLogFileSize, 0, 64)
 		if err != nil {
-			log.Printf("Cannot parse DATABASE_VALUE_LOG_FILE_SIZE %v %v", valueLogFileSize, err)
+			fmt.Printf("Cannot parse DATABASE_VALUE_LOG_FILE_SIZE %v %v", valueLogFileSize, err)
 		}
 		opts.ValueLogFileSize = valueLogFileSizeInt
 	}
