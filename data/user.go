@@ -3,6 +3,7 @@ package data
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"log"
 
 	"github.com/dgraph-io/badger"
@@ -76,7 +77,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 func (s *UserService) Get() (*User, error) {
 	user := &User{}
 	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(user.CreateKey(s.Username))
+		item, err := txn.Get(s.CreateKey())
 		if err == badger.ErrKeyNotFound {
 			user = nil
 			return nil
@@ -104,7 +105,7 @@ func (s *UserService) Save(user *User) (err error) {
 		return err
 	}
 	err = s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(user.CreateKey(s.Username), value)
+		return txn.Set(s.CreateKey(), value)
 	})
 	return err
 }
@@ -116,6 +117,36 @@ func (user *User) SetPassword(newPassword string) error {
 	}
 	user.Password = string(hash)
 	return nil
+}
+
+func (s *UserService) SetUsername(newUsername string) error {
+	oldUsername := s.Username
+	err := s.db.Update(func(txn *badger.Txn) error {
+		oldUserKey := s.CreateKey()
+		item, err := txn.Get(oldUserKey)
+		if err != nil {
+			return err
+		}
+		value, err := item.Value()
+		if err != nil {
+			return err
+		}
+		s.Username = newUsername
+		newUserKey := s.CreateKey()
+		existingUser, err := txn.Get(newUserKey)
+		if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
+			return fmt.Errorf("New username %v is already in use", newUsername)
+		}
+		err = txn.Set(s.CreateKey(), value)
+		if err != nil {
+			return err
+		}
+		return txn.Delete(oldUserKey)
+	})
+	if err != nil {
+		s.Username = oldUsername
+	}
+	return err
 }
 
 func (user *User) ValidatePassword(password string) error {

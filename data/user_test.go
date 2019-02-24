@@ -48,10 +48,6 @@ func TestReadAllUsers(t *testing.T) {
 	assert.NoError(t, err)
 	defer cleanup()
 
-	type UserWithUsername struct {
-		username string
-		user     User
-	}
 	user1 := User{
 		Password:    "pass1",
 		Opml:        "opml1",
@@ -95,6 +91,91 @@ func TestSetUserPassword(t *testing.T) {
 
 	err = user.ValidatePassword("hellow")
 	assert.Error(t, err)
+}
+
+func TestSetUsername(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	user := User{
+		Password:    "pass1",
+		Opml:        "opml1",
+		Pagemonitor: "pagemonitor1",
+	}
+	users := []User{user}
+	userService := dbService.NewUserService("user01")
+	err = userService.Save(&user)
+	assert.NoError(t, err)
+
+	err = userService.SetUsername("user02")
+	assert.NoError(t, err)
+	assert.Equal(t, "user02", userService.Username)
+
+	dbUser, err := userService.Get()
+	assert.Equal(t, user, *dbUser)
+
+	dbUsers := []User{}
+	ch := make(chan *User)
+	done := make(chan bool)
+	go func() {
+		for user := range ch {
+			dbUsers = append(dbUsers, *user)
+		}
+		close(done)
+	}()
+	err = dbService.ReadAllUsers(ch)
+	<-done
+	assert.NoError(t, err)
+	assert.EqualValues(t, users, dbUsers)
+}
+
+func TestSetUsernameAlreadyExists(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	user1 := User{
+		Password:    "pass1",
+		Opml:        "opml1",
+		Pagemonitor: "pagemonitor1",
+	}
+	user2 := User{
+		Password:    "pass2",
+		Opml:        "opml2",
+		Pagemonitor: "pagemonitor2",
+	}
+	users := []User{user1, user2}
+	userService1 := dbService.NewUserService("user01")
+	userService2 := dbService.NewUserService("user02")
+	err = userService1.Save(&user1)
+	assert.NoError(t, err)
+	err = userService2.Save(&user2)
+	assert.NoError(t, err)
+
+	err = userService1.SetUsername("user02")
+	assert.Error(t, err)
+	assert.Equal(t, "user01", userService1.Username)
+
+	dbUser1, err := userService1.Get()
+	assert.Equal(t, user1, *dbUser1)
+
+	dbUser2, err := userService2.Get()
+	assert.Equal(t, user2, *dbUser2)
+
+	dbUsers := []User{}
+	ch := make(chan *User)
+	done := make(chan bool)
+	go func() {
+		for user := range ch {
+			dbUsers = append(dbUsers, *user)
+		}
+		close(done)
+	}()
+	err = dbService.ReadAllUsers(ch)
+	<-done
+	assert.NoError(t, err)
+	assert.EqualValues(t, users, dbUsers)
 }
 
 func TestParsePagemonitor(t *testing.T) {

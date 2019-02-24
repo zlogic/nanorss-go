@@ -1,0 +1,40 @@
+{{ define "content" }}
+{{ range $i, $e := .Items }}
+<div>
+  <h3>
+    <a href="#item-{{ $i }}" data-toggle="collapse" aria-expanded="false" aria-controls="item-{{ $i }}">
+      {{ if .Title }}{{ .Title }} / {{ end }}{{ .Origin }}
+    </a>
+  </h3>
+  <div id="item-{{ $i }}" class="collapse expandable-item" data-fetchurl="{{ .FetchURL }}">
+    <div class="progress" >
+      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+    </div>
+    <div id="item"></div>
+  </div>
+</div>
+{{ end }}
+<script>
+$(document).ready(function() {
+  // Add handlers for loading items
+  // Expand item
+  $('.expandable-item.collapse').on('shown.bs.collapse', function() {
+    var placeholder = jQuery(this);
+    var target = placeholder.children("#item");
+    target.hide().empty();
+    $.get(placeholder.attr('data-fetchurl'), function(data) {
+      target.empty();
+      target.append(data);
+      target.slideDown();
+      placeholder.children(".progress").hide();
+    });
+  });
+  // Collapse item
+  $('.collapse.expandable-item').on('hidden.bs.collapse', function() {
+    var placeholder = jQuery(this);
+    placeholder.children(".progress").show();
+    placeholder.children("#item").empty().hide();
+  });
+});
+</script>
+{{ end }}

@@ -1,0 +1,14 @@
+{{ define "layout" }}
+<div class="card">
+  <div class="card-body">
+    <div>{{ .Contents }}</div>
+    <br>
+    <p>
+      <em>Updated: {{ .Date.Format "Mon Jan _2 15:04:05 MST 2006" }}</em>
+    </p>
+  </div>
+  <div class="card-footer">
+    <h4><a href="{{ .URL }}">Go to site</a></h4>
+  </div>
+</div>
+{{ end }}

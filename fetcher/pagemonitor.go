@@ -29,7 +29,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	page := fetcher.getPreviousResult(config)
 
 	resp, err := fetcher.Client.Get(config.URL)
-	if err != nil {
+	if err == nil {
 		defer resp.Body.Close()
 	}
 
@@ -75,7 +75,8 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	page.Delta = diff
 	page.Contents = text
 	page.Updated = time.Now()
-	return fetcher.DB.SavePage(config, page)
+	page.Config = config
+	return fetcher.DB.SavePage(page)
 }
 
 func (fetcher *Fetcher) FetchAllPages() error {
@@ -86,7 +87,7 @@ func (fetcher *Fetcher) FetchAllPages() error {
 		for user := range ch {
 			pages, err := user.GetPages()
 			if err != nil {
-				log.Printf("Failed to get pages for user %v %v", user, err)
+				log.Printf("Failed to get pages %v", err)
 				failed = true
 				continue
 			}

@@ -13,7 +13,7 @@ import (
 
 func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 	resp, err := fetcher.Client.Get(feedURL)
-	if err != nil {
+	if err == nil {
 		defer resp.Body.Close()
 	}
 
@@ -50,11 +50,15 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 		} else if item.PublishedParsed != nil {
 			date = *item.PublishedParsed
 		}
+		contents := item.Description
+		if contents == "" {
+			contents = item.Content
+		}
 		dbItem := &data.Feeditem{
 			Title:    item.Title,
 			URL:      item.Link,
 			Date:     date,
-			Contents: item.Description,
+			Contents: contents,
 			Key:      key,
 		}
 		saveItems = append(saveItems, dbItem)
@@ -70,7 +74,7 @@ func (fetcher *Fetcher) FetchAllFeeds() error {
 		for user := range ch {
 			feeds, err := user.GetFeeds()
 			if err != nil {
-				log.Printf("Failed to get feeds for user %v %v", user, err)
+				log.Printf("Failed to get feeds %v", err)
 				failed = true
 				continue
 			}

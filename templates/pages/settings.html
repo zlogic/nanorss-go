@@ -1,0 +1,77 @@
+{{ define "content" }}
+<form id="configurationForm" accept-charset="utf-8" autocomplete="off">
+  <div class="form-group row">
+    <label for="editUsername" class="col-sm-2 col-form-label">Username</label>
+    <div class="col-sm-10">
+      <input type="text" class="form-control" id="editUsername" placeholder="Username" value="{{ .Username }}" required>
+    </div>
+  </div>
+  <div class="form-group row">
+    <label for="editPassword" class="col-sm-2 col-form-label">Password</label>
+    <div class="col-sm-10">
+      <input type="password" class="form-control" id="editPassword" placeholder="Password">
+    </div>
+  </div>
+  <div class="form-group row">
+    <label for="editOPML" class="col-sm-2 col-form-label">OPML</label>
+    <div class="col-sm-10">
+      <textarea name="opml" id="editOPML" class="form-control" rows="20" required>{{ .User.Opml | html }}</textarea>
+    </div>
+  </div>
+  <div class="form-group row">
+    <label for="editPageMonitor" class="col-sm-2 col-form-label">Page Monitor</label>
+    <div class="col-sm-10">
+      <textarea name="pagemonitor" id="editPageMonitor" class="form-control" rows="20" required>{{ .User.Pagemonitor | html }}</textarea>
+    </div>
+  </div>
+  <div class="form-group row">
+    <div class="col-sm-2"></div>
+    <div class="col-sm-10">
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-sm-2"></div>
+    <div class="col-sm-10">
+      <div id="saveSuccessful" class="alert alert-success" role="alert" hidden>Saved successfully</div>
+      <div id="saveFailed" class="alert alert-danger" role="alert" hidden>Save failed</div>
+    </div>
+  </div>
+</form>
+<script>
+$(document).ready(function() {
+  var opml = $('textarea[name="opml"]');
+  var pagemonitor = $('textarea[name="pagemonitor"]');
+  var username = $('input[id="editUsername"]');
+  var password = $('input[id="editPassword"]');
+  var submit = $('button[type="submit"]');
+  var lockConfiguration = function(disabled){
+    [opml, pagemonitor, username, password, submit].forEach(function(control){
+      control.attr('disabled', disabled);
+    })
+  }
+  // Submit configuration handler
+  $("#configurationForm").submit(function(event) {
+    event.preventDefault();
+    lockConfiguration(true);
+    // Prepare request
+    var $form = $(this);
+    $form.find("#saveFailed").prop("hidden", true);
+    $form.find("#saveSuccessful").prop("hidden", true);
+    var postData = {username: username.val(), password: password.val(), opml: opml.val(), pagemonitor: pagemonitor.val()};
+    if(postData.password === null || postData.password === undefined || postData.password === '')
+      delete postData.password;
+    var posting = $.post("api/configuration", postData);
+    //Handle responses
+    posting.done(function(data) {
+      $form.find("#saveSuccessful").prop("hidden", false);
+      lockConfiguration(false);
+    });
+    posting.fail(function() {
+      $form.find("#saveFailed").prop("hidden", false);
+      lockConfiguration(false);
+    });
+  });
+});
+</script>
+{{ end }}

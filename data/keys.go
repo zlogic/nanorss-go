@@ -1,7 +1,7 @@
 package data
 
 import (
-	"net/url"
+	"encoding/base64"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -9,10 +9,22 @@ import (
 
 const separator = "/"
 
+func encodePart(part string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(part))
+}
+
+func decodePart(part string) (string, error) {
+	res, err := base64.RawURLEncoding.DecodeString(part)
+	if err != nil {
+		return "", err
+	}
+	return string(res), nil
+}
+
 const UserKeyPrefix = "user" + separator
 
-func (user *User) CreateKey(id string) []byte {
-	return []byte(UserKeyPrefix + id)
+func (s *UserService) CreateKey() []byte {
+	return []byte(UserKeyPrefix + s.Username)
 }
 
 func DecodeUserKey(key []byte) (*string, error) {
@@ -30,9 +42,9 @@ func DecodeUserKey(key []byte) (*string, error) {
 const PagemonitorKeyPrefix = "pagemonitor" + separator
 
 func (pm *UserPagemonitor) CreateKey() []byte {
-	keyURL := url.PathEscape(pm.URL)
-	keyMatch := url.PathEscape(pm.Match)
-	keyReplace := url.PathEscape(pm.Replace)
+	keyURL := encodePart(pm.URL)
+	keyMatch := encodePart(pm.Match)
+	keyReplace := encodePart(pm.Replace)
 	return []byte(PagemonitorKeyPrefix + keyURL + separator + keyMatch + separator + keyReplace)
 }
 
@@ -47,15 +59,15 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	}
 	res := &UserPagemonitor{}
 	var err error
-	res.URL, err = url.PathUnescape(parts[1])
+	res.URL, err = decodePart(parts[1])
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode URL of Pagemonitor key: %v because of %v", keyString, err)
 	}
-	res.Match, err = url.PathUnescape(parts[2])
+	res.Match, err = decodePart(parts[2])
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode Match of Pagemonitor key: %v because of %v", keyString, err)
 	}
-	res.Replace, err = url.PathUnescape(parts[3])
+	res.Replace, err = decodePart(parts[3])
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode Replace of Pagemonitor key: %v because of %v", keyString, err)
 	}
@@ -65,8 +77,8 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 const FeeditemKeyPrefix = "feeditem" + separator
 
 func (key *FeeditemKey) CreateKey() []byte {
-	keyURL := url.PathEscape(key.FeedURL)
-	keyGUID := url.PathEscape(key.GUID)
+	keyURL := encodePart(key.FeedURL)
+	keyGUID := encodePart(key.GUID)
 	return []byte(FeeditemKeyPrefix + keyURL + separator + keyGUID)
 }
 
@@ -81,13 +93,19 @@ func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	}
 	res := &FeeditemKey{}
 	var err error
-	res.FeedURL, err = url.PathUnescape(parts[1])
+	res.FeedURL, err = decodePart(parts[1])
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode Feed URL of Feeditem key: %v because of %v", keyString, err)
 	}
-	res.GUID, err = url.PathUnescape(parts[2])
+	res.GUID, err = decodePart(parts[2])
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode GUID of Feeditem key: %v because of %v", keyString, err)
 	}
 	return res, nil
+}
+
+const ServiceConfigKeyPrefix = "serverconfig" + separator
+
+func CreateServerConfigKey(varName string) []byte {
+	return []byte(ServiceConfigKeyPrefix + encodePart(varName))
 }

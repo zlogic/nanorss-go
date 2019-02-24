@@ -1,0 +1,50 @@
+{{ define "content" }}
+<h2>Login</h2>
+<form id="loginForm" autocomplete="off">
+  <div class="form-row">
+    <div class="form-group col-md-6">
+      <label for="inputUsername">Username</label>
+      <input type="text" class="form-control" id="inputUsername" placeholder="Username" required>
+    </div>
+    <div class="form-group col-md-6">
+      <label for="inputPassword">Password</label>
+      <input type="password" class="form-control" id="inputPassword" placeholder="Password" required>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group col-md-6">
+      <div class="custom-control custom-checkbox">
+        <input class="custom-control-input" type="checkbox" id="rememberMe">
+        <label class="custom-control-label" for="rememberMe">Remember me</label>
+      </div>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group col-md-12">
+      <button type="submit" class="btn btn-primary">Sign in</button>
+    </div>
+  </div>
+  <div id="loginFailed" class="alert alert-danger" role="alert" hidden>Login failed</div>
+</form>
+<script>
+$(document).ready(function() {
+  $("#loginForm").submit(function(event) {
+    event.preventDefault();
+    // Prepare request
+    var $form = $(this);
+    $form.find("#loginFailed").prop("hidden", true);
+    var username = $form.find("input[id='inputUsername']").val();
+    var password = $form.find("input[id='inputPassword']").val();
+    var rememberMe = $form.find("input[id='rememberMe']").prop('checked');
+    var posting = $.post("api/login", {username: username, password: password, rememberMe: rememberMe});
+    //Handle responses
+    posting.done(function() {
+      window.location.href = "feed";
+    });
+    posting.fail(function() {
+      $form.find("#loginFailed").prop("hidden", false);
+    });
+  });
+});
+</script>
+{{ end }}

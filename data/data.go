@@ -35,7 +35,8 @@ func Open(options badger.Options) (*DBService, error) {
 }
 
 func (service *DBService) Close() {
-	if service.db != nil {
+	log.Println("Closing database")
+	if service != nil && service.db != nil {
 		err := service.db.Close()
 		if err != nil {
 			log.Fatal(err)

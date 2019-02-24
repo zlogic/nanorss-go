@@ -143,20 +143,19 @@ func TestFetchAllFeeds(t *testing.T) {
 		})
 
 	beforeUpdate := time.Now()
+	dbSavedItems := make([][]*data.Feeditem, 0, 2)
+	expectedSavedItems := [][]*data.Feeditem{expectedRssFeedItems, expectedSecondRssFeedItems}
 	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Twice().
 		Run(func(args mock.Arguments) {
 			savedItems := args.Get(0).([]*data.Feeditem)
 			if len(savedItems) == 4 {
 				assertTimeBetween(t, beforeUpdate, time.Now(), savedItems[1].Date)
 				savedItems[1].Date = time.Time{}
-				assert.Equal(t, expectedRssFeedItems, savedItems)
-			} else if len(savedItems) == 1 {
-				assert.Equal(t, expectedSecondRssFeedItems, savedItems)
-			} else {
-				assert.Fail(t, "Received unexpected feed items to save")
 			}
+			dbSavedItems = append(dbSavedItems, savedItems)
 		})
 	err := fetcher.FetchAllFeeds()
 	assert.NoError(t, err)
+	assert.ElementsMatch(t, expectedSavedItems, dbSavedItems)
 	dbMock.AssertExpectations(t)
 }

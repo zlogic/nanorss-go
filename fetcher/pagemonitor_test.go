@@ -29,11 +29,12 @@ func TestFetchPageFirstTime(t *testing.T) {
 	}
 	beforeUpdate := time.Now()
 	dbMock.On("GetPage", &pageConfig).Return(nil, nil).Once()
-	dbMock.On("SavePage", &pageConfig, mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
+	dbMock.On("SavePage", mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			savedPage := args.Get(1).(*data.PagemonitorPage)
+			savedPage := args.Get(0).(*data.PagemonitorPage)
 			assert.Equal(t, "Hello World\nFirst page", savedPage.Contents)
 			assert.Equal(t, "@@ -1 +1,2 @@\n-\n+Hello World\n+First page\n", savedPage.Delta)
+			assert.Equal(t, &pageConfig, savedPage.Config)
 			assertTimeBetween(t, beforeUpdate, time.Now(), savedPage.Updated)
 		})
 	err := fetcher.FetchPage(&pageConfig)
@@ -91,11 +92,12 @@ func TestFetchPageChanged(t *testing.T) {
 	}
 	beforeUpdate := time.Now()
 	dbMock.On("GetPage", &pageConfig).Return(&existingResult, nil)
-	dbMock.On("SavePage", &pageConfig, mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
+	dbMock.On("SavePage", mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			savedPage := args.Get(1).(*data.PagemonitorPage)
+			savedPage := args.Get(0).(*data.PagemonitorPage)
 			assert.Equal(t, "Hello World\nUpdated page", savedPage.Contents)
 			assert.Equal(t, "@@ -1,2 +1,2 @@\n Hello World\n-First page\n+Updated page\n", savedPage.Delta)
+			assert.Equal(t, &pageConfig, savedPage.Config)
 			assertTimeBetween(t, beforeUpdate, time.Now(), savedPage.Updated)
 		})
 	err := fetcher.FetchPage(&pageConfig)
@@ -128,11 +130,12 @@ func TestFetchPageMatchReplace(t *testing.T) {
 	}
 	beforeUpdate := time.Now()
 	dbMock.On("GetPage", &pageConfig).Return(&existingResult, nil)
-	dbMock.On("SavePage", &pageConfig, mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
+	dbMock.On("SavePage", mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			savedPage := args.Get(1).(*data.PagemonitorPage)
+			savedPage := args.Get(0).(*data.PagemonitorPage)
 			assert.Equal(t, "Hello World\nUpdated page\nNew Line", savedPage.Contents)
 			assert.Equal(t, "@@ -1,2 +1,2 @@\n Hello World\n-First page\n+Updated page\n", savedPage.Delta)
+			assert.Equal(t, &pageConfig, savedPage.Config)
 			assertTimeBetween(t, beforeUpdate, time.Now(), savedPage.Updated)
 		})
 	err := fetcher.FetchPage(&pageConfig)
@@ -203,21 +206,28 @@ func TestFetchTwoPages(t *testing.T) {
 		})
 	dbMock.On("GetPage", &pageConfig1).Return(&existingResult1, nil)
 	dbMock.On("GetPage", &pageConfig2).Return(&existingResult2, nil)
-	dbMock.On("SavePage", &pageConfig1, mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
+	dbSavedItems := make([]*data.PagemonitorPage, 0, 2)
+	expectedSavedItems := []*data.PagemonitorPage{
+		&data.PagemonitorPage{
+			Contents: "Hello World\nUpdated page 1",
+			Delta:    "@@ -1,2 +1,2 @@\n Hello World\n-First page 1\n+Updated page 1\n",
+			Config:   &pageConfig1,
+		},
+		&data.PagemonitorPage{
+			Contents: "Hello World\nUpdated page 2",
+			Delta:    "@@ -1,2 +1,2 @@\n Hello World\n-First page 2\n+Updated page 2\n",
+			Config:   &pageConfig2,
+		},
+	}
+	dbMock.On("SavePage", mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Twice().
 		Run(func(args mock.Arguments) {
-			savedPage := args.Get(1).(*data.PagemonitorPage)
-			assert.Equal(t, "Hello World\nUpdated page 1", savedPage.Contents)
-			assert.Equal(t, "@@ -1,2 +1,2 @@\n Hello World\n-First page 1\n+Updated page 1\n", savedPage.Delta)
+			savedPage := args.Get(0).(*data.PagemonitorPage)
 			assertTimeBetween(t, beforeUpdate, time.Now(), savedPage.Updated)
-		})
-	dbMock.On("SavePage", &pageConfig2, mock.AnythingOfType("*data.PagemonitorPage")).Return(nil).Once().
-		Run(func(args mock.Arguments) {
-			savedPage := args.Get(1).(*data.PagemonitorPage)
-			assert.Equal(t, "Hello World\nUpdated page 2", savedPage.Contents)
-			assert.Equal(t, "@@ -1,2 +1,2 @@\n Hello World\n-First page 2\n+Updated page 2\n", savedPage.Delta)
-			assertTimeBetween(t, beforeUpdate, time.Now(), savedPage.Updated)
+			savedPage.Updated = time.Time{}
+			dbSavedItems = append(dbSavedItems, savedPage)
 		})
 	err := fetcher.FetchAllPages()
 	assert.NoError(t, err)
+	assert.ElementsMatch(t, expectedSavedItems, dbSavedItems)
 	dbMock.AssertExpectations(t)
 }

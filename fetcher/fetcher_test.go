@@ -21,8 +21,8 @@ func (m *DBMock) GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error
 	return args.Get(0).(*data.PagemonitorPage), args.Error(1)
 }
 
-func (m *DBMock) SavePage(pm *data.UserPagemonitor, page *data.PagemonitorPage) error {
-	args := m.Called(pm, page)
+func (m *DBMock) SavePage(page *data.PagemonitorPage) error {
+	args := m.Called(page)
 	return args.Error(0)
 }
 
