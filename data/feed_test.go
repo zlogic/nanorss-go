@@ -90,22 +90,22 @@ func TestUpdateReadItem(t *testing.T) {
 		Contents: "c1",
 		Key:      &key,
 	}
+	timeStarted := time.Now()
 	err = dbService.SaveFeeditems(&item)
+	timeSaved := time.Now()
 	assert.NoError(t, err)
 
 	item.Title = "t2"
 	item.URL = "http://item2"
 	item.Date = time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
 	item.Contents = "c2"
-	timeStarted2 := time.Now()
 	err = dbService.SaveFeeditems(&item)
-	timeSaved2 := time.Now()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(&key)
 	assert.NoError(t, err)
 	assert.NotNil(t, dbItem)
-	assertTimeBetween(t, timeStarted2, timeSaved2, dbItem.Updated)
+	assertTimeBetween(t, timeStarted, timeSaved, dbItem.Updated)
 	assertItemEqual(t, &item, dbItem)
 }
 
