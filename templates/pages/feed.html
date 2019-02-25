@@ -42,9 +42,9 @@ $(document).ready(function() {
     placeholder.children("#item").empty().hide();
   });
   // Refresh button
-  $('#refreshButton').click(function() {
+  $('button').click(function() {
     var button = jQuery(this);
-    var spinner = button.children("#refreshSpinner");
+    var spinner = button.children('span[role="status"]');
     button.prop("disabled", true)
     spinner.prop("hidden", false);
     $.get("api/refresh", function() {

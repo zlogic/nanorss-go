@@ -27,7 +27,9 @@
   <div class="form-group row">
     <div class="col-sm-2"></div>
     <div class="col-sm-10">
-      <button type="submit" class="btn btn-primary">Save</button>
+      <button type="submit" class="btn btn-primary">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
+        Save</button>
     </div>
   </div>
   <div class="row">
@@ -45,10 +47,17 @@ $(document).ready(function() {
   var username = $('input[id="editUsername"]');
   var password = $('input[id="editPassword"]');
   var submit = $('button[type="submit"]');
-  var lockConfiguration = function(disabled){
-    [opml, pagemonitor, username, password, submit].forEach(function(control){
-      control.attr('disabled', disabled);
+  var spinner = $('button[type="submit"] span[role="status"]');
+  var lockConfiguration = function(processing){
+    [opml, pagemonitor, username, password, submit, spinner].forEach(function(control){
+      control.attr("disabled", processing);
+      spinner.prop("hidden", !processing);
     })
+  }
+  var showResultAlert = function(alertDiv){
+    alertDiv.hide();
+    alertDiv.prop("hidden", false);
+    alertDiv.slideDown();
   }
   // Submit configuration handler
   $("#configurationForm").submit(function(event) {
@@ -64,11 +73,11 @@ $(document).ready(function() {
     var posting = $.post("api/configuration", postData);
     //Handle responses
     posting.done(function(data) {
-      $form.find("#saveSuccessful").prop("hidden", false);
+      showResultAlert($form.find("#saveSuccessful"));
       lockConfiguration(false);
     });
     posting.fail(function() {
-      $form.find("#saveFailed").prop("hidden", false);
+      showResultAlert($form.find("#saveFailed"));
       lockConfiguration(false);
     });
   });

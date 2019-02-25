@@ -42,7 +42,10 @@ $(document).ready(function() {
       window.location.href = "feed";
     });
     posting.fail(function() {
-      $form.find("#loginFailed").prop("hidden", false);
+      var alertDiv = $form.find("#loginFailed")
+      alertDiv.hide();
+      alertDiv.prop("hidden", false);
+      alertDiv.slideDown();
     });
   });
 });
