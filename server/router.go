@@ -28,7 +28,7 @@ func CreateRouter(db *data.DBService) (*mux.Router, error) {
 	r.HandleFunc("/settings", HtmlSettingsHandler(&services)).Methods("GET").Name("settings")
 	//r.PathPrefix("/app", RootHandler)
 	r.HandleFunc("/favicon.ico", FaviconHandler)
-	fs := http.FileServer(http.Dir("static"))
+	fs := http.FileServer(staticResourceFileSystem{http.Dir("static")})
 	r.PathPrefix("/static/").Handler(http.StripPrefix(strings.TrimRight("/static", "/"), fs))
 
 	api := r.PathPrefix("/api").Subrouter()

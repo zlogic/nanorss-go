@@ -6,4 +6,3 @@ Development is in progress, and the project is not production-ready or useful in
 ## Available configuration options
 * REFRESH_INTERVAL_MINUTES
 * DATABASE_DIR
-* DATABASE_VALUE_LOG_FILE_SIZE

@@ -1,13 +1,12 @@
 package data
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"path"
-	"strconv"
 
 	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/options"
 )
 
 func DefaultOptions() badger.Options {
@@ -18,16 +17,11 @@ func DefaultOptions() badger.Options {
 	}
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
-	valueLogFileSize, ok := os.LookupEnv("DATABASE_VALUE_LOG_FILE_SIZE")
-	if ok {
-		valueLogFileSizeInt, err := strconv.ParseInt(valueLogFileSize, 0, 64)
-		if err != nil {
-			fmt.Printf("Cannot parse DATABASE_VALUE_LOG_FILE_SIZE %v %v", valueLogFileSize, err)
-		}
-		opts.ValueLogFileSize = valueLogFileSizeInt
-	}
+	// Optimize options for low memory and disk usage
+	opts.ValueLogFileSize = badger.LSMOnlyOptions.ValueLogFileSize
+	opts.ValueLogLoadingMode = options.FileIO
+	opts.MaxTableSize = 1 << 24
 	//opts.Truncate = true
-	opts.NumVersionsToKeep = 1
 	return opts
 }
 
@@ -44,10 +38,13 @@ func Open(options badger.Options) (*DBService, error) {
 	return &DBService{db: db}, nil
 }
 
+func (service *DBService) GC() {
+	service.db.RunValueLogGC(0.5)
+}
+
 func (service *DBService) Close() {
 	log.Println("Closing database")
 	if service != nil && service.db != nil {
-		service.db.RunValueLogGC(0.5)
 		err := service.db.Close()
 		if err != nil {
 			log.Fatal(err)

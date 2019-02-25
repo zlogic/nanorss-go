@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/zlogic/nanorss-go/data"
 	"github.com/zlogic/nanorss-go/fetcher"
@@ -58,6 +59,7 @@ func main() {
 	worker.Start(func() {
 		fetcher := fetcher.NewFetcher(db)
 		fetcher.Refresh()
+		db.GC()
 	})
 
 	// Create the router and webserver
@@ -73,7 +75,7 @@ func main() {
 
 	go func() {
 		c := make(chan os.Signal)
-		signal.Notify(c, os.Interrupt)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 		errs <- fmt.Errorf("%s", <-c)
 	}()
 
