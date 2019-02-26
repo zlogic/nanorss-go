@@ -6,7 +6,6 @@ import (
 	"path"
 
 	"github.com/dgraph-io/badger"
-	"github.com/dgraph-io/badger/options"
 )
 
 func DefaultOptions() badger.Options {
@@ -18,10 +17,7 @@ func DefaultOptions() badger.Options {
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
 	// Optimize options for low memory and disk usage
-	opts.ValueLogFileSize = badger.LSMOnlyOptions.ValueLogFileSize
-	opts.ValueLogLoadingMode = options.FileIO
-	opts.MaxTableSize = 1 << 24
-	//opts.Truncate = true
+	opts.MaxTableSize = 1 << 20
 	return opts
 }
 

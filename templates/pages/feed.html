@@ -1,7 +1,7 @@
 {{ define "content" }}
 <div class="py-1">
   <button id="refreshButton" class="btn btn-primary" type="button">
-    <span id="refreshSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
     Fetch items
   </button>
 </div>
@@ -42,7 +42,7 @@ $(document).ready(function() {
     placeholder.children("#item").empty().hide();
   });
   // Refresh button
-  $('button').click(function() {
+  $('#refreshButton').click(function() {
     var button = jQuery(this);
     var spinner = button.children('span[role="status"]');
     button.prop("disabled", true)
