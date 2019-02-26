@@ -1,11 +1,13 @@
 module github.com/zlogic/nanorss-go
 
+go 1.12
+
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20180913140656-343706a395b7 // indirect
 	github.com/PuerkitoBio/goquery v1.5.0 // indirect
 	github.com/dgraph-io/badger v1.5.4
 	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
-	github.com/golang/protobuf v1.2.0 // indirect
+	github.com/golang/protobuf v1.3.0 // indirect
 	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/jaytaylor/html2text v0.0.0-20180606194806-57d518f124b0
@@ -17,9 +19,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20190211182817-74369b46fc67
-	golang.org/x/net v0.0.0-20190206173232-65e2d4e15006 // indirect
-	golang.org/x/sys v0.0.0-20190225065934-cc5685c2db12 // indirect
+	golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b
+	golang.org/x/net v0.0.0-20190226215741-afe646ca25a4 // indirect
+	golang.org/x/sys v0.0.0-20190226215855-775f8194d0f9 // indirect
 	golang.org/x/text v0.3.0 // indirect
 	gopkg.in/h2non/gock.v1 v1.0.14
 )
