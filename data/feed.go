@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -61,7 +62,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			return err
 		}
 
-		getPreviousUpdatedTime := func(key []byte) (*time.Time, error) {
+		getPreviousValue := func(key []byte) ([]byte, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
 				return nil, errors.Wrapf(err, "Failed to get feed item %v", string(key))
@@ -69,24 +70,35 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			if err == nil {
 				value, err := item.Value()
 				if err != nil {
-					return nil, errors.Wrapf(err, "Failed to get read value of feed item %v", string(key))
+					return nil, errors.Wrapf(err, "Failed to read previous value of feed item %v %v", string(key), err)
 				}
-				existingFeedItem := Feeditem{}
-				err = json.Unmarshal(value, &existingFeedItem)
-				if err != nil {
-					return nil, errors.Wrapf(err, "Failed to get unmarshal value of feed item %v", string(key))
-				}
-				return &existingFeedItem.Updated, nil
+				return value, nil
 			}
 			return nil, nil
+		}
+		getPreviousUpdatedTime := func(previousValue []byte) (*time.Time, error) {
+			if previousValue == nil {
+				return nil, nil
+			}
+			existingFeedItem := Feeditem{}
+			err = json.Unmarshal(previousValue, &existingFeedItem)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to get unmarshal value of feed item")
+			}
+			return &existingFeedItem.Updated, nil
 		}
 
 		for _, feedItem := range feedItems {
 			key := feedItem.Key.CreateKey()
 
-			previousTimeUpdated, err := getPreviousUpdatedTime(key)
+			previousValue, err := getPreviousValue(key)
 			if err != nil {
-				log.Printf("Failed to read previous updated time %v", err)
+				log.Printf("Cannot get previous value for item %v %v", key, err)
+			}
+
+			previousTimeUpdated, err := getPreviousUpdatedTime(previousValue)
+			if err != nil {
+				log.Printf("Failed to read previous updated time %v %v", key, err)
 			} else if previousTimeUpdated != nil {
 				feedItem.Updated = *previousTimeUpdated
 			}
@@ -101,6 +113,10 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				return errors.Wrap(err, "Cannot set last seen time")
 			}
 
+			if bytes.Equal(value, previousValue) {
+				// Avoid writing to the database if nothing has changed
+				return nil
+			}
 			err = txn.Set(key, value)
 			if err != nil {
 				return errors.Wrap(err, "Cannot save feed item")

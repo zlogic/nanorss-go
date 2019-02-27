@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 	"log"
 	"time"
@@ -58,6 +59,29 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 		}
 		if err := ls.SetLastSeen(key); err != nil {
 			return errors.Wrap(err, "Cannot set last seen time")
+		}
+
+		getPreviousValue := func() ([]byte, error) {
+			item, err := txn.Get(key)
+			if err != nil && err != badger.ErrKeyNotFound {
+				return nil, errors.Wrapf(err, "Failed to get page %v", string(key))
+			} else if err == nil {
+				value, err := item.Value()
+				if err != nil {
+					return nil, errors.Wrapf(err, "Failed to read previous value of page %v %v", string(key), err)
+				}
+				return value, nil
+			}
+			return nil, nil
+		}
+
+		previousValue, err := getPreviousValue()
+		if err != nil {
+			log.Printf("Failed to read previous value of page %v %v", string(key), err)
+		}
+		if bytes.Equal(value, previousValue) {
+			// Avoid writing to the database if nothing has changed
+			return nil
 		}
 		return txn.Set(key, value)
 	})
