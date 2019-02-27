@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var exportUsers = []*User{
+var backupUsers = []*User{
 	&User{
 		Password:    "pass1",
 		Opml:        "opml1",
@@ -22,7 +22,7 @@ var exportUsers = []*User{
 	},
 }
 
-var exportFeeditems = []*Feeditem{
+var backupFeeditems = []*Feeditem{
 	&Feeditem{
 		Title:    "t1",
 		URL:      "http://item1/1",
@@ -49,7 +49,7 @@ var exportFeeditems = []*Feeditem{
 	},
 }
 
-var exportPagemonitor = []*PagemonitorPage{
+var backupPagemonitor = []*PagemonitorPage{
 	&PagemonitorPage{
 		Contents: "p1",
 		Delta:    "d1",
@@ -64,7 +64,7 @@ var exportPagemonitor = []*PagemonitorPage{
 	},
 }
 
-const exportData = `{
+const backupData = `{
   "Users": [
     {
       "Password": "pass1",
@@ -130,30 +130,30 @@ const exportData = `{
   ]
 }`
 
-func TestExport(t *testing.T) {
+func TestBackup(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
 
-	for _, user := range exportUsers {
+	for _, user := range backupUsers {
 		dbService.NewUserService(user.Username).Save(user)
 	}
-	dbService.SaveFeeditems(exportFeeditems...)
-	for _, page := range exportPagemonitor {
+	dbService.SaveFeeditems(backupFeeditems...)
+	for _, page := range backupPagemonitor {
 		dbService.SavePage(page)
 	}
 
-	data, err := dbService.Export()
+	data, err := dbService.Backup()
 	assert.NoError(t, err)
-	assert.Equal(t, exportData, data)
+	assert.Equal(t, backupData, data)
 }
 
-func TestImport(t *testing.T) {
+func TestRestore(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
 
-	err = dbService.Import(exportData)
+	err = dbService.Restore(backupData)
 	assert.NoError(t, err)
 
 	done := make(chan bool)
@@ -168,7 +168,7 @@ func TestImport(t *testing.T) {
 	err = dbService.ReadAllUsers(userChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, exportUsers, dbUsers)
+	assert.Equal(t, backupUsers, dbUsers)
 
 	feedChan := make(chan *Feeditem)
 	dbFeeditems := make([]*Feeditem, 0)
@@ -181,7 +181,7 @@ func TestImport(t *testing.T) {
 	err = dbService.ReadAllFeedItems(feedChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, exportFeeditems, dbFeeditems)
+	assert.Equal(t, backupFeeditems, dbFeeditems)
 
 	pageChan := make(chan *PagemonitorPage)
 	dbPages := make([]*PagemonitorPage, 0)
@@ -194,5 +194,5 @@ func TestImport(t *testing.T) {
 	err = dbService.ReadAllPages(pageChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, exportPagemonitor, dbPages)
+	assert.Equal(t, backupPagemonitor, dbPages)
 }

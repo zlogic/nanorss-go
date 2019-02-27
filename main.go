@@ -76,30 +76,30 @@ func serve(db *data.DBService) {
 	<-errs
 }
 
-const exportFilename = "nanorss.json"
+const backupFilename = "nanorss.json"
 
-func exportData(db *data.DBService) {
-	data, err := db.Export()
+func backupData(db *data.DBService) {
+	data, err := db.Backup()
 	if err != nil {
-		log.Fatalf("Failed to export json %v", err)
+		log.Fatalf("Failed to back up json %v", err)
 	}
-	err = ioutil.WriteFile(exportFilename, []byte(data), 0644)
+	err = ioutil.WriteFile(backupFilename, []byte(data), 0644)
 	if err != nil {
 		log.Fatalf("Failed to write file %v", err)
 	}
-	fmt.Printf("Exported to %v\n", exportFilename)
+	fmt.Printf("Backed up to %v\n", backupFilename)
 }
 
-func importData(db *data.DBService) {
-	data, err := ioutil.ReadFile(exportFilename)
+func restoreData(db *data.DBService) {
+	data, err := ioutil.ReadFile(backupFilename)
 	if err != nil {
 		log.Fatalf("Failed to read file %v", err)
 	}
-	err = db.Import(string(data))
+	err = db.Restore(string(data))
 	if err != nil {
-		log.Fatalf("Failed to import data %v", err)
+		log.Fatalf("Failed to restore data %v", err)
 	}
-	fmt.Printf("Imported from %v\n", exportFilename)
+	fmt.Printf("Restored from %v\n", backupFilename)
 }
 
 func main() {
@@ -116,10 +116,10 @@ func main() {
 		serve(db)
 	} else {
 		switch directive := os.Args[1]; directive {
-		case "export":
-			exportData(db)
-		case "import":
-			importData(db)
+		case "backup":
+			backupData(db)
+		case "restore":
+			restoreData(db)
 		default:
 			log.Fatalf("Unrecognized directive %v", directive)
 		}

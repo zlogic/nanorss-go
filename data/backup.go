@@ -8,76 +8,76 @@ import (
 	"github.com/pkg/errors"
 )
 
-// This should be separate from regular data classes in case the structures change and we need to import data from an older version
+// This should be separate from regular data classes in case the structures change and we need to restore data from an older version
 
-type ExportUser struct {
+type BackupUser struct {
 	User
 	Username string
 }
 
-type ExportFeeditem struct {
+type BackupFeeditem struct {
 	Feeditem
 	FeeditemKey
 }
 
-type ExportPagemonitor struct {
+type BackupPagemonitor struct {
 	PagemonitorPage
 	UserPagemonitor
 }
 
-type ExportData struct {
-	Users       []*ExportUser
-	Feeds       []*ExportFeeditem
-	Pagemonitor []*ExportPagemonitor
+type BackupData struct {
+	Users       []*BackupUser
+	Feeds       []*BackupFeeditem
+	Pagemonitor []*BackupPagemonitor
 }
 
-func (service *DBService) Export() (string, error) {
-	data := ExportData{}
+func (service *DBService) Backup() (string, error) {
+	data := BackupData{}
 
 	done := make(chan bool)
 	userChan := make(chan *User)
 	go func() {
 		for user := range userChan {
-			exportUser := &ExportUser{User: *user, Username: user.Username}
-			data.Users = append(data.Users, exportUser)
+			backupUser := &BackupUser{User: *user, Username: user.Username}
+			data.Users = append(data.Users, backupUser)
 		}
 		done <- true
 	}()
 	if err := service.ReadAllUsers(userChan); err != nil {
-		return "", errors.Wrap(err, "Error exporting users")
+		return "", errors.Wrap(err, "Error backing up users")
 	}
 	<-done
 
 	feedChan := make(chan *Feeditem)
 	go func() {
 		for feedItem := range feedChan {
-			exportFeeditem := &ExportFeeditem{
+			backupFeeditem := &BackupFeeditem{
 				Feeditem:    *feedItem,
 				FeeditemKey: *feedItem.Key,
 			}
-			data.Feeds = append(data.Feeds, exportFeeditem)
+			data.Feeds = append(data.Feeds, backupFeeditem)
 		}
 		done <- true
 	}()
 	if err := service.ReadAllFeedItems(feedChan); err != nil {
-		return "", errors.Wrap(err, "Error exporting feed items")
+		return "", errors.Wrap(err, "Error backing up feed items")
 	}
 	<-done
 
 	pageChan := make(chan *PagemonitorPage)
 	go func() {
 		for page := range pageChan {
-			exportPagemonitor := &ExportPagemonitor{
+			backupPagemonitor := &BackupPagemonitor{
 				PagemonitorPage: *page,
 				UserPagemonitor: *page.Config,
 			}
-			data.Pagemonitor = append(data.Pagemonitor, exportPagemonitor)
+			data.Pagemonitor = append(data.Pagemonitor, backupPagemonitor)
 		}
 		close(done)
 	}()
 
 	if err := service.ReadAllPages(pageChan); err != nil {
-		return "", errors.Wrap(err, "Error exporting pagemonitor pages")
+		return "", errors.Wrap(err, "Error backing up pagemonitor pages")
 	}
 	<-done
 
@@ -89,8 +89,8 @@ func (service *DBService) Export() (string, error) {
 	return string(value), nil
 }
 
-func (service *DBService) Import(value string) error {
-	data := ExportData{}
+func (service *DBService) Restore(value string) error {
+	data := BackupData{}
 	failed := false
 	if err := json.Unmarshal([]byte(value), &data); err != nil {
 		return errors.Wrap(err, "Error unmarshaling json")
@@ -123,7 +123,7 @@ func (service *DBService) Import(value string) error {
 		}
 	}
 	if failed {
-		return fmt.Errorf("Failed to export at least one item")
+		return fmt.Errorf("Failed to backup at least one item")
 	}
 	return nil
 }
