@@ -52,8 +52,6 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 }
 
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
-	timeUpdated := time.Now()
-
 	err = s.db.Update(func(txn *badger.Txn) error {
 		failed := false
 
@@ -74,7 +72,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				}
 				return &existingFeedItem.Updated, nil
 			}
-			return &timeUpdated, nil
+			return nil, nil
 		}
 
 		for _, feedItem := range feedItems {
@@ -83,8 +81,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			previousTimeUpdated, err := getPreviousUpdatedTime(key)
 			if err != nil {
 				log.Printf("Failed to read previous updated time %v", err)
-				feedItem.Updated = timeUpdated
-			} else {
+			} else if previousTimeUpdated != nil {
 				feedItem.Updated = *previousTimeUpdated
 			}
 

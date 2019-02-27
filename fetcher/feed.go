@@ -59,6 +59,7 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 			URL:      item.Link,
 			Date:     date,
 			Contents: contents,
+			Updated:  time.Now(),
 			Key:      key,
 		}
 		saveItems = append(saveItems, dbItem)

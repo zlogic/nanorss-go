@@ -15,6 +15,7 @@ type User struct {
 	Password    string
 	Opml        string
 	Pagemonitor string
+	Username    string `json:"-"`
 }
 
 type UserService struct {
@@ -52,13 +53,19 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 
 			k := item.Key()
 
+			username, err := DecodeUserKey(k)
+			if err != nil {
+				log.Printf("Failed to decode username of user %v because of %v", k, err)
+				continue
+			}
+
 			v, err := item.Value()
 			if err != nil {
 				log.Printf("Failed to read value of user %v because of %v", k, err)
 				continue
 			}
 
-			user := &User{}
+			user := &User{Username: *username}
 			err = json.Unmarshal(v, &user)
 			if err != nil {
 				log.Printf("Failed to unmarshal value of user %v because of %v", k, err)
@@ -75,7 +82,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 }
 
 func (s *UserService) Get() (*User, error) {
-	user := &User{}
+	user := &User{Username: s.Username}
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(s.CreateKey())
 		if err == badger.ErrKeyNotFound {

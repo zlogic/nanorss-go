@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -43,14 +44,7 @@ func createDefaultUser(db *data.DBService) {
 	}
 }
 
-func main() {
-	// Init data layer
-	db, err := data.Open(data.DefaultOptions())
-	defer db.Close()
-	if err != nil {
-		db.Close()
-		log.Fatalf("Failed to open data store %v", err)
-	}
+func serve(db *data.DBService) {
 
 	// Create default user if necessary
 	createDefaultUser(db)
@@ -80,4 +74,54 @@ func main() {
 	}()
 
 	<-errs
+}
+
+const exportFilename = "nanorss.json"
+
+func exportData(db *data.DBService) {
+	data, err := db.Export()
+	if err != nil {
+		log.Fatalf("Failed to export json %v", err)
+	}
+	err = ioutil.WriteFile(exportFilename, []byte(data), 0644)
+	if err != nil {
+		log.Fatalf("Failed to write file %v", err)
+	}
+	fmt.Printf("Exported to %v\n", exportFilename)
+}
+
+func importData(db *data.DBService) {
+	data, err := ioutil.ReadFile(exportFilename)
+	if err != nil {
+		log.Fatalf("Failed to read file %v", err)
+	}
+	err = db.Import(string(data))
+	if err != nil {
+		log.Fatalf("Failed to import data %v", err)
+	}
+	fmt.Printf("Imported from %v\n", exportFilename)
+}
+
+func main() {
+
+	// Init data layer
+	db, err := data.Open(data.DefaultOptions())
+	defer db.Close()
+	if err != nil {
+		db.Close()
+		log.Fatalf("Failed to open data store %v", err)
+	}
+
+	if len(os.Args) < 2 || os.Args[1] == "serve" {
+		serve(db)
+	} else {
+		switch directive := os.Args[1]; directive {
+		case "export":
+			exportData(db)
+		case "import":
+			importData(db)
+		default:
+			log.Fatalf("Unrecognized directive %v", directive)
+		}
+	}
 }

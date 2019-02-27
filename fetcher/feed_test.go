@@ -68,10 +68,15 @@ func TestFetchFeed(t *testing.T) {
 	beforeUpdate := time.Now()
 	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
+			currentTime := time.Now()
 			savedItems := args.Get(0).([]*data.Feeditem)
 			if len(savedItems) == 4 {
-				assertTimeBetween(t, beforeUpdate, time.Now(), savedItems[1].Date)
+				assertTimeBetween(t, beforeUpdate, currentTime, savedItems[1].Date)
 				savedItems[1].Date = time.Time{}
+			}
+			for _, savedItem := range savedItems {
+				assertTimeBetween(t, beforeUpdate, currentTime, savedItem.Updated)
+				savedItem.Updated = time.Time{}
 			}
 			assert.Equal(t, expectedRssFeedItems, savedItems)
 		})
@@ -147,10 +152,15 @@ func TestFetchAllFeeds(t *testing.T) {
 	expectedSavedItems := [][]*data.Feeditem{expectedRssFeedItems, expectedSecondRssFeedItems}
 	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Twice().
 		Run(func(args mock.Arguments) {
+			currentTime := time.Now()
 			savedItems := args.Get(0).([]*data.Feeditem)
 			if len(savedItems) == 4 {
-				assertTimeBetween(t, beforeUpdate, time.Now(), savedItems[1].Date)
+				assertTimeBetween(t, beforeUpdate, currentTime, savedItems[1].Date)
 				savedItems[1].Date = time.Time{}
+			}
+			for _, savedItem := range savedItems {
+				assertTimeBetween(t, beforeUpdate, currentTime, savedItem.Updated)
+				savedItem.Updated = time.Time{}
 			}
 			dbSavedItems = append(dbSavedItems, savedItems)
 		})

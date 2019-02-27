@@ -1,7 +1,6 @@
 package data
 
 import (
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,15 +51,17 @@ func TestReadAllUsers(t *testing.T) {
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
+		Username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
+		Username:    "user02",
 	}
 	users := []User{user1, user2}
-	for i, user := range users {
-		err = dbService.NewUserService("user" + strconv.Itoa(i)).Save(&user)
+	for _, user := range users {
+		err = dbService.NewUserService(user.Username).Save(&user)
 		assert.NoError(t, err)
 	}
 
@@ -102,9 +103,10 @@ func TestSetUsername(t *testing.T) {
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
+		Username:    "user01",
 	}
-	users := []User{user}
-	userService := dbService.NewUserService("user01")
+	users := []*User{&user}
+	userService := dbService.NewUserService(user.Username)
 	err = userService.Save(&user)
 	assert.NoError(t, err)
 
@@ -112,15 +114,16 @@ func TestSetUsername(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "user02", userService.Username)
 
+	user.Username = "user02"
 	dbUser, err := userService.Get()
 	assert.Equal(t, user, *dbUser)
 
-	dbUsers := []User{}
+	dbUsers := []*User{}
 	ch := make(chan *User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
-			dbUsers = append(dbUsers, *user)
+			dbUsers = append(dbUsers, user)
 		}
 		close(done)
 	}()
@@ -139,15 +142,17 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
+		Username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
+		Username:    "user02",
 	}
 	users := []User{user1, user2}
-	userService1 := dbService.NewUserService("user01")
-	userService2 := dbService.NewUserService("user02")
+	userService1 := dbService.NewUserService(user1.Username)
+	userService2 := dbService.NewUserService(user2.Username)
 	err = userService1.Save(&user1)
 	assert.NoError(t, err)
 	err = userService2.Save(&user2)
