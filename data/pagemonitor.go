@@ -52,7 +52,14 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 		return errors.Wrap(err, "Cannot marshal page")
 	}
 	return s.db.Update(func(txn *badger.Txn) error {
-		return txn.SetWithTTL(key, value, itemTTL)
+		ls, err := NewLastSeen(s, txn)
+		if err != nil {
+			return err
+		}
+		if err := ls.SetLastSeen(key); err != nil {
+			return errors.Wrap(err, "Cannot set last seen time")
+		}
+		return txn.Set(key, value)
 	})
 }
 

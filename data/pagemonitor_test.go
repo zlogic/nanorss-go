@@ -76,9 +76,9 @@ func TestSavePage(t *testing.T) {
 	checkPages(t, dbService, &userPages, &pages)
 }
 
-func TestSaveReadPageTTL(t *testing.T) {
+func TestSaveReadPageTTLExpired(t *testing.T) {
 	var oldTTL = itemTTL
-	itemTTL = time.Nanosecond * 1
+	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
@@ -93,7 +93,32 @@ func TestSaveReadPageTTL(t *testing.T) {
 	err = dbService.SavePage(&page)
 	assert.NoError(t, err)
 
+	err = dbService.DeleteExpiredItems()
+	assert.NoError(t, err)
+
 	dbPage, err := dbService.GetPage(&userPage)
 	assert.NoError(t, err)
 	assert.Nil(t, dbPage)
+}
+
+func TestSaveReadPageTTLNotExpired(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	userPage := UserPagemonitor{
+		URL:     "http://site1.com",
+		Match:   "m1",
+		Replace: "r1",
+	}
+	page := PagemonitorPage{Contents: "c1", Delta: "d1", Updated: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC), Config: &userPage}
+	err = dbService.SavePage(&page)
+	assert.NoError(t, err)
+
+	err = dbService.DeleteExpiredItems()
+	assert.NoError(t, err)
+
+	dbPage, err := dbService.GetPage(&userPage)
+	assert.NoError(t, err)
+	assert.Equal(t, &page, dbPage)
 }

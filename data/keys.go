@@ -21,6 +21,16 @@ func decodePart(part string) (string, error) {
 	return string(res), nil
 }
 
+const LastSeenKeyPrefix = "lastseen" + separator
+
+func CreateLastSeenKey(itemKey []byte) []byte {
+	return append([]byte(LastSeenKeyPrefix), itemKey...)
+}
+
+func DecodeLastSeenKey(lastSeenKey []byte) []byte {
+	return lastSeenKey[len(LastSeenKeyPrefix):]
+}
+
 const UserKeyPrefix = "user" + separator
 
 func (s *UserService) CreateKey() []byte {

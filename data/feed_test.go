@@ -91,29 +91,55 @@ func TestUpdateReadItem(t *testing.T) {
 	assert.Equal(t, &item, dbItem)
 }
 
-func TestSaveReadItemTTL(t *testing.T) {
+func TestSaveReadItemTTLExpired(t *testing.T) {
 	var oldTTL = itemTTL
-	itemTTL = time.Nanosecond * 1
+	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
 
-	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
-	item := Feeditem{
+	item := &Feeditem{
 		Title:    "t1",
 		URL:      "http://item1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      &key,
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
-	err = dbService.SaveFeeditems(&item)
+	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	dbItem, err := dbService.GetFeeditem(&key)
+	err = dbService.DeleteExpiredItems()
+	assert.NoError(t, err)
+
+	dbItem, err := dbService.GetFeeditem(item.Key)
 	assert.NoError(t, err)
 	assert.Nil(t, dbItem)
+}
+
+func TestSaveReadItemTTLNotExpired(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	item := &Feeditem{
+		Title:    "t1",
+		URL:      "http://item1",
+		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
+		Contents: "c1",
+		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
+	}
+	err = dbService.SaveFeeditems(item)
+	assert.NoError(t, err)
+
+	err = dbService.DeleteExpiredItems()
+	assert.NoError(t, err)
+
+	dbItem, err := dbService.GetFeeditem(item.Key)
+	assert.NoError(t, err)
+	assert.Equal(t, item, dbItem)
 }
 
 func TestSaveReadAllItems(t *testing.T) {

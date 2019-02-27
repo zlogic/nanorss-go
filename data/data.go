@@ -35,6 +35,7 @@ func Open(options badger.Options) (*DBService, error) {
 }
 
 func (service *DBService) GC() {
+	service.DeleteExpiredItems()
 	service.db.RunValueLogGC(0.5)
 }
 
