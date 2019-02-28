@@ -22,7 +22,7 @@ func CreateRouter(db *data.DBService) (*mux.Router, error) {
 	}
 	services := services{db: db, cookieHandler: cookieHandler}
 	r.HandleFunc("/", RootHandler(&services)).Methods("GET")
-	r.HandleFunc("/login", HtmlLoginHandler()).Methods("GET")
+	r.HandleFunc("/login", HtmlLoginHandler(&services)).Methods("GET")
 	r.HandleFunc("/logout", LogoutHandler(&services)).Methods("GET")
 	r.HandleFunc("/feed", HtmlFeedHandler(&services)).Methods("GET").Name("feed")
 	r.HandleFunc("/settings", HtmlSettingsHandler(&services)).Methods("GET").Name("settings")

@@ -60,8 +60,13 @@ func FaviconHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path.Join("static", "favicon.ico"))
 }
 
-func HtmlLoginHandler() func(w http.ResponseWriter, r *http.Request) {
+func HtmlLoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		username := s.cookieHandler.GetUsername(w, r)
+		if username != "" {
+			http.Redirect(w, r, "feed", http.StatusSeeOther)
+			return
+		}
 		t, err := loadTemplate("login")
 		if err != nil {
 			handleError(w, r, err)
