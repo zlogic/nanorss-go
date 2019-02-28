@@ -43,3 +43,19 @@ func TestGenerateValue(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "v1", value)
 }
+
+func TestGetAllValues(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	err = dbService.SetConfigVariable("k1", "v1")
+	assert.NoError(t, err)
+
+	err = dbService.SetConfigVariable("k2", "v2")
+	assert.NoError(t, err)
+
+	values, err := dbService.GetAllConfigVariables()
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]string{"k1": "v1", "k2": "v2"}, values)
+}

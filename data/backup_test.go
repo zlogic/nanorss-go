@@ -127,7 +127,11 @@ const backupData = `{
       "Match": "",
       "Replace": ""
     }
-  ]
+  ],
+  "ServerConfig": {
+    "k1": "v1",
+    "k2": "v2"
+  }
 }`
 
 func TestBackup(t *testing.T) {
@@ -142,6 +146,9 @@ func TestBackup(t *testing.T) {
 	for _, page := range backupPagemonitor {
 		dbService.SavePage(page)
 	}
+
+	dbService.SetConfigVariable("k1", "v1")
+	dbService.SetConfigVariable("k2", "v2")
 
 	data, err := dbService.Backup()
 	assert.NoError(t, err)
@@ -195,4 +202,8 @@ func TestRestore(t *testing.T) {
 	assert.NoError(t, err)
 	<-done
 	assert.Equal(t, backupPagemonitor, dbPages)
+
+	values, err := dbService.GetAllConfigVariables()
+	assert.NoError(t, err)
+	assert.Equal(t, map[string]string{"k1": "v1", "k2": "v2"}, values)
 }

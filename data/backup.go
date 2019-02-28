@@ -26,9 +26,10 @@ type BackupPagemonitor struct {
 }
 
 type BackupData struct {
-	Users       []*BackupUser
-	Feeds       []*BackupFeeditem
-	Pagemonitor []*BackupPagemonitor
+	Users        []*BackupUser
+	Feeds        []*BackupFeeditem
+	Pagemonitor  []*BackupPagemonitor
+	ServerConfig map[string]string
 }
 
 func (service *DBService) Backup() (string, error) {
@@ -81,6 +82,12 @@ func (service *DBService) Backup() (string, error) {
 	}
 	<-done
 
+	serverConfig, err := service.GetAllConfigVariables()
+	if err != nil {
+		return "", errors.Wrap(err, "Error backing up server configuration")
+	}
+	data.ServerConfig = serverConfig
+
 	value, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return "", errors.Wrap(err, "Error marshaling json")
@@ -122,8 +129,14 @@ func (service *DBService) Restore(value string) error {
 			log.Printf("Error saving page %v %v", page, err)
 		}
 	}
+	for key, value := range data.ServerConfig {
+		if err := service.SetConfigVariable(key, value); err != nil {
+			failed = true
+			log.Printf("Error saving config variable %v %v %v", key, value, err)
+		}
+	}
 	if failed {
-		return fmt.Errorf("Failed to backup at least one item")
+		return fmt.Errorf("Failed to restore at least one item")
 	}
 	return nil
 }

@@ -114,8 +114,24 @@ func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	return res, nil
 }
 
-const ServiceConfigKeyPrefix = "serverconfig" + separator
+const ServerConfigKeyPrefix = "serverconfig" + separator
 
 func CreateServerConfigKey(varName string) []byte {
-	return []byte(ServiceConfigKeyPrefix + encodePart(varName))
+	return []byte(ServerConfigKeyPrefix + encodePart(varName))
+}
+
+func DecodeServerConfigKey(key []byte) (string, error) {
+	keyString := string(key)
+	if !strings.HasPrefix(keyString, ServerConfigKeyPrefix) {
+		return "", errors.Errorf("Not a config item key: %v", keyString)
+	}
+	parts := strings.Split(keyString, separator)
+	if len(parts) != 2 {
+		return "", errors.Errorf("Invalid format of config item key: %v", keyString)
+	}
+	value, err := decodePart(parts[1])
+	if err != nil {
+		return "", errors.Errorf("Failed to config item valye: %v because of %v", keyString, err)
+	}
+	return value, nil
 }
