@@ -1,0 +1,5 @@
+.item-content {
+  /* Allow scrolling of content */
+  overflow-y: auto;
+  position: relative;
+}
