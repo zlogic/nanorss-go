@@ -2,7 +2,7 @@ package data
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/gob"
 	"log"
 	"time"
 
@@ -14,11 +14,23 @@ type PagemonitorPage struct {
 	Contents string
 	Delta    string
 	Updated  time.Time
-	Config   *UserPagemonitor `json:"-"`
+	Config   *UserPagemonitor `json:",omitempty"`
 }
 
 type PagemonitorService struct {
 	db *badger.DB
+}
+
+func (page *PagemonitorPage) Encode() ([]byte, error) {
+	config := page.Config
+	defer func() { page.Config = config }()
+	page.Config = nil
+
+	var value bytes.Buffer
+	if err := gob.NewEncoder(&value).Encode(page); err != nil {
+		return nil, err
+	}
+	return value.Bytes(), nil
 }
 
 func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
@@ -34,7 +46,7 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(value, page)
+		err = gob.NewDecoder(bytes.NewBuffer(value)).Decode(&page)
 		if err != nil {
 			page = nil
 		}
@@ -48,7 +60,7 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 
 func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
-	value, err := json.Marshal(page)
+	value, err := page.Encode()
 	if err != nil {
 		return errors.Wrap(err, "Cannot marshal page")
 	}
@@ -109,7 +121,7 @@ func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 				continue
 			}
 			page := &PagemonitorPage{Config: pm}
-			err = json.Unmarshal(v, &page)
+			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(page)
 			if err != nil {
 				log.Printf("Failed to unmarshal value of item %v because of %v", k, err)
 				continue

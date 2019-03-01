@@ -12,7 +12,6 @@ import (
 
 type BackupUser struct {
 	User
-	Username string
 }
 
 type BackupFeeditem struct {
@@ -39,7 +38,8 @@ func (service *DBService) Backup() (string, error) {
 	userChan := make(chan *User)
 	go func() {
 		for user := range userChan {
-			backupUser := &BackupUser{User: *user, Username: user.Username}
+			backupUser := &BackupUser{User: *user}
+			user.Username = ""
 			data.Users = append(data.Users, backupUser)
 		}
 		done <- true
@@ -52,10 +52,12 @@ func (service *DBService) Backup() (string, error) {
 	feedChan := make(chan *Feeditem)
 	go func() {
 		for feedItem := range feedChan {
+			// Flatten/reformat data
 			backupFeeditem := &BackupFeeditem{
 				Feeditem:    *feedItem,
 				FeeditemKey: *feedItem.Key,
 			}
+			backupFeeditem.Feeditem.Key = nil
 			data.Feeds = append(data.Feeds, backupFeeditem)
 		}
 		done <- true
@@ -68,10 +70,12 @@ func (service *DBService) Backup() (string, error) {
 	pageChan := make(chan *PagemonitorPage)
 	go func() {
 		for page := range pageChan {
+			// Flatten/reformat data
 			backupPagemonitor := &BackupPagemonitor{
 				PagemonitorPage: *page,
 				UserPagemonitor: *page.Config,
 			}
+			backupPagemonitor.PagemonitorPage.Config = nil
 			data.Pagemonitor = append(data.Pagemonitor, backupPagemonitor)
 		}
 		close(done)

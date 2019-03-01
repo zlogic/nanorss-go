@@ -2,7 +2,7 @@ package data
 
 import (
 	"bytes"
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"time"
@@ -22,10 +22,22 @@ type Feeditem struct {
 	Date     time.Time
 	Contents string
 	Updated  time.Time
-	Key      *FeeditemKey `json:"-"`
+	Key      *FeeditemKey `json:",omitempty"`
 }
 
 var itemTTL = 14 * 24 * time.Hour
+
+func (feedItem *Feeditem) Encode() ([]byte, error) {
+	key := feedItem.Key
+	defer func() { feedItem.Key = key }()
+	feedItem.Key = nil
+
+	var value bytes.Buffer
+	if err := gob.NewEncoder(&value).Encode(feedItem); err != nil {
+		return nil, err
+	}
+	return value.Bytes(), nil
+}
 
 func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 	feeditem := &Feeditem{Key: key}
@@ -40,7 +52,7 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(value, feeditem)
+		err = gob.NewDecoder(bytes.NewBuffer(value)).Decode(feeditem)
 		if err != nil {
 			feeditem = nil
 		}
@@ -53,7 +65,7 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 }
 
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
-	err = s.db.Update(func(txn *badger.Txn) error {
+	return s.db.Update(func(txn *badger.Txn) error {
 		failed := false
 
 		ls, err := NewLastSeen(s, txn)
@@ -80,8 +92,8 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			if previousValue == nil {
 				return nil, nil
 			}
-			existingFeedItem := Feeditem{}
-			err = json.Unmarshal(previousValue, &existingFeedItem)
+			existingFeedItem := &Feeditem{}
+			err := gob.NewDecoder(bytes.NewBuffer(previousValue)).Decode(existingFeedItem)
 			if err != nil {
 				return nil, errors.Wrapf(err, "Failed to get unmarshal value of feed item")
 			}
@@ -103,13 +115,12 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				feedItem.Updated = *previousTimeUpdated
 			}
 
-			value, err := json.Marshal(feedItem)
+			value, err := feedItem.Encode()
 			if err != nil {
 				return errors.Wrap(err, "Cannot marshal feed item")
 			}
 
-			err = ls.SetLastSeen(key)
-			if err != nil {
+			if err := ls.SetLastSeen(key); err != nil {
 				return errors.Wrap(err, "Cannot set last seen time")
 			}
 
@@ -117,8 +128,8 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				// Avoid writing to the database if nothing has changed
 				return nil
 			}
-			err = txn.Set(key, value)
-			if err != nil {
+
+			if err := txn.Set(key, value); err != nil {
 				return errors.Wrap(err, "Cannot save feed item")
 			}
 		}
@@ -127,7 +138,6 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 		}
 		return nil
 	})
-	return err
 }
 
 func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
@@ -152,7 +162,7 @@ func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
 				continue
 			}
 			feedItem := &Feeditem{Key: key}
-			err = json.Unmarshal(v, &feedItem)
+			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(feedItem)
 			if err != nil {
 				log.Printf("Failed to unmarshal value of item %v because of %v", k, err)
 				continue

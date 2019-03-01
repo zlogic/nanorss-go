@@ -1,7 +1,8 @@
 package data
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"encoding/xml"
 	"fmt"
 	"log"
@@ -15,7 +16,7 @@ type User struct {
 	Password    string
 	Opml        string
 	Pagemonitor string
-	Username    string `json:"-"`
+	Username    string
 }
 
 type UserService struct {
@@ -66,7 +67,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 			}
 
 			user := &User{Username: *username}
-			err = json.Unmarshal(v, &user)
+			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(&user)
 			if err != nil {
 				log.Printf("Failed to unmarshal value of user %v because of %v", k, err)
 				continue
@@ -94,7 +95,7 @@ func (s *UserService) Get() (*User, error) {
 		if err != nil {
 			return err
 		}
-		err = json.Unmarshal(value, user)
+		err = gob.NewDecoder(bytes.NewBuffer(value)).Decode(&user)
 		if err != nil {
 			user = nil
 		}
@@ -107,14 +108,17 @@ func (s *UserService) Get() (*User, error) {
 }
 
 func (s *UserService) Save(user *User) (err error) {
-	value, err := json.Marshal(user)
-	if err != nil {
-		return err
+	username := user.Username
+	defer func() { user.Username = username }()
+	user.Username = ""
+
+	var value bytes.Buffer
+	if err := gob.NewEncoder(&value).Encode(user); err != nil {
+		return errors.Wrap(err, "Cannot marshal user")
 	}
-	err = s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(s.CreateKey(), value)
+	return s.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(s.CreateKey(), value.Bytes())
 	})
-	return err
 }
 
 func (user *User) SetPassword(newPassword string) error {
