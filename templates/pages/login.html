@@ -21,31 +21,64 @@
   </div>
   <div class="form-row">
     <div class="form-group col-md-12">
-      <button type="submit" class="btn btn-primary">Sign in</button>
+      <button type="submit" class="btn btn-primary">
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
+        Sign in
+      </button>
     </div>
   </div>
-  <div id="loginFailed" class="alert alert-danger" role="alert" hidden>Login failed</div>
+  <div class="form-row">
+    <div class="form-group col-md-12">
+      <div id="loginResult" class="slide-down-alert collapsed">
+        <div id="loginFailed" class="alert alert-danger" role="alert" hidden>Login failed</div>
+      </div>
+    </div>
+  </div>
 </form>
 <script>
-$(document).ready(function() {
-  $("#loginForm").submit(function(event) {
+document.addEventListener('DOMContentLoaded', function() {
+  var submit = document.querySelector('button[type="submit"]');
+  var spinner = document.querySelector('button[type="submit"] span[role="status"]');
+  var username = document.querySelector("input[id='inputUsername']");
+  var password = document.querySelector("input[id='inputPassword']");
+  var rememberMe = document.querySelector("input[id='rememberMe']");
+  var loginResultDiv = document.querySelector("#loginResult")
+  var loginFailedAlert = document.querySelector("#loginFailed");
+  document.querySelector("#loginForm").addEventListener("submit", function(event) {
     event.preventDefault();
     // Prepare request
-    var $form = $(this);
-    $form.find("#loginFailed").prop("hidden", true);
-    var username = $form.find("input[id='inputUsername']").val();
-    var password = $form.find("input[id='inputPassword']").val();
-    var rememberMe = $form.find("input[id='rememberMe']").prop('checked');
-    var posting = $.post("api/login", {username: username, password: password, rememberMe: rememberMe});
-    //Handle responses
-    posting.done(function() {
+    var lockForm = function(processing){
+      [username, password, rememberMe, submit].forEach(function(control){
+        if (processing) {
+          control.disabled = true;
+        } else {
+          control.removeAttribute("disabled");
+        }
+      })
+      spinner.hidden = !processing;
+    }
+    var postData = "username=" + encodeURIComponent(username.value) + "&" +
+      "password=" + encodeURIComponent(password.value) + "&" +
+      "rememberMe=" + encodeURIComponent(rememberMe.checked);
+    // Post data
+    lockForm(true);
+    loginResultDiv.classList.add("collapsed");
+    loginFailedAlert.hidden = true;
+    fetch("api/login", {
+      method: "POST",
+      headers: {"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+      body: postData
+    })
+    .then(function(response) {
+      if (response.status !== 200) {
+        throw new Error(response.body);
+      }
       window.location.href = "feed";
-    });
-    posting.fail(function() {
-      var alertDiv = $form.find("#loginFailed")
-      alertDiv.hide();
-      alertDiv.prop("hidden", false);
-      alertDiv.slideDown();
+    })
+    .catch(function(error) {
+      lockForm(false);
+      loginResultDiv.classList.remove("collapsed");
+      loginFailedAlert.removeAttribute("hidden");
     });
   });
 });

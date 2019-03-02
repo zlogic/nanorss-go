@@ -29,55 +29,74 @@
     <div class="col-sm-10">
       <button type="submit" class="btn btn-primary">
         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
-        Save</button>
+        Save
+      </button>
     </div>
   </div>
   <div class="row">
     <div class="col-sm-2"></div>
     <div class="col-sm-10">
-      <div id="saveSuccessful" class="alert alert-success" role="alert" hidden>Saved successfully</div>
-      <div id="saveFailed" class="alert alert-danger" role="alert" hidden>Save failed</div>
+      <div id="saveResult" class="slide-down-alert collapsed">
+        <div id="saveSuccessful" class="alert alert-success " role="alert">Saved successfully</div>
+        <div id="saveFailed" class="alert alert-danger" role="alert">Save failed</div>
+      </div>
     </div>
   </div>
 </form>
 <script>
-$(document).ready(function() {
-  var opml = $('textarea[name="opml"]');
-  var pagemonitor = $('textarea[name="pagemonitor"]');
-  var username = $('input[id="editUsername"]');
-  var password = $('input[id="editPassword"]');
-  var submit = $('button[type="submit"]');
-  var spinner = $('button[type="submit"] span[role="status"]');
+document.addEventListener('DOMContentLoaded', function() {
+  var opml = document.querySelector('textarea[name="opml"]');
+  var pagemonitor = document.querySelector('textarea[name="pagemonitor"]');
+  var username = document.querySelector('input[id="editUsername"]');
+  var password = document.querySelector('input[id="editPassword"]');
+  var submit = document.querySelector('button[type="submit"]');
+  var spinner = document.querySelector('button[type="submit"] span[role="status"]');
+  var saveResultDiv = document.querySelector("#saveResult")
   var lockConfiguration = function(processing){
-    [opml, pagemonitor, username, password, submit, spinner].forEach(function(control){
-      control.attr("disabled", processing);
-      spinner.prop("hidden", !processing);
+    [opml, pagemonitor, username, password, submit].forEach(function(control){
+      if (processing) {
+        control.disabled = true;
+      } else {
+        control.removeAttribute("disabled");
+      }
     })
+    spinner.hidden = !processing;
   }
-  var showResultAlert = function(alertDiv){
-    alertDiv.hide();
-    alertDiv.prop("hidden", false);
-    alertDiv.slideDown();
+  var showResultAlert = function(alertDiv) {
+    saveResultDiv.classList.remove("collapsed");
+    alertDiv.removeAttribute("hidden");
   }
   // Submit configuration handler
-  $("#configurationForm").submit(function(event) {
+  document.querySelector("#configurationForm").addEventListener("submit", function(event) {
     event.preventDefault();
     lockConfiguration(true);
     // Prepare request
-    var $form = $(this);
-    $form.find("#saveFailed").prop("hidden", true);
-    $form.find("#saveSuccessful").prop("hidden", true);
-    var postData = {username: username.val(), password: password.val(), opml: opml.val(), pagemonitor: pagemonitor.val()};
-    if(postData.password === null || postData.password === undefined || postData.password === '')
-      delete postData.password;
-    var posting = $.post("api/configuration", postData);
-    //Handle responses
-    posting.done(function(data) {
-      showResultAlert($form.find("#saveSuccessful"));
+    var form = event.target;
+    ["#saveFailed", "#saveSuccessful"].forEach(function (id) {
+      form.querySelector(id).hidden = true;
+    })
+    saveResultDiv.classList.add("collapsed");
+    var postData = "username=" + encodeURIComponent(username.value) + "&" +
+      "opml=" + encodeURIComponent(opml.value) + "&" +
+      "pagemonitor=" + encodeURIComponent(pagemonitor.value);
+    if (password.value !== null || password.value !== undefined || password.value === '') {
+      postData += "&" + "password=" + encodeURIComponent(password.value)
+    }
+    // Post data
+    fetch("api/configuration", {
+      method: "POST",
+      headers: {"Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"},
+      body: postData
+    })
+    .then(function(response) {
+      if (response.status !== 200) {
+        throw new Error(response.body);
+      }
+      showResultAlert(form.querySelector("#saveSuccessful"));
       lockConfiguration(false);
-    });
-    posting.fail(function() {
-      showResultAlert($form.find("#saveFailed"));
+    })
+    .catch(function() {
+      showResultAlert(form.querySelector("#saveFailed"));
       lockConfiguration(false);
     });
   });

@@ -3,3 +3,13 @@
   overflow-y: auto;
   position: relative;
 }
+
+/* Transitions for animating alerts */
+.slide-down-alert {
+  overflow-y: hidden;
+  transition: all .5s ease-in-out;
+  max-height: 100%;
+}
+.slide-down-alert.collapsed {
+  max-height: 0;
+}
