@@ -3,7 +3,7 @@
   <div class="form-group row">
     <label for="editUsername" class="col-sm-2 col-form-label">Username</label>
     <div class="col-sm-10">
-      <input type="text" class="form-control" id="editUsername" placeholder="Username" value="{{ .Username }}" required>
+      <input type="text" class="form-control" id="editUsername" placeholder="Username" required>
     </div>
   </div>
   <div class="form-group row">
@@ -15,13 +15,13 @@
   <div class="form-group row">
     <label for="editOPML" class="col-sm-2 col-form-label">OPML</label>
     <div class="col-sm-10">
-      <textarea name="opml" id="editOPML" class="form-control" rows="20" required>{{ .User.Opml | html }}</textarea>
+      <textarea name="opml" id="editOPML" class="form-control" rows="20" required></textarea>
     </div>
   </div>
   <div class="form-group row">
     <label for="editPageMonitor" class="col-sm-2 col-form-label">Page Monitor</label>
     <div class="col-sm-10">
-      <textarea name="pagemonitor" id="editPageMonitor" class="form-control" rows="20" required>{{ .User.Pagemonitor | html }}</textarea>
+      <textarea name="pagemonitor" id="editPageMonitor" class="form-control" rows="20" required></textarea>
     </div>
   </div>
   <div class="form-group row">
@@ -59,6 +59,24 @@ $(document).ready(function() {
     alertDiv.prop("hidden", false);
     alertDiv.slideDown();
   }
+
+  var updateFormValues = function(settings) {
+    username.val(settings.Username);
+    password.val("");
+    opml.text(settings.Opml);
+    pagemonitor.text(settings.Pagemonitor);
+  }
+
+  // Load current field items
+  var loadItems = function() {
+    lockConfiguration(true);
+    $.getJSON("api/configuration").done(function(settings) {
+      lockConfiguration(false);
+      updateFormValues(settings);
+    });
+  }
+  loadItems();
+
   // Submit configuration handler
   $("#configurationForm").submit(function(event) {
     event.preventDefault();
@@ -74,6 +92,7 @@ $(document).ready(function() {
     $.post("api/configuration", postData)
     .done(function(data) {
       showResultAlert($form.find("#saveSuccessful"));
+      updateFormValues(JSON.parse(data));
     })
     .fail(function() {
       showResultAlert($form.find("#saveFailed"));

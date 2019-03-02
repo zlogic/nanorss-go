@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"path"
-	"strings"
 	"text/template"
 
 	"github.com/gorilla/mux"
@@ -90,28 +89,7 @@ func HtmlFeedHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		t, err := loadTemplate("feed")
-		if err != nil {
-			handleError(w, r, err)
-			return
-		}
-		type feedViewData struct {
-			viewData
-			Items []*Item
-		}
-		items, err := GetAllItems(userService)
-		if items == nil {
-			items = make([]*Item, 0)
-		}
-		/*
-			if err != nil {
-				handleError(w, r, err)
-				return
-			}
-		*/
-		t.ExecuteTemplate(w, "layout", &feedViewData{
-			viewData: viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()},
-			Items:    items,
-		})
+		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
 	}
 }
 
@@ -134,68 +112,5 @@ func HtmlSettingsHandler(s *services) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
-	}
-}
-
-func HtmlItemHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// There are no secrets, but still better check we have a valid user
-		username := validateUser(w, r, s)
-		if username == "" {
-			return
-		}
-
-		getItem := func(key string) *data.Feeditem {
-			if strings.HasPrefix(key, data.FeeditemKeyPrefix) {
-				feeditemKey, err := data.DecodeFeeditemKey([]byte(key))
-				if err != nil {
-					log.Printf("Failed to parse feed item key %v", err)
-					return nil
-				}
-				feedItem, err := s.db.GetFeeditem(feeditemKey)
-				if err != nil {
-					log.Printf("Failed to parse feed item key %v", err)
-					return nil
-				}
-				return feedItem
-			} else if strings.HasPrefix(key, data.PagemonitorKeyPrefix) {
-				pagemonitorKey, err := data.DecodePagemonitorKey([]byte(key))
-				if err != nil {
-					log.Printf("Failed to parse pagemonitor page key %v", err)
-					return nil
-				}
-				pagemonitorPage, err := s.db.GetPage(pagemonitorKey)
-				if err != nil {
-					log.Printf("Failed to parse pagemonitor page key %v", err)
-					return nil
-				}
-				// Bootstrap automatically handles line endings
-				contents := "<pre>" + pagemonitorPage.Delta + "</pre>"
-				feedItem := &data.Feeditem{
-					Contents: contents,
-					Date:     pagemonitorPage.Updated,
-					URL:      pagemonitorKey.URL,
-				}
-				return feedItem
-			}
-			log.Printf("Unknown item key format %v", key)
-			return nil
-		}
-
-		vars := mux.Vars(r)
-		key := strings.Replace(vars["key"], "-", "/", -1)
-		item := getItem(key)
-
-		if item == nil {
-			http.Error(w, "Not found", http.StatusNotFound)
-			return
-		}
-
-		t, err := template.ParseFiles(path.Join("templates", "pages", "item.html"))
-		if err != nil {
-			handleError(w, r, err)
-			return
-		}
-		t.ExecuteTemplate(w, "layout", item)
 	}
 }

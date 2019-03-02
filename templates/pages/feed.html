@@ -9,41 +9,67 @@
   <div id="refreshSuccessful" class="alert alert-success" role="alert" hidden>Refresh succeeded, reload page to view updated items</div>
   <div id="refreshFailed" class="alert alert-danger" role="alert" hidden>Refresh failed</div>
 </div>
-{{ range $i, $e := .Items }}
-<div>
-  <h3>
-    <a href="#item-{{ $i }}" data-toggle="collapse" aria-expanded="false" aria-controls="item-{{ $i }}">
-      {{ if .Title }}{{ .Title }} / {{ end }}{{ .Origin }}
-    </a>
-  </h3>
-  <div id="item-{{ $i }}" class="collapse expandable-item" data-fetchurl="{{ .FetchURL }}">
-    <div class="progress" >
-      <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
-    </div>
-    <div id="item"></div>
-  </div>
+<div id="feed">
+  <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>
 </div>
-{{ end }}
 <script>
 $(document).ready(function() {
+  // Load items
+  var feedTarget = $("#feed");
+  var loadItems = function() {
+    $.getJSON("api/feed").done(function(items) {
+      feedTarget.empty();
+      var placeholderElement = $('<div></div>');
+      placeholderElement.hide();
+      for (i in items) {
+        var item = items[i];
+        var titleText = item.Title !== "" ? [item.Title, item.Origin].join(" / ") : item.Origin;
+        var titleElement = $('<a href="#item-' + i + '" data-toggle="collapse" aria-expanded="false" aria-controls="item-' + i +  '">' + titleText + '</a>');
+        var expandElement = $('<div id="item-' + i + '" class="collapse" data-fetchurl="' + item.FetchURL +'"></div>');
+        var itemElement = $('<div></div>');
+        itemElement.append($('<h3></h3>').append(titleElement));
+        itemElement.append(expandElement);
+        placeholderElement.append(itemElement);
+      }
+      feedTarget.append(placeholderElement);
+      placeholderElement.slideDown();
+    });
+  }
+  loadItems();
   // Add handlers for loading items
   // Expand item
-  $('.expandable-item.collapse').on('shown.bs.collapse', function() {
-    var placeholder = jQuery(this);
-    var target = placeholder.children("#item");
-    target.hide().empty();
-    $.get(placeholder.attr('data-fetchurl'), function(data) {
-      target.empty();
-      target.append(data);
-      target.slideDown();
-      placeholder.children(".progress").hide();
+  $(document).on('show.bs.collapse', '.collapse', function() {
+    var collapse = jQuery(this);
+    var progressElement = $('<div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>');
+
+    collapse.empty().append(progressElement);
+  });
+  $(document).on('shown.bs.collapse', '.collapse', function() {
+    var collapse = jQuery(this);
+
+    $.getJSON(collapse.attr('data-fetchurl'), function(item) {
+      collapse.empty();
+      var placeholderElement = $('<div class="card"></div>');
+      var itemContentsElement = $('<div class="item-content"></div>');
+      if (item.Plaintext) {
+        item.Contents = $('<pre></pre>').text(item.Contents);
+      }
+      itemContentsElement.append(item.Contents);
+
+      var dateElement = $('<p><em>Updated: ' + new Date(item.Date).toLocaleString() + '</em></p>');
+      var bodyElement = $('<div class="card-body"></div>');
+      var footerElement = $('<div class="card-footer"><h4><a href="' + item.URL + '">Go to site</a></h4></div>');
+
+      bodyElement.append(itemContentsElement).append($('<br>')).append(dateElement);
+      placeholderElement.hide().append(bodyElement).append(footerElement);
+      collapse.append(placeholderElement);
+      placeholderElement.slideDown();
     });
   });
   // Collapse item
-  $('.collapse.expandable-item').on('hidden.bs.collapse', function() {
-    var placeholder = jQuery(this);
-    placeholder.children(".progress").show();
-    placeholder.children("#item").empty().hide();
+  $(document).on('hidden.bs.collapse', '.collapse', function() {
+    var collapse = jQuery(this);
+    collapse.empty();
   });
   // Refresh button
   var refreshSuccessful = $("#refreshSuccessful");

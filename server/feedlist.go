@@ -13,7 +13,7 @@ import (
 type Item struct {
 	Title    string
 	Origin   string
-	SortDate time.Time
+	SortDate time.Time `json:"-"`
 	FetchURL string
 }
 
