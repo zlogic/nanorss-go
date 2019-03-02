@@ -28,7 +28,7 @@
           </li>
           {{ end }}
         </ul>
-        <a class="btn btn-outline-secondary" href="logout">Logout</a>
+        {{ if .User }}<a class="btn btn-outline-secondary" href="logout">Logout</a>{{ end }}
       </div>
     </nav>
     <div class="container p-3">

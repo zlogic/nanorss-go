@@ -169,8 +169,10 @@ func HtmlItemHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Failed to parse pagemonitor page key %v", err)
 					return nil
 				}
+				// Bootstrap automatically handles line endings
+				contents := "<pre>" + pagemonitorPage.Delta + "</pre>"
 				feedItem := &data.Feeditem{
-					Contents: strings.Replace(pagemonitorPage.Delta, "\n", "<br>\n", -1),
+					Contents: contents,
 					Date:     pagemonitorPage.Updated,
 					URL:      pagemonitorKey.URL,
 				}

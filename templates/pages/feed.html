@@ -5,6 +5,10 @@
     Fetch items
   </button>
 </div>
+<div class="py-1">
+  <div id="refreshSuccessful" class="alert alert-success" role="alert" hidden>Refresh succeeded, reload page to view updated items</div>
+  <div id="refreshFailed" class="alert alert-danger" role="alert" hidden>Refresh failed</div>
+</div>
 {{ range $i, $e := .Items }}
 <div>
   <h3>
@@ -42,13 +46,29 @@ $(document).ready(function() {
     placeholder.children("#item").empty().hide();
   });
   // Refresh button
+  var refreshSuccessful = $("#refreshSuccessful");
+  var refreshFailed = $("#refreshFailed");
   $('#refreshButton').click(function() {
     var button = jQuery(this);
     var spinner = button.children('span[role="status"]');
+    var showResultAlert = function(alertDiv){
+      alertDiv.hide();
+      alertDiv.prop("hidden", false);
+      alertDiv.slideDown();
+    }
     button.prop("disabled", true)
     spinner.prop("hidden", false);
-    $.get("api/refresh", function() {
-      button.prop("disabled", false)
+    refreshFailed.prop("hidden", true);
+    refreshSuccessful.prop("hidden", true);
+    $.get("api/refresh")
+    .done(function() {
+      showResultAlert(refreshSuccessful);
+    })
+    .fail(function() {
+      showResultAlert(refreshFailed);
+    })
+    .always(function() {
+      button.prop("disabled", false);
       spinner.prop("hidden", true);
     });
   })
