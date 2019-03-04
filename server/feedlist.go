@@ -17,18 +17,21 @@ type Item struct {
 	FetchURL string
 }
 
+type FeedListService struct {
+	db DB
+}
+
 type itemsSortable []*Item
+
+func escapeKeyForURL(key []byte) string {
+	return strings.Replace(string(key), "/", "-", -1)
+}
 
 func (a itemsSortable) Len() int           { return len(a) }
 func (a itemsSortable) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a itemsSortable) Less(i, j int) bool { return a[i].SortDate.After(a[j].SortDate) }
 
-func GetAllItems(userService *data.UserService) ([]*Item, error) {
-	user, err := userService.Get()
-	if err != nil {
-		return nil, err
-	}
-
+func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	feeds, err := user.GetFeeds()
 	if err != nil {
 		return nil, err
@@ -40,9 +43,6 @@ func GetAllItems(userService *data.UserService) ([]*Item, error) {
 
 	items := make(itemsSortable, 0)
 
-	escapeKeyForUrl := func(key []byte) string {
-		return strings.Replace(string(key), "/", "-", -1)
-	}
 	findFeedTitle := func(feedURL string) (string, error) {
 		for _, feed := range feeds {
 			if feed.URL == feedURL {
@@ -63,14 +63,14 @@ func GetAllItems(userService *data.UserService) ([]*Item, error) {
 			item := &Item{
 				Title:    feedItem.Title,
 				Origin:   title,
-				FetchURL: "api/items/" + escapeKeyForUrl(feedItem.Key.CreateKey()),
+				FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
 				SortDate: feedItem.Updated,
 			}
 			items = append(items, item)
 		}
 		close(feedItemsDone)
 	}()
-	err = userService.ReadAllFeedItems(feedItemsChan)
+	err = h.db.ReadAllFeedItems(feedItemsChan)
 	if err != nil {
 		return nil, err
 	}
@@ -95,14 +95,14 @@ func GetAllItems(userService *data.UserService) ([]*Item, error) {
 			item := &Item{
 				Title:    "",
 				Origin:   title,
-				FetchURL: "api/items/" + escapeKeyForUrl(page.Config.CreateKey()),
+				FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),
 				SortDate: page.Updated,
 			}
 			items = append(items, item)
 		}
 		close(pagemonitorDone)
 	}()
-	err = userService.ReadAllPages(pagemonitorPageChan)
+	err = h.db.ReadAllPages(pagemonitorPageChan)
 	if err != nil {
 		return nil, err
 	}

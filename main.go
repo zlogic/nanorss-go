@@ -35,9 +35,9 @@ func createDefaultUser(db *data.DBService) {
 		return
 	}
 	log.Println("Creating default user")
-	defaultUser := data.User{}
+	defaultUser := data.NewUser("default")
 	defaultUser.SetPassword("default")
-	err = db.NewUserService("default").Save(&defaultUser)
+	err = db.SaveUser(defaultUser)
 	if err != nil {
 		log.Printf("Failed to save default user %v", err)
 		return
@@ -57,12 +57,18 @@ func serve(db *data.DBService) {
 	})
 
 	// Create the router and webserver
-	errs := make(chan error, 2)
-	router, err := server.CreateRouter(db)
+	services, err := server.CreateServices(db)
 	if err != nil {
-		errs <- err
+		fmt.Printf("Error while creating services %v", err)
+		return
+	}
+	router, err := server.CreateRouter(services)
+	if err != nil {
+		fmt.Printf("Error while creating services %v", err)
+		return
 	}
 
+	errs := make(chan error, 2)
 	go func() {
 		errs <- http.ListenAndServe(":8080", router)
 	}()
@@ -103,7 +109,6 @@ func restoreData(db *data.DBService) {
 }
 
 func main() {
-
 	// Init data layer
 	db, err := data.Open(data.DefaultOptions())
 	defer db.Close()

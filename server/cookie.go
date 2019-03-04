@@ -8,10 +8,9 @@ import (
 
 	"github.com/gorilla/securecookie"
 	"github.com/pkg/errors"
-	"github.com/zlogic/nanorss-go/data"
 )
 
-func getOrCreateKey(db *data.DBService, name string, length int) ([]byte, error) {
+func getOrCreateKey(db DB, name string, length int) ([]byte, error) {
 	hashKeyString, err := db.GetOrCreateConfigVariable(name, func() (string, error) {
 		key := securecookie.GenerateRandomKey(length)
 		return base64.StdEncoding.EncodeToString(key), nil
@@ -29,7 +28,7 @@ type CookieHandler struct {
 
 const AuthorizationCookie = "nanorss"
 
-func NewCookieHandler(db *data.DBService) (*CookieHandler, error) {
+func NewCookieHandler(db DB) (*CookieHandler, error) {
 	hashKey, err := getOrCreateKey(db, "cookie-hash-key", 64)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot get the hash key")
@@ -49,7 +48,7 @@ type UserCookie struct {
 	Authorized time.Time
 }
 
-func (handler *CookieHandler) newCookie() *http.Cookie {
+func (handler *CookieHandler) NewCookie() *http.Cookie {
 	return &http.Cookie{
 		Name:    AuthorizationCookie,
 		Value:   "",
@@ -61,7 +60,7 @@ func (handler *CookieHandler) newCookie() *http.Cookie {
 	}
 }
 
-func (handler *CookieHandler) setCookieUsername(cookie *http.Cookie, username string) error {
+func (handler *CookieHandler) SetCookieUsername(cookie *http.Cookie, username string) error {
 	currentTime := time.Now()
 	if username != "" {
 		encryptCookie := UserCookie{
@@ -93,7 +92,7 @@ func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request
 	}
 	if value.Authorized.Add(handler.cookieExpires).Before(time.Now()) {
 		// Cookie is valid but has expired
-		c := handler.newCookie()
+		c := handler.NewCookie()
 		http.SetCookie(w, c)
 		return ""
 	}

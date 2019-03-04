@@ -16,7 +16,7 @@ type User struct {
 	Password    string
 	Opml        string
 	Pagemonitor string
-	Username    string
+	username    string
 }
 
 type UserService struct {
@@ -36,11 +36,8 @@ type UserFeed struct {
 	Title string `xml:"title,attr"`
 }
 
-func (dbService *DBService) NewUserService(username string) *UserService {
-	return &UserService{
-		DBService: *dbService,
-		Username:  username,
-	}
+func NewUser(username string) *User {
+	return &User{username: username}
 }
 
 func (s *DBService) ReadAllUsers(ch chan *User) error {
@@ -66,7 +63,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 				continue
 			}
 
-			user := &User{Username: *username}
+			user := &User{username: *username}
 			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(&user)
 			if err != nil {
 				log.Printf("Failed to unmarshal value of user %v because of %v", k, err)
@@ -82,10 +79,10 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 	return nil
 }
 
-func (s *UserService) Get() (*User, error) {
-	user := &User{Username: s.Username}
+func (s *DBService) GetUser(username string) (*User, error) {
+	user := &User{username: username}
 	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(s.CreateKey())
+		item, err := txn.Get(user.CreateKey())
 		if err == badger.ErrKeyNotFound {
 			user = nil
 			return nil
@@ -102,22 +99,20 @@ func (s *UserService) Get() (*User, error) {
 		return err
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read User %v", s.Username)
+		return nil, errors.Wrapf(err, "Cannot read User %v", username)
 	}
 	return user, nil
 }
 
-func (s *UserService) Save(user *User) (err error) {
-	username := user.Username
-	defer func() { user.Username = username }()
-	user.Username = ""
+func (s *DBService) SaveUser(user *User) (err error) {
+	key := user.CreateKey()
 
 	var value bytes.Buffer
 	if err := gob.NewEncoder(&value).Encode(user); err != nil {
 		return errors.Wrap(err, "Cannot marshal user")
 	}
 	return s.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(s.CreateKey(), value.Bytes())
+		return txn.Set(key, value.Bytes())
 	})
 }
 
@@ -130,10 +125,11 @@ func (user *User) SetPassword(newPassword string) error {
 	return nil
 }
 
-func (s *UserService) SetUsername(newUsername string) error {
-	oldUsername := s.Username
+func (s *DBService) SetUsername(user *User, newUsername string) error {
+	newUser := *user
+	newUser.username = newUsername
 	err := s.db.Update(func(txn *badger.Txn) error {
-		oldUserKey := s.CreateKey()
+		oldUserKey := user.CreateKey()
 		item, err := txn.Get(oldUserKey)
 		if err != nil {
 			return err
@@ -142,20 +138,19 @@ func (s *UserService) SetUsername(newUsername string) error {
 		if err != nil {
 			return err
 		}
-		s.Username = newUsername
-		newUserKey := s.CreateKey()
+		newUserKey := newUser.CreateKey()
 		existingUser, err := txn.Get(newUserKey)
 		if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
 			return fmt.Errorf("New username %v is already in use", newUsername)
 		}
-		err = txn.Set(s.CreateKey(), value)
+		err = txn.Set(newUserKey, value)
 		if err != nil {
 			return err
 		}
 		return txn.Delete(oldUserKey)
 	})
-	if err != nil {
-		s.Username = oldUsername
+	if err == nil {
+		user.username = newUser.username
 	}
 	return err
 }

@@ -12,13 +12,13 @@ var backupUsers = []*User{
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
-		Username:    "user01",
+		username:    "user01",
 	},
 	&User{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
-		Username:    "user02",
+		username:    "user02",
 	},
 }
 
@@ -140,7 +140,7 @@ func TestBackup(t *testing.T) {
 	defer cleanup()
 
 	for _, user := range backupUsers {
-		dbService.NewUserService(user.Username).Save(user)
+		dbService.SaveUser(user)
 	}
 	dbService.SaveFeeditems(backupFeeditems...)
 	for _, page := range backupPagemonitor {

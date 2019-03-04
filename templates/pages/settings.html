@@ -85,9 +85,9 @@ $(document).ready(function() {
     var $form = $(this);
     $form.find("#saveFailed").prop("hidden", true);
     $form.find("#saveSuccessful").prop("hidden", true);
-    var postData = {username: username.val(), password: password.val(), opml: opml.val(), pagemonitor: pagemonitor.val()};
-    if(postData.password === null || postData.password === undefined || postData.password === '')
-      delete postData.password;
+    var postData = {Username: username.val(), Password: password.val(), Opml: opml.val(), Pagemonitor: pagemonitor.val()};
+    if(postData.Password === null || postData.Password === undefined || postData.Password === '')
+      delete postData.Password;
     // Send data
     $.post("api/configuration", postData)
     .done(function(data) {

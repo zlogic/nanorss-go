@@ -18,6 +18,7 @@ func (fs staticResourceFileSystem) Open(name string) (http.File, error) {
 
 	if d, err := f.Stat(); err == nil {
 		if d.IsDir() {
+			defer f.Close()
 			return nil, os.ErrNotExist
 		}
 	}

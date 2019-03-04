@@ -13,7 +13,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/zlogic/nanorss-go/data"
-	"github.com/zlogic/nanorss-go/fetcher"
 )
 
 func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
@@ -21,7 +20,25 @@ func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
 	http.Error(w, "Bad credentials", http.StatusUnauthorized)
 }
 
-func LoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func validateUserForApi(w http.ResponseWriter, r *http.Request, s *Services) *data.User {
+	username := s.cookieHandler.GetUsername(w, r)
+	if username == "" {
+		http.Error(w, "Bad credentials", http.StatusUnauthorized)
+		return nil
+	}
+
+	user, err := s.db.GetUser(username)
+	if err != nil {
+		handleError(w, r, err)
+		return nil
+	}
+	if user == nil {
+		handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
+	}
+	return user
+}
+
+func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {
@@ -37,8 +54,7 @@ func LoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 			rememberMe = false
 		}
 
-		userService := s.db.NewUserService(username)
-		user, err := userService.Get()
+		user, err := s.db.GetUser(username)
 		if err != nil {
 			handleError(w, r, err)
 			return
@@ -52,8 +68,8 @@ func LoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 			handleBadCredentials(w, r, errors.Wrapf(err, "Invalid password for user %v", username))
 			return
 		}
-		cookie := s.cookieHandler.newCookie()
-		s.cookieHandler.setCookieUsername(cookie, username)
+		cookie := s.cookieHandler.NewCookie()
+		s.cookieHandler.SetCookieUsername(cookie, username)
 		if !rememberMe {
 			cookie.Expires = time.Time{}
 			cookie.MaxAge = 0
@@ -66,15 +82,14 @@ func LoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func FeedHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		username := validateUser(w, r, s)
-		if username == "" {
+		user := validateUserForApi(w, r, s)
+		if user == nil {
 			return
 		}
-		userService := s.db.NewUserService(username)
 
-		items, err := GetAllItems(userService)
+		items, err := s.feedListHelper.GetAllItems(user)
 		if items == nil {
 			items = make([]*Item, 0)
 		}
@@ -90,11 +105,11 @@ func FeedHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func FeedItemHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// There are no secrets, but still better check we have a valid user
-		username := validateUser(w, r, s)
-		if username == "" {
+		user := validateUserForApi(w, r, s)
+		if user == nil {
 			return
 		}
 
@@ -117,6 +132,9 @@ func FeedItemHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Failed to parse feed item key %v", err)
 					return nil
 				}
+				if feedItem == nil {
+					return nil
+				}
 				return &clientFeedItem{
 					Contents:  feedItem.Contents,
 					Date:      feedItem.Date,
@@ -132,6 +150,9 @@ func FeedItemHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 				pagemonitorPage, err := s.db.GetPage(pagemonitorKey)
 				if err != nil {
 					log.Printf("Failed to parse pagemonitor page key %v", err)
+					return nil
+				}
+				if pagemonitorPage == nil {
 					return nil
 				}
 				// Bootstrap automatically handles line endings
@@ -160,7 +181,7 @@ func FeedItemHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func SettingsHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := s.cookieHandler.GetUsername(w, r)
 		if username == "" {
@@ -168,10 +189,13 @@ func SettingsHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		userService := s.db.NewUserService(username)
-		user, err := userService.Get()
+		user, err := s.db.GetUser(username)
 		if err != nil {
 			handleError(w, r, err)
+			return
+		}
+		if user == nil {
+			handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
 			return
 		}
 
@@ -181,53 +205,62 @@ func SettingsHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			newUsername := r.Form.Get("username")
+			newPassword := r.Form.Get("Password")
+			if newPassword != "" {
+				user.SetPassword(newPassword)
+			}
+			user.Opml = r.Form.Get("Opml")
+			user.Pagemonitor = r.Form.Get("Pagemonitor")
+
+			newUsername := r.Form.Get("Username")
 			if username != newUsername {
-				err := userService.SetUsername(newUsername)
+				err := s.db.SetUsername(user, newUsername)
 				if err != nil {
 					handleError(w, r, err)
 					return
 				}
+				username = newUsername
 				// Force logout
-				cookie := s.cookieHandler.newCookie()
+				cookie := s.cookieHandler.NewCookie()
 				http.SetCookie(w, cookie)
-			}
-			newPassword := r.Form.Get("password")
-			if newPassword != "" {
-				user.SetPassword(newPassword)
-			}
-			user.Opml = r.Form.Get("opml")
-			user.Pagemonitor = r.Form.Get("pagemonitor")
-
-			if err := userService.Save(user); err != nil {
+			} else if err := s.db.SaveUser(user); err != nil {
 				handleError(w, r, err)
 				return
 			}
 
 			//Reload user to return updated values
-			user, err = userService.Get()
+			user, err = s.db.GetUser(newUsername)
 			if err != nil {
 				handleError(w, r, err)
 				return
 			}
 		}
 
-		user.Password = ""
-		if err := json.NewEncoder(w).Encode(user); err != nil {
+		type clientUser struct {
+			Username    string
+			Opml        string
+			Pagemonitor string
+		}
+
+		returnUser := &clientUser{Username: username, Opml: user.Opml, Pagemonitor: user.Pagemonitor}
+
+		if err := json.NewEncoder(w).Encode(returnUser); err != nil {
 			handleError(w, r, err)
 		}
 	}
 }
 
-func RefreshHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		username := s.cookieHandler.GetUsername(w, r)
-		if username == "" {
-			handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
+		user := validateUserForApi(w, r, s)
+		if user == nil {
 			return
 		}
 
-		fetcher := fetcher.NewFetcher(s.db)
-		fetcher.Refresh()
+		s.fetcher.Refresh()
+
+		if _, err := io.WriteString(w, "OK"); err != nil {
+			log.Printf("Failed to write response %v", err)
+		}
 	}
 }

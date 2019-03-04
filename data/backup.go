@@ -12,6 +12,7 @@ import (
 
 type BackupUser struct {
 	User
+	Username string
 }
 
 type BackupFeeditem struct {
@@ -38,8 +39,7 @@ func (service *DBService) Backup() (string, error) {
 	userChan := make(chan *User)
 	go func() {
 		for user := range userChan {
-			backupUser := &BackupUser{User: *user}
-			user.Username = ""
+			backupUser := &BackupUser{User: *user, Username: user.username}
 			data.Users = append(data.Users, backupUser)
 		}
 		done <- true
@@ -108,7 +108,8 @@ func (service *DBService) Restore(value string) error {
 	}
 
 	for _, user := range data.Users {
-		if err := service.NewUserService(user.Username).Save(&user.User); err != nil {
+		user.username = user.Username
+		if err := service.SaveUser(&user.User); err != nil {
 			failed = true
 			log.Printf("Error saving user %v %v", user, err)
 		}

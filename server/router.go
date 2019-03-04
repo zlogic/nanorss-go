@@ -4,38 +4,25 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/zlogic/nanorss-go/data"
-
 	"github.com/gorilla/mux"
 )
 
-type services struct {
-	db            *data.DBService
-	cookieHandler *CookieHandler
-}
-
-func CreateRouter(db *data.DBService) (*mux.Router, error) {
+func CreateRouter(s *Services) (*mux.Router, error) {
 	r := mux.NewRouter()
-	cookieHandler, err := NewCookieHandler(db)
-	if err != nil {
-		return nil, err
-	}
-	services := services{db: db, cookieHandler: cookieHandler}
-	r.HandleFunc("/", RootHandler(&services)).Methods("GET")
-	r.HandleFunc("/login", HtmlLoginHandler(&services)).Methods("GET")
-	r.HandleFunc("/logout", LogoutHandler(&services)).Methods("GET")
-	r.HandleFunc("/feed", HtmlFeedHandler(&services)).Methods("GET").Name("feed")
-	r.HandleFunc("/settings", HtmlSettingsHandler(&services)).Methods("GET").Name("settings")
-	//r.PathPrefix("/app", RootHandler)
+	r.HandleFunc("/", RootHandler(s)).Methods("GET")
+	r.HandleFunc("/login", HtmlLoginHandler(s)).Methods("GET")
+	r.HandleFunc("/logout", LogoutHandler(s)).Methods("GET")
+	r.HandleFunc("/feed", HtmlFeedHandler(s)).Methods("GET").Name("feed")
+	r.HandleFunc("/settings", HtmlSettingsHandler(s)).Methods("GET").Name("settings")
 	r.HandleFunc("/favicon.ico", FaviconHandler)
 	fs := http.FileServer(staticResourceFileSystem{http.Dir("static")})
 	r.PathPrefix("/static/").Handler(http.StripPrefix(strings.TrimRight("/static", "/"), fs))
 
 	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/login", LoginHandler(&services)).Methods("POST")
-	api.HandleFunc("/configuration", SettingsHandler(&services)).Methods("GET", "POST")
-	api.HandleFunc("/feed", FeedHandler(&services)).Methods("GET")
-	api.HandleFunc("/items/{key}", FeedItemHandler(&services)).Methods("GET")
-	api.HandleFunc("/refresh", RefreshHandler(&services)).Methods("GET")
+	api.HandleFunc("/login", LoginHandler(s)).Methods("POST")
+	api.HandleFunc("/configuration", SettingsHandler(s)).Methods("GET", "POST")
+	api.HandleFunc("/feed", FeedHandler(s)).Methods("GET")
+	api.HandleFunc("/items/{key}", FeedItemHandler(s)).Methods("GET")
+	api.HandleFunc("/refresh", RefreshHandler(s)).Methods("GET")
 	return r, nil
 }

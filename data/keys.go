@@ -33,8 +33,8 @@ func DecodeLastSeenKey(lastSeenKey []byte) []byte {
 
 const UserKeyPrefix = "user" + separator
 
-func (s *UserService) CreateKey() []byte {
-	return []byte(UserKeyPrefix + s.Username)
+func (user *User) CreateKey() []byte {
+	return []byte(UserKeyPrefix + user.username)
 }
 
 func DecodeUserKey(key []byte) (*string, error) {

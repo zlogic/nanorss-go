@@ -16,7 +16,7 @@ func handleError(w http.ResponseWriter, r *http.Request, err error) {
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 
-func validateUser(w http.ResponseWriter, r *http.Request, s *services) string {
+func validateUser(w http.ResponseWriter, r *http.Request, s *Services) string {
 	username := s.cookieHandler.GetUsername(w, r)
 	if username == "" {
 		http.Redirect(w, r, "login", http.StatusSeeOther)
@@ -34,7 +34,7 @@ type viewData struct {
 	Name     string
 }
 
-func RootHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func RootHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := s.cookieHandler.GetUsername(w, r)
 		var url string
@@ -47,9 +47,9 @@ func RootHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func LogoutHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func LogoutHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		cookie := s.cookieHandler.newCookie()
+		cookie := s.cookieHandler.NewCookie()
 		http.SetCookie(w, cookie)
 		http.Redirect(w, r, "login", http.StatusSeeOther)
 	}
@@ -59,7 +59,7 @@ func FaviconHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, path.Join("static", "favicon.ico"))
 }
 
-func HtmlLoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func HtmlLoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := s.cookieHandler.GetUsername(w, r)
 		if username != "" {
@@ -75,14 +75,13 @@ func HtmlLoginHandler(s *services) func(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func HtmlFeedHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func HtmlFeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := validateUser(w, r, s)
 		if username == "" {
 			return
 		}
-		userService := s.db.NewUserService(username)
-		user, err := userService.Get()
+		user, err := s.db.GetUser(username)
 		if err != nil {
 			handleError(w, r, err)
 			return
@@ -93,14 +92,13 @@ func HtmlFeedHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func HtmlSettingsHandler(s *services) func(w http.ResponseWriter, r *http.Request) {
+func HtmlSettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := validateUser(w, r, s)
 		if username == "" {
 			return
 		}
-		userService := s.db.NewUserService(username)
-		user, err := userService.Get()
+		user, err := s.db.GetUser(username)
 		if err != nil {
 			handleError(w, r, err)
 			return

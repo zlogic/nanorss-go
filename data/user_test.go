@@ -8,13 +8,17 @@ import (
 
 const defaultUsername = "default"
 
+func TestNewUser(t *testing.T) {
+	user := NewUser("user01")
+	assert.Equal(t, &User{username: "user01"}, user)
+}
+
 func TestGetUserEmpty(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
-	userService := dbService.NewUserService(defaultUsername)
 
-	user, err := userService.Get()
+	user, err := dbService.GetUser(defaultUsername)
 	assert.NoError(t, err)
 	assert.Nil(t, user)
 }
@@ -23,18 +27,18 @@ func TestCreateGetUser(t *testing.T) {
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
 	defer cleanup()
-	userService := dbService.NewUserService(defaultUsername)
 	assert.NoError(t, err)
 
 	user := &User{
 		Password:    "password",
 		Opml:        "opml",
 		Pagemonitor: "pagemonitor",
+		username:    "user01",
 	}
-	err = userService.Save(user)
+	err = dbService.SaveUser(user)
 	assert.NoError(t, err)
 
-	user, err = userService.Get()
+	user, err = dbService.GetUser("user01")
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
 	assert.Equal(t, "password", user.Password)
@@ -51,17 +55,17 @@ func TestReadAllUsers(t *testing.T) {
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
-		Username:    "user01",
+		username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
-		Username:    "user02",
+		username:    "user02",
 	}
 	users := []User{user1, user2}
 	for _, user := range users {
-		err = dbService.NewUserService(user.Username).Save(&user)
+		err = dbService.SaveUser(&user)
 		assert.NoError(t, err)
 	}
 
@@ -103,19 +107,17 @@ func TestSetUsername(t *testing.T) {
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
-		Username:    "user01",
+		username:    "user01",
 	}
 	users := []*User{&user}
-	userService := dbService.NewUserService(user.Username)
-	err = userService.Save(&user)
+	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
-	err = userService.SetUsername("user02")
+	err = dbService.SetUsername(&user, "user02")
 	assert.NoError(t, err)
-	assert.Equal(t, "user02", userService.Username)
+	assert.Equal(t, "user02", user.username)
 
-	user.Username = "user02"
-	dbUser, err := userService.Get()
+	dbUser, err := dbService.GetUser(user.username)
 	assert.Equal(t, user, *dbUser)
 
 	dbUsers := []*User{}
@@ -142,30 +144,28 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
-		Username:    "user01",
+		username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
-		Username:    "user02",
+		username:    "user02",
 	}
 	users := []User{user1, user2}
-	userService1 := dbService.NewUserService(user1.Username)
-	userService2 := dbService.NewUserService(user2.Username)
-	err = userService1.Save(&user1)
+	err = dbService.SaveUser(&user1)
 	assert.NoError(t, err)
-	err = userService2.Save(&user2)
+	err = dbService.SaveUser(&user2)
 	assert.NoError(t, err)
 
-	err = userService1.SetUsername("user02")
+	err = dbService.SetUsername(&user1, "user02")
 	assert.Error(t, err)
-	assert.Equal(t, "user01", userService1.Username)
+	assert.Equal(t, "user01", user1.username)
 
-	dbUser1, err := userService1.Get()
+	dbUser1, err := dbService.GetUser("user01")
 	assert.Equal(t, user1, *dbUser1)
 
-	dbUser2, err := userService2.Get()
+	dbUser2, err := dbService.GetUser("user02")
 	assert.Equal(t, user2, *dbUser2)
 
 	dbUsers := []User{}
