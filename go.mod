@@ -19,9 +19,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
 	github.com/stretchr/testify v1.3.0
-	golang.org/x/crypto v0.0.0-20190225124518-7f87c0fbb88b
-	golang.org/x/net v0.0.0-20190226215741-afe646ca25a4 // indirect
-	golang.org/x/sys v0.0.0-20190226215855-775f8194d0f9 // indirect
+	golang.org/x/crypto v0.0.0-20190228161510-8dd112bcdc25
+	golang.org/x/net v0.0.0-20190301231341-16b79f2e4e95 // indirect
 	golang.org/x/text v0.3.0 // indirect
 	gopkg.in/h2non/gock.v1 v1.0.14
 )

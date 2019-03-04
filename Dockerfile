@@ -14,7 +14,7 @@ RUN apk add --no-cache --update build-base git
 RUN go test ./...
 
 # Build app
-RUN go build && \
+RUN go build -ldflags="-s -w" && \
   mkdir /usr/src/nanorss/dist && \
   cp -r nanorss-go static templates /usr/src/nanorss/dist
 
