@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"encoding/xml"
 	"fmt"
+	"strings"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
@@ -126,6 +127,10 @@ func (user *User) SetPassword(newPassword string) error {
 }
 
 func (s *DBService) SetUsername(user *User, newUsername string) error {
+	newUsername = strings.TrimSpace(newUsername)
+	if newUsername == "" {
+		return fmt.Errorf("Cannot set username to an empty string")
+	}
 	newUser := *user
 	newUser.username = newUsername
 	err := s.db.Update(func(txn *badger.Txn) error {

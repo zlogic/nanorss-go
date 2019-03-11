@@ -183,6 +183,42 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 	assert.EqualValues(t, users, dbUsers)
 }
 
+func TestSetUsernameEmptyString(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	user := User{
+		Password:    "pass1",
+		Opml:        "opml1",
+		Pagemonitor: "pagemonitor1",
+		username:    "user01",
+	}
+	users := []*User{&user}
+	err = dbService.SaveUser(&user)
+	assert.NoError(t, err)
+
+	err = dbService.SetUsername(&user, "  ")
+	assert.Error(t, err)
+
+	dbUser, err := dbService.GetUser(user.username)
+	assert.Equal(t, user, *dbUser)
+
+	dbUsers := []*User{}
+	ch := make(chan *User)
+	done := make(chan bool)
+	go func() {
+		for user := range ch {
+			dbUsers = append(dbUsers, user)
+		}
+		close(done)
+	}()
+	err = dbService.ReadAllUsers(ch)
+	<-done
+	assert.NoError(t, err)
+	assert.EqualValues(t, users, dbUsers)
+}
+
 func TestParsePagemonitor(t *testing.T) {
 	user := &User{Pagemonitor: `<pages>` +
 		`<page url="https://site1.com" match="m1" replace="r1">Page 1</page>` +

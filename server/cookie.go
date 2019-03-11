@@ -80,7 +80,10 @@ func (handler *CookieHandler) SetCookieUsername(cookie *http.Cookie, username st
 
 func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request) string {
 	cookie, err := r.Cookie(AuthorizationCookie)
-	if err != nil {
+	if err == http.ErrNoCookie {
+		// Cookie not set
+		return ""
+	} else if err != nil {
 		log.WithField("cookie", AuthorizationCookie).WithError(err).Error("Failed to read cookie")
 		return ""
 	}
