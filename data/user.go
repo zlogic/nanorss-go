@@ -5,10 +5,10 @@ import (
 	"encoding/gob"
 	"encoding/xml"
 	"fmt"
-	"log"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -53,20 +53,20 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 
 			username, err := DecodeUserKey(k)
 			if err != nil {
-				log.Printf("Failed to decode username of user %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
 				continue
 			}
 
 			v, err := item.Value()
 			if err != nil {
-				log.Printf("Failed to read value of user %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
 				continue
 			}
 
 			user := &User{username: *username}
 			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(&user)
 			if err != nil {
-				log.Printf("Failed to unmarshal value of user %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to unmarshal value of user")
 				continue
 			}
 			ch <- user

@@ -3,7 +3,6 @@ package fetcher
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"regexp"
 	"time"
@@ -11,13 +10,14 @@ import (
 	"github.com/jaytaylor/html2text"
 	"github.com/pkg/errors"
 	"github.com/pmezard/go-difflib/difflib"
+	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
 
 func (fetcher *Fetcher) getPreviousResult(config *data.UserPagemonitor) *data.PagemonitorPage {
 	page, err := fetcher.DB.GetPage(config)
 	if err != nil {
-		log.Printf("Failed to fetch previous result %v for %v", err, config)
+		log.WithField("page", config).WithError(err).Error("Failed to fetch previous result")
 	}
 	if page == nil {
 		return &data.PagemonitorPage{}
@@ -87,7 +87,7 @@ func (fetcher *Fetcher) FetchAllPages() error {
 		for user := range ch {
 			pages, err := user.GetPages()
 			if err != nil {
-				log.Printf("Failed to get pages %v", err)
+				log.WithError(err).Error("Failed to get pages")
 				failed = true
 				continue
 			}
@@ -97,7 +97,7 @@ func (fetcher *Fetcher) FetchAllPages() error {
 				go func(config data.UserPagemonitor, index int) {
 					err := fetcher.FetchPage(&config)
 					if err != nil {
-						log.Printf("Failed to get page %v %v", config, err)
+						log.WithField("page", config).WithError(err).Error("Failed to get page")
 						failed = true
 					}
 					completed <- index

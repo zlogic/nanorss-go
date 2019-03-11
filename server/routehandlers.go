@@ -1,18 +1,17 @@
 package server
 
 import (
-	"log"
 	"net/http"
 	"path"
 	"text/template"
 
 	"github.com/gorilla/mux"
-
+	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
 
 func handleError(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("Error while handling request %v", err)
+	log.WithError(err).Error("Error while handling request")
 	http.Error(w, "Internal server error", http.StatusInternalServerError)
 }
 

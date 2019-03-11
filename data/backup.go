@@ -3,9 +3,9 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 // This should be separate from regular data classes in case the structures change and we need to restore data from an older version
@@ -111,7 +111,7 @@ func (service *DBService) Restore(value string) error {
 		user.username = user.Username
 		if err := service.SaveUser(&user.User); err != nil {
 			failed = true
-			log.Printf("Error saving user %v %v", user, err)
+			log.WithField("user", user).WithError(err).Printf("Error saving user")
 		}
 	}
 	convertFeeditems := func() []*Feeditem {
@@ -125,19 +125,19 @@ func (service *DBService) Restore(value string) error {
 	}
 	if err := service.SaveFeeditems(convertFeeditems()...); err != nil {
 		failed = true
-		log.Printf("Error saving feed items %v", err)
+		log.WithError(err).Error("Error saving feed items")
 	}
 	for _, page := range data.Pagemonitor {
 		page.Config = &page.UserPagemonitor
 		if err := service.SavePage(&page.PagemonitorPage); err != nil {
 			failed = true
-			log.Printf("Error saving page %v %v", page, err)
+			log.WithField("page", page).WithError(err).Error("Error saving page")
 		}
 	}
 	for key, value := range data.ServerConfig {
 		if err := service.SetConfigVariable(key, value); err != nil {
 			failed = true
-			log.Printf("Error saving config variable %v %v %v", key, value, err)
+			log.WithField("key", key).WithField("value", value).WithError(err).Error("Error saving config variable")
 		}
 	}
 	if failed {

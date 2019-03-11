@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -13,6 +12,8 @@ import (
 	"github.com/zlogic/nanorss-go/fetcher"
 	"github.com/zlogic/nanorss-go/server"
 	"github.com/zlogic/nanorss-go/worker"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func createDefaultUser(db *data.DBService) {
@@ -20,26 +21,26 @@ func createDefaultUser(db *data.DBService) {
 	done := make(chan bool)
 	haveUsers := false
 	go func() {
-		for _ = range ch {
+		for range ch {
 			haveUsers = true
 		}
 		close(done)
 	}()
 	err := db.ReadAllUsers(ch)
 	if err != nil {
-		log.Printf("Failed to check users %v", err)
+		log.WithError(err).Error("Failed to check users")
 		return
 	}
 	<-done
 	if haveUsers {
 		return
 	}
-	log.Println("Creating default user")
+	log.Warn("Creating default user")
 	defaultUser := data.NewUser("default")
 	defaultUser.SetPassword("default")
 	err = db.SaveUser(defaultUser)
 	if err != nil {
-		log.Printf("Failed to save default user %v", err)
+		log.WithError(err).Error("Failed to save default user")
 		return
 	}
 }
@@ -59,12 +60,12 @@ func serve(db *data.DBService) {
 	// Create the router and webserver
 	services, err := server.CreateServices(db)
 	if err != nil {
-		fmt.Printf("Error while creating services %v", err)
+		log.WithError(err).Error("Error while creating services")
 		return
 	}
 	router, err := server.CreateRouter(services)
 	if err != nil {
-		fmt.Printf("Error while creating services %v", err)
+		log.WithError(err).Error("Error while creating services")
 		return
 	}
 
@@ -87,13 +88,13 @@ const backupFilename = "nanorss.json"
 func backupData(db *data.DBService) {
 	data, err := db.Backup()
 	if err != nil {
-		log.Fatalf("Failed to back up json %v", err)
+		log.WithError(err).Fatal("Failed to back up json")
 	}
 	err = ioutil.WriteFile(backupFilename, []byte(data), 0644)
 	if err != nil {
-		log.Fatalf("Failed to write file %v", err)
+		log.WithError(err).Fatal("Failed to write file")
 	}
-	fmt.Printf("Backed up to %v\n", backupFilename)
+	log.WithField("filename", backupFilename).Info("Backed up")
 }
 
 func restoreData(db *data.DBService) {
@@ -105,7 +106,7 @@ func restoreData(db *data.DBService) {
 	if err != nil {
 		log.Fatalf("Failed to restore data %v", err)
 	}
-	fmt.Printf("Restored from %v\n", backupFilename)
+	log.WithField("filename", backupFilename).Info("Restored")
 }
 
 func main() {

@@ -3,11 +3,11 @@ package data
 import (
 	"bytes"
 	"encoding/gob"
-	"log"
 	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type PagemonitorPage struct {
@@ -89,7 +89,7 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 
 		previousValue, err := getPreviousValue()
 		if err != nil {
-			log.Printf("Failed to read previous value of page %v %v", string(key), err)
+			log.WithField("key", key).WithError(err).Error("Failed to read previous value of page")
 		}
 		if bytes.Equal(value, previousValue) {
 			// Avoid writing to the database if nothing has changed
@@ -111,19 +111,19 @@ func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 			k := item.Key()
 			pm, err := DecodePagemonitorKey(k)
 			if err != nil {
-				log.Printf("Failed to decode key of item %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
 				continue
 			}
 
 			v, err := item.Value()
 			if err != nil {
-				log.Printf("Failed to read value of item %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
 				continue
 			}
 			page := &PagemonitorPage{Config: pm}
 			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(page)
 			if err != nil {
-				log.Printf("Failed to unmarshal value of item %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to unmarshal value of item")
 				continue
 			}
 			ch <- page

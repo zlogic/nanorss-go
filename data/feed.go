@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type FeeditemKey struct {
@@ -105,12 +105,12 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 
 			previousValue, err := getPreviousValue(key)
 			if err != nil {
-				log.Printf("Cannot get previous value for item %v %v", key, err)
+				log.WithField("key", key).WithError(err).Error("Cannot get previous value for item")
 			}
 
 			previousTimeUpdated, err := getPreviousUpdatedTime(previousValue)
 			if err != nil {
-				log.Printf("Failed to read previous updated time %v %v", key, err)
+				log.WithField("key", key).WithError(err).Error("Failed to read previous updated time")
 			} else if previousTimeUpdated != nil {
 				feedItem.Updated = *previousTimeUpdated
 			}
@@ -152,19 +152,19 @@ func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
 			k := item.Key()
 			key, err := DecodeFeeditemKey(k)
 			if err != nil {
-				log.Printf("Failed to decode key of item %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
 				continue
 			}
 
 			v, err := item.Value()
 			if err != nil {
-				log.Printf("Failed to read value of item %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
 				continue
 			}
 			feedItem := &Feeditem{Key: key}
 			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(feedItem)
 			if err != nil {
-				log.Printf("Failed to unmarshal value of item %v because of %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to unmarshal value of item")
 				continue
 			}
 			ch <- feedItem

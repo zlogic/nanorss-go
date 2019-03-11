@@ -1,9 +1,9 @@
 package fetcher
 
 import (
-	"fmt"
-	"log"
 	"net/http"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -30,14 +30,14 @@ func (fetcher *Fetcher) Refresh() {
 	}
 	errPagemonitor := fetcher.FetchAllPages()
 	if errPagemonitor != nil {
-		log.Println("Failed to fetch at least one page")
+		log.Error("Failed to fetch at least one page")
 	} else {
-		fmt.Println("Pages fetched successfully")
+		log.Info("Pages fetched successfully")
 	}
 	errFeed := fetcher.FetchAllFeeds()
 	if errFeed != nil {
-		log.Println("Failed to fetch at least one feed")
+		log.Error("Failed to fetch at least one feed")
 	} else {
-		fmt.Println("Feeds fetched successfully")
+		log.Info("Feeds fetched successfully")
 	}
 }

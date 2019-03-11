@@ -2,11 +2,11 @@ package data
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 type LastSeen struct {
@@ -52,7 +52,7 @@ func (s *DBService) DeleteExpiredItems() error {
 			v, err := item.Value()
 			if err != nil {
 				failed = true
-				log.Printf("Failed to get last seen time %v %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to get last seen time")
 				continue
 			}
 
@@ -60,7 +60,7 @@ func (s *DBService) DeleteExpiredItems() error {
 			err = lastSeen.UnmarshalBinary(v)
 			if err != nil {
 				failed = true
-				log.Printf("Failed to unmarshal time %v %v", v, err)
+				log.WithField("value", v).WithError(err).Error("Failed to unmarshal time")
 				continue
 			}
 
@@ -72,13 +72,13 @@ func (s *DBService) DeleteExpiredItems() error {
 			err = txn.Delete(itemKey)
 			if err != nil {
 				failed = true
-				log.Printf("Failed to delete expired item %v %v", itemKey, err)
+				log.WithField("key", itemKey).WithError(err).Error("Failed to delete expired item")
 			}
 
 			err = txn.Delete(k)
 			if err != nil {
 				failed = true
-				log.Printf("Failed to delete item expiration time %v %v", k, err)
+				log.WithField("key", k).WithError(err).Error("Failed to delete item expiration time")
 			}
 			return nil
 		}

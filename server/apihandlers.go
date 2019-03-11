@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,11 +11,12 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
 
 func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
-	log.Printf("Bad credentials for user %v", err)
+	log.WithError(err).Error("Bad credentials for user")
 	http.Error(w, "Bad credentials", http.StatusUnauthorized)
 }
 
@@ -50,7 +50,7 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		password := r.Form.Get("password")
 		rememberMe, err := strconv.ParseBool(r.Form.Get("rememberMe"))
 		if err != nil {
-			log.Printf("Failed to parse rememberMe parameter %v", err)
+			log.WithError(err).Error("Failed to parse rememberMe parameter")
 			rememberMe = false
 		}
 
@@ -77,7 +77,7 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, cookie)
 		_, err = io.WriteString(w, "OK")
 		if err != nil {
-			log.Printf("Failed to write response %v", err)
+			log.WithError(err).Error("Failed to write response")
 		}
 	}
 }
@@ -124,12 +124,12 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(key, data.FeeditemKeyPrefix) {
 				feeditemKey, err := data.DecodeFeeditemKey([]byte(key))
 				if err != nil {
-					log.Printf("Failed to parse feed item key %v", err)
+					log.WithField("key", key).WithError(err).Error("Failed to parse feed item key")
 					return nil
 				}
 				feedItem, err := s.db.GetFeeditem(feeditemKey)
 				if err != nil {
-					log.Printf("Failed to parse feed item key %v", err)
+					log.WithField("key", key).WithError(err).Error("Failed to get feed item")
 					return nil
 				}
 				if feedItem == nil {
@@ -144,12 +144,12 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			} else if strings.HasPrefix(key, data.PagemonitorKeyPrefix) {
 				pagemonitorKey, err := data.DecodePagemonitorKey([]byte(key))
 				if err != nil {
-					log.Printf("Failed to parse pagemonitor page key %v", err)
+					log.WithField("key", key).WithError(err).Error("Failed to parse pagemonitor page key")
 					return nil
 				}
 				pagemonitorPage, err := s.db.GetPage(pagemonitorKey)
 				if err != nil {
-					log.Printf("Failed to parse pagemonitor page key %v", err)
+					log.WithField("key", key).WithError(err).Error("Failed to get pagemonitor page")
 					return nil
 				}
 				if pagemonitorPage == nil {
@@ -163,7 +163,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 					Plaintext: true,
 				}
 			}
-			log.Printf("Unknown item key format %v", key)
+			log.WithField("key", key).Error("Unknown item key format")
 			return nil
 		}
 
@@ -260,7 +260,7 @@ func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		s.fetcher.Refresh()
 
 		if _, err := io.WriteString(w, "OK"); err != nil {
-			log.Printf("Failed to write response %v", err)
+			log.WithError(err).Error("Failed to write response")
 		}
 	}
 }

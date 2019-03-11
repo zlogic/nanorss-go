@@ -2,12 +2,12 @@ package server
 
 import (
 	"encoding/base64"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/securecookie"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 )
 
 func getOrCreateKey(db DB, name string, length int) ([]byte, error) {
@@ -81,13 +81,13 @@ func (handler *CookieHandler) SetCookieUsername(cookie *http.Cookie, username st
 func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request) string {
 	cookie, err := r.Cookie(AuthorizationCookie)
 	if err != nil {
-		log.Printf("Failed to read cookie %v %v", cookie, err)
+		log.WithField("cookie", AuthorizationCookie).WithError(err).Error("Failed to read cookie")
 		return ""
 	}
 	value := UserCookie{}
 	err = handler.secureCookie.Decode(AuthorizationCookie, cookie.Value, &value)
 	if err != nil {
-		log.Printf("Failed to decrypt cookie %v %v", cookie, err)
+		log.WithField("cookie", cookie).WithError(err).Error("Failed to decrypt cookie")
 		return ""
 	}
 	if value.Authorized.Add(handler.cookieExpires).Before(time.Now()) {

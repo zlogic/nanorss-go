@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/base64"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 
@@ -95,8 +94,7 @@ func prepareTempDir() (string, func(), error) {
 	}
 	recover = func() {
 		os.Chdir(currentDir)
-		err := os.RemoveAll(tempDir)
-		log.Println(err)
+		os.RemoveAll(tempDir)
 	}
 	err = os.Chdir(tempDir)
 	return tempDir, recover, err

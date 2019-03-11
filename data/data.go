@@ -1,11 +1,11 @@
 package data
 
 import (
-	"log"
 	"os"
 	"path"
 
 	"github.com/dgraph-io/badger"
+	log "github.com/sirupsen/logrus"
 )
 
 func DefaultOptions() badger.Options {
@@ -26,7 +26,7 @@ type DBService struct {
 }
 
 func Open(options badger.Options) (*DBService, error) {
-	log.Print("Opening database in ", options.Dir)
+	log.WithField("dir", options.Dir).Info("Opening database")
 	db, err := badger.Open(options)
 	if err != nil {
 		return nil, err
@@ -36,11 +36,12 @@ func Open(options badger.Options) (*DBService, error) {
 
 func (service *DBService) GC() {
 	service.DeleteExpiredItems()
-	service.db.RunValueLogGC(0.5)
+	err := service.db.RunValueLogGC(0.5)
+	log.WithField("result", err).Info("Cleaned up database")
 }
 
 func (service *DBService) Close() {
-	log.Println("Closing database")
+	log.Info("Closing database")
 	if service != nil && service.db != nil {
 		err := service.db.Close()
 		if err != nil {

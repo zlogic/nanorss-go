@@ -1,10 +1,11 @@
 package worker
 
 import (
-	"log"
 	"os"
 	"strconv"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func createTicker() *time.Ticker {
@@ -15,7 +16,7 @@ func createTicker() *time.Ticker {
 	}
 	interval, err := strconv.Atoi(intervalStr)
 	if err != nil {
-		log.Printf("Cannot parse refresh interval duration %v %v", intervalStr, interval)
+		log.WithField("duration", intervalStr).WithError(err).Error("Cannot parse refresh interval duration")
 	}
 
 	return time.NewTicker(time.Duration(interval) * time.Minute)

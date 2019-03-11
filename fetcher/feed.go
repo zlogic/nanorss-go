@@ -2,12 +2,12 @@ package fetcher
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/mmcdole/gofeed"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
 
@@ -75,7 +75,7 @@ func (fetcher *Fetcher) FetchAllFeeds() error {
 		for user := range ch {
 			feeds, err := user.GetFeeds()
 			if err != nil {
-				log.Printf("Failed to get feeds %v", err)
+				log.WithError(err).Error("Failed to get feeds")
 				failed = true
 				continue
 			}
@@ -85,7 +85,7 @@ func (fetcher *Fetcher) FetchAllFeeds() error {
 				go func(config data.UserFeed, index int) {
 					err := fetcher.FetchFeed(config.URL)
 					if err != nil {
-						log.Printf("Failed to get feed %v %v", config, err)
+						log.WithField("feed", config).WithError(err).Error("Failed to get feed")
 						failed = true
 					}
 					completed <- index
