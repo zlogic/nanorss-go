@@ -19,7 +19,7 @@ RUN go build -ldflags="-s -w" && \
   cp -r nanorss-go static templates /usr/src/nanorss/dist
 
 # Copy into a fresh image
-FROM alpine:3.8
+FROM alpine:3.9
 
 COPY --from=builder /usr/src/nanorss/dist /usr/local/nanorss
 
