@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gorilla/handlers"
 	"github.com/zlogic/nanorss-go/data"
 	"github.com/zlogic/nanorss-go/fetcher"
 	"github.com/zlogic/nanorss-go/server"
@@ -71,7 +72,7 @@ func serve(db *data.DBService) {
 
 	errs := make(chan error, 2)
 	go func() {
-		errs <- http.ListenAndServe(":8080", router)
+		errs <- http.ListenAndServe(":8080", handlers.CompressHandler(router))
 	}()
 
 	go func() {

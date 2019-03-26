@@ -8,6 +8,7 @@ require (
 	github.com/dgraph-io/badger v1.5.4
 	github.com/dgryski/go-farm v0.0.0-20190104051053-3adb47b1fb0f // indirect
 	github.com/golang/protobuf v1.3.0 // indirect
+	github.com/gorilla/handlers v1.4.0
 	github.com/gorilla/mux v1.7.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/jaytaylor/html2text v0.0.0-20180606194806-57d518f124b0
