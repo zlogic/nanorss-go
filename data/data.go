@@ -16,8 +16,10 @@ func DefaultOptions() badger.Options {
 	}
 	opts.Dir = dbPath
 	opts.ValueDir = dbPath
-	// Optimize options for low memory and disk usage
+	// Optimize options for low memory usage
 	opts.MaxTableSize = 1 << 20
+	// Allow GC of value log
+	opts.ValueLogFileSize = 4 << 20
 	return opts
 }
 
