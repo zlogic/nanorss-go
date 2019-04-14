@@ -9,12 +9,14 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// LastSeen can be used in a transaction to easily set the last seen date, or expire items which have expired.
 type LastSeen struct {
 	dbService *DBService
 	txn       *badger.Txn
 	lastSeen  []byte
 }
 
+// NewLastSeen creates a LastSeen instance for the dbService and txn, with the current time as the lastSeen time.
 func NewLastSeen(dbService *DBService, txn *badger.Txn) (*LastSeen, error) {
 	timeValue, err := time.Now().MarshalBinary()
 	if err != nil {
@@ -27,6 +29,7 @@ func NewLastSeen(dbService *DBService, txn *badger.Txn) (*LastSeen, error) {
 	}, nil
 }
 
+// SetLastSeen creates or updates the last seen value for key.
 func (ls *LastSeen) SetLastSeen(key []byte) error {
 	lastSeenKey := CreateLastSeenKey(key)
 	if err := ls.txn.Set(lastSeenKey, ls.lastSeen); err != nil {
@@ -35,6 +38,7 @@ func (ls *LastSeen) SetLastSeen(key []byte) error {
 	return nil
 }
 
+// DeleteExpiredItems deletes all items which SetLastSeen was not called at least itemTTL.
 func (s *DBService) DeleteExpiredItems() error {
 	now := time.Now()
 

@@ -24,6 +24,7 @@ func createTicker() *time.Ticker {
 
 var quit chan struct{}
 
+// Start starts the worker goroutine.
 func Start(task func()) {
 	ticker := createTicker()
 	quit = make(chan struct{})
@@ -40,6 +41,7 @@ func Start(task func()) {
 	}()
 }
 
+// Stop stops the worker goroutine.
 func Stop() {
 	close(quit)
 }

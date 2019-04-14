@@ -8,6 +8,7 @@ import (
 	"github.com/zlogic/nanorss-go/data"
 )
 
+// DB provides functions to read and write items in the database.
 type DB interface {
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
 	SavePage(page *data.PagemonitorPage) error
@@ -15,15 +16,18 @@ type DB interface {
 	ReadAllUsers(chan *data.User) error
 }
 
+// Fetcher contains services needed to fetch items and save them into a database.
 type Fetcher struct {
 	DB     DB
 	Client *http.Client
 }
 
+// NewFetcher creates a new Fetcher instance with db.
 func NewFetcher(db DB) *Fetcher {
 	return &Fetcher{DB: db}
 }
 
+// Refresh performs a fetch of all monitored items.
 func (fetcher *Fetcher) Refresh() {
 	if fetcher.Client == nil {
 		fetcher.Client = &http.Client{}

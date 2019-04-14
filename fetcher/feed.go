@@ -11,6 +11,7 @@ import (
 	"github.com/zlogic/nanorss-go/data"
 )
 
+// FetchFeed fetches a feed from feedURL and saves it into the database if fetching was successful.
 func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 	resp, err := fetcher.Client.Get(feedURL)
 	if err == nil {
@@ -67,6 +68,7 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 	return fetcher.DB.SaveFeeditems(saveItems...)
 }
 
+// FetchAllFeeds calls FetchFeed for all feeds for all users.
 func (fetcher *Fetcher) FetchAllFeeds() error {
 	failed := false
 	ch := make(chan *data.User)

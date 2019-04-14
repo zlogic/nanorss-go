@@ -21,22 +21,28 @@ func decodePart(part string) (string, error) {
 	return string(res), nil
 }
 
+// LastSeenKeyPrefix is the key prefix for LastSeen entries.
 const LastSeenKeyPrefix = "lastseen" + separator
 
+// CreateLastSeenKey creates a LastSeen key for itemKey.
 func CreateLastSeenKey(itemKey []byte) []byte {
 	return append([]byte(LastSeenKeyPrefix), itemKey...)
 }
 
+// DecodeLastSeenKey extracts the item key from a LastSeen key.
 func DecodeLastSeenKey(lastSeenKey []byte) []byte {
 	return lastSeenKey[len(LastSeenKeyPrefix):]
 }
 
+// UserKeyPrefix is the key prefix for User entries.
 const UserKeyPrefix = "user" + separator
 
+// CreateKey creates a key for user.
 func (user *User) CreateKey() []byte {
 	return []byte(UserKeyPrefix + user.username)
 }
 
+// DecodeUserKey decodes the username from a user key.
 func DecodeUserKey(key []byte) (*string, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, UserKeyPrefix) {
@@ -49,8 +55,10 @@ func DecodeUserKey(key []byte) (*string, error) {
 	return &parts[1], nil
 }
 
+// PagemonitorKeyPrefix is the key prefix for Pagemonitor.
 const PagemonitorKeyPrefix = "pagemonitor" + separator
 
+// CreateKey creates a key for a Pagemonitor entry.
 func (pm *UserPagemonitor) CreateKey() []byte {
 	keyURL := encodePart(pm.URL)
 	keyMatch := encodePart(pm.Match)
@@ -58,6 +66,7 @@ func (pm *UserPagemonitor) CreateKey() []byte {
 	return []byte(PagemonitorKeyPrefix + keyURL + separator + keyMatch + separator + keyReplace)
 }
 
+// DecodePagemonitorKey decodes the Pagemonitor configuration from a Pagemonitor key.
 func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, PagemonitorKeyPrefix) {
@@ -84,14 +93,17 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	return res, nil
 }
 
+// FeeditemKeyPrefix is the key prefix for Feeditem.
 const FeeditemKeyPrefix = "feeditem" + separator
 
+// CreateKey creates a key for a Feeditem entry.
 func (key *FeeditemKey) CreateKey() []byte {
 	keyURL := encodePart(key.FeedURL)
 	keyGUID := encodePart(key.GUID)
 	return []byte(FeeditemKeyPrefix + keyURL + separator + keyGUID)
 }
 
+// DecodeFeeditemKey decodes the Feeditem configuration from a Feeditem key.
 func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, FeeditemKeyPrefix) {
@@ -114,12 +126,15 @@ func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	return res, nil
 }
 
+// ServerConfigKeyPrefix is the key prefix for a ServerConfig item.
 const ServerConfigKeyPrefix = "serverconfig" + separator
 
+// CreateServerConfigKey creates a key for a ServerConfig item.
 func CreateServerConfigKey(varName string) []byte {
 	return []byte(ServerConfigKeyPrefix + encodePart(varName))
 }
 
+// DecodeServerConfigKey decodes the name of a ServerConfig key.
 func DecodeServerConfigKey(key []byte) (string, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, ServerConfigKeyPrefix) {

@@ -7,13 +7,14 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// CreateRouter returns a router and all handlers.
 func CreateRouter(s *Services) (*mux.Router, error) {
 	r := mux.NewRouter()
 	r.HandleFunc("/", RootHandler(s)).Methods("GET")
-	r.HandleFunc("/login", HtmlLoginHandler(s)).Methods("GET")
+	r.HandleFunc("/login", HTMLLoginHandler(s)).Methods("GET")
 	r.HandleFunc("/logout", LogoutHandler(s)).Methods("GET")
-	r.HandleFunc("/feed", HtmlFeedHandler(s)).Methods("GET").Name("feed")
-	r.HandleFunc("/settings", HtmlSettingsHandler(s)).Methods("GET").Name("settings")
+	r.HandleFunc("/feed", HTMLFeedHandler(s)).Methods("GET").Name("feed")
+	r.HandleFunc("/settings", HTMLSettingsHandler(s)).Methods("GET").Name("settings")
 	r.HandleFunc("/favicon.ico", FaviconHandler)
 	fs := http.FileServer(staticResourceFileSystem{http.Dir("static")})
 	r.PathPrefix("/static/").Handler(http.StripPrefix(strings.TrimRight("/static", "/"), fs))

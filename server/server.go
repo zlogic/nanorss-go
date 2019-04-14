@@ -5,6 +5,7 @@ import (
 	"github.com/zlogic/nanorss-go/fetcher"
 )
 
+// DB provides functions to read and write items in the database.
 type DB interface {
 	GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error)
 	GetUser(username string) (*data.User, error)
@@ -16,14 +17,17 @@ type DB interface {
 	ReadAllPages(chan *data.PagemonitorPage) error
 }
 
+// Fetcher provides a method to refresh all feeds.
 type Fetcher interface {
 	Refresh()
 }
 
+// FeedListHelper returns all feed (and page monitor) items for a user.
 type FeedListHelper interface {
 	GetAllItems(*data.User) ([]*Item, error)
 }
 
+// Services keeps references to all services needed by handlers.
 type Services struct {
 	db             DB
 	cookieHandler  *CookieHandler
@@ -31,6 +35,7 @@ type Services struct {
 	feedListHelper FeedListHelper
 }
 
+// CreateServices creates a Services instance with db and default implementations of other services.
 func CreateServices(db *data.DBService) (*Services, error) {
 	cookieHandler, err := NewCookieHandler(db)
 	if err != nil {

@@ -10,21 +10,25 @@ import (
 
 // This should be separate from regular data classes in case the structures change and we need to restore data from an older version
 
+// BackupUser is a backup-friendly version of User.
 type BackupUser struct {
 	User
 	Username string
 }
 
+// BackupFeeditem is a backup-friendly version of Feeditem and its FeeditemKey.
 type BackupFeeditem struct {
 	Feeditem
 	FeeditemKey
 }
 
+// BackupPagemonitor is a backup-friendly version of PagemonitorPage and its configuration UserPagemonitor.
 type BackupPagemonitor struct {
 	PagemonitorPage
 	UserPagemonitor
 }
 
+// BackupData is the toplevel structure exported in a backup.
 type BackupData struct {
 	Users        []*BackupUser
 	Feeds        []*BackupFeeditem
@@ -32,6 +36,7 @@ type BackupData struct {
 	ServerConfig map[string]string
 }
 
+// Backup returns a serialized copy of all data.
 func (service *DBService) Backup() (string, error) {
 	data := BackupData{}
 
@@ -100,6 +105,7 @@ func (service *DBService) Backup() (string, error) {
 	return string(value), nil
 }
 
+// Restore replaces database data with the provided serialized value.
 func (service *DBService) Restore(value string) error {
 	data := BackupData{}
 	failed := false

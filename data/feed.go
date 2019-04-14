@@ -11,11 +11,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// FeeditemKey is used to uniquely identify a Feeditem.
 type FeeditemKey struct {
 	FeedURL string
 	GUID    string
 }
 
+// Feeditem keeps an item from an RSS feed.
 type Feeditem struct {
 	Title    string
 	URL      string
@@ -27,6 +29,7 @@ type Feeditem struct {
 
 var itemTTL = 14 * 24 * time.Hour
 
+// Encode serializes a Feeditem.
 func (feedItem *Feeditem) Encode() ([]byte, error) {
 	key := feedItem.Key
 	defer func() { feedItem.Key = key }()
@@ -39,6 +42,8 @@ func (feedItem *Feeditem) Encode() ([]byte, error) {
 	return value.Bytes(), nil
 }
 
+// GetFeeditem retrieves a Feeditem for the FeeditemKey.
+// If item doesn't exist, returns nil.
 func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 	feeditem := &Feeditem{Key: key}
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -64,6 +69,7 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 	return feeditem, nil
 }
 
+// SaveFeeditems saves feedItems in the database.
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 	return s.db.Update(func(txn *badger.Txn) error {
 		failed := false
@@ -140,6 +146,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 	})
 }
 
+// ReadAllFeedItems reads all Feeditem items from database and sends them to the provided channel.
 func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
 	defer close(ch)
 	err = s.db.View(func(txn *badger.Txn) error {

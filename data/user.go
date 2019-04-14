@@ -13,6 +13,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// User keeps configuration for a user.
 type User struct {
 	Password    string
 	Opml        string
@@ -20,11 +21,13 @@ type User struct {
 	username    string
 }
 
+// UserService wraps a DBService and makes sure that only data for Username is returned.
 type UserService struct {
 	DBService
 	Username string
 }
 
+// UserPagemonitor is a deserialized copy of a page from the Pagemonitor.
 type UserPagemonitor struct {
 	URL     string `xml:"url,attr"`
 	Title   string `xml:",chardata"`
@@ -32,15 +35,18 @@ type UserPagemonitor struct {
 	Replace string `xml:"replace,attr"`
 }
 
+// UserFeed is a deserialized copy of a page from OPML.
 type UserFeed struct {
 	URL   string `xml:"xmlUrl,attr"`
 	Title string `xml:"title,attr"`
 }
 
+// NewUser creates an instance of User with the provided username.
 func NewUser(username string) *User {
 	return &User{username: username}
 }
 
+// ReadAllUsers reads all users from database and sends them to the provided channel.
 func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -80,6 +86,8 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 	return nil
 }
 
+// GetUser returns the User by username.
+// If user doesn't exist, returns nil.
 func (s *DBService) GetUser(username string) (*User, error) {
 	user := &User{username: username}
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -105,6 +113,7 @@ func (s *DBService) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
+// SaveUser persists the user in the database.
 func (s *DBService) SaveUser(user *User) (err error) {
 	key := user.CreateKey()
 
@@ -117,6 +126,7 @@ func (s *DBService) SaveUser(user *User) (err error) {
 	})
 }
 
+// SetPassword sets a new password for user. The password is hashed and salted with bcrypt.
 func (user *User) SetPassword(newPassword string) error {
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -126,6 +136,8 @@ func (user *User) SetPassword(newPassword string) error {
 	return nil
 }
 
+// SetUsername sets a new username for user.
+// If newUsername is already in use, returns an error.
 func (s *DBService) SetUsername(user *User, newUsername string) error {
 	newUsername = strings.TrimSpace(newUsername)
 	if newUsername == "" {
@@ -160,10 +172,12 @@ func (s *DBService) SetUsername(user *User, newUsername string) error {
 	return err
 }
 
+// ValidatePassword checks if password matches the user's password.
 func (user *User) ValidatePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 }
 
+// GetPages parses user's configuration and returns all UserPagemonitor configuration items.
 func (user *User) GetPages() ([]UserPagemonitor, error) {
 	type UserPages struct {
 		XMLName xml.Name          `xml:"pages"`
@@ -178,6 +192,7 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 	return items.Pages, nil
 }
 
+// GetFeeds parses user's configuration and returns all UserFeed configuration items.
 func (user *User) GetFeeds() ([]UserFeed, error) {
 	type UserOPMLOutline struct {
 		UserFeed

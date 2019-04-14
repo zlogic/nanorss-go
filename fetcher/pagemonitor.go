@@ -25,6 +25,8 @@ func (fetcher *Fetcher) getPreviousResult(config *data.UserPagemonitor) *data.Pa
 	return page
 }
 
+// FetchPage fetches a page and performs a diff based on config.
+// On success, it's saved into the database.
 func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	page := fetcher.getPreviousResult(config)
 
@@ -79,6 +81,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	return fetcher.DB.SavePage(page)
 }
 
+// FetchAllPages calls FetchPage for all pages for all users.
 func (fetcher *Fetcher) FetchAllPages() error {
 	failed := false
 	ch := make(chan *data.User)

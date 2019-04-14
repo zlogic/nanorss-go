@@ -20,7 +20,7 @@ func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
 	http.Error(w, "Bad credentials", http.StatusUnauthorized)
 }
 
-func validateUserForApi(w http.ResponseWriter, r *http.Request, s *Services) *data.User {
+func validateUserForAPI(w http.ResponseWriter, r *http.Request, s *Services) *data.User {
 	username := s.cookieHandler.GetUsername(w, r)
 	if username == "" {
 		http.Error(w, "Bad credentials", http.StatusUnauthorized)
@@ -38,6 +38,7 @@ func validateUserForApi(w http.ResponseWriter, r *http.Request, s *Services) *da
 	return user
 }
 
+// LoginHandler authenticates the user and sets the encrypted session cookie if the user provided valid credentials.
 func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
@@ -82,9 +83,10 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// FeedHandler returns all feed (and page monitor) items for an authenticated user.
 func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := validateUserForApi(w, r, s)
+		user := validateUserForAPI(w, r, s)
 		if user == nil {
 			return
 		}
@@ -105,10 +107,11 @@ func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// FeedItemHandler returns a feed (or page monitor) item for an authenticated user.
 func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// There are no secrets, but still better check we have a valid user
-		user := validateUserForApi(w, r, s)
+		user := validateUserForAPI(w, r, s)
 		if user == nil {
 			return
 		}
@@ -181,6 +184,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// SettingsHandler gets or updates settings for an authenticated user.
 func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := s.cookieHandler.GetUsername(w, r)
@@ -250,9 +254,10 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// RefreshHandler refreshes all items for an authenticated user.
 func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := validateUserForApi(w, r, s)
+		user := validateUserForAPI(w, r, s)
 		if user == nil {
 			return
 		}

@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// PagemonitorPage keeps the state and diff for a web page monitored by Pagemonitor.
 type PagemonitorPage struct {
 	Contents string
 	Delta    string
@@ -17,10 +18,7 @@ type PagemonitorPage struct {
 	Config   *UserPagemonitor `json:",omitempty"`
 }
 
-type PagemonitorService struct {
-	db *badger.DB
-}
-
+// Encode serializes a PagemonitorPage.
 func (page *PagemonitorPage) Encode() ([]byte, error) {
 	config := page.Config
 	defer func() { page.Config = config }()
@@ -33,6 +31,8 @@ func (page *PagemonitorPage) Encode() ([]byte, error) {
 	return value.Bytes(), nil
 }
 
+// GetPage retrieves a PagemonitorPage for the UserPagemonitor configuration.
+// If page doesn't exist, returns nil.
 func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 	page := &PagemonitorPage{Config: pm}
 	err := s.db.View(func(txn *badger.Txn) error {
@@ -58,6 +58,7 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 	return page, nil
 }
 
+// SavePage saves a PagemonitorPage.
 func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
 	value, err := page.Encode()
@@ -99,6 +100,7 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 	})
 }
 
+// ReadAllPages reads all PagemonitorPage items from database and sends them to the provided channel.
 func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 	defer close(ch)
 	err = s.db.View(func(txn *badger.Txn) error {

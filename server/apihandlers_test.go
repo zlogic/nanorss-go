@@ -55,7 +55,7 @@ func TestLoginHandlerSuccessful(t *testing.T) {
 	assert.Equal(t, 1, len(cookies))
 	if len(cookies) > 0 {
 		decodedCookie := UserCookie{}
-		err := cookieHandler.secureCookie.Decode(AuthorizationCookie, cookies[0].Value, &decodedCookie)
+		err := cookieHandler.secureCookie.Decode(AuthenticationCookie, cookies[0].Value, &decodedCookie)
 		assert.NoError(t, err)
 		assert.Equal(t, "user01", decodedCookie.Username)
 	}

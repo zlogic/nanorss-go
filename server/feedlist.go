@@ -10,6 +10,7 @@ import (
 	"github.com/zlogic/nanorss-go/data"
 )
 
+// Item is a generic item (RSS feed item or pagemonitor page).
 type Item struct {
 	Title    string
 	Origin   string
@@ -17,6 +18,7 @@ type Item struct {
 	FetchURL string
 }
 
+// FeedListService is a service which gets feed items for a user.
 type FeedListService struct {
 	db DB
 }
@@ -31,6 +33,7 @@ func (a itemsSortable) Len() int           { return len(a) }
 func (a itemsSortable) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a itemsSortable) Less(i, j int) bool { return a[i].SortDate.After(a[j].SortDate) }
 
+// GetAllItems returns all Items for user.
 func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	feeds, err := user.GetFeeds()
 	if err != nil {

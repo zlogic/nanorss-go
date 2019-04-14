@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// GetOrCreateConfigVariable returns the value for the varName ServerConfig variable, or if there's no entry, uses generator to create and save a value.
 func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error) {
 	varValue := ""
 	varKey := CreateServerConfigKey(varName)
@@ -35,6 +36,7 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 	return varValue, nil
 }
 
+// SetConfigVariable returns the value for the varName ServerConfig variable, or nil if no value is saved.
 func (s *DBService) SetConfigVariable(varName, varValue string) error {
 	varKey := CreateServerConfigKey(varName)
 	err := s.db.Update(func(txn *badger.Txn) error {
@@ -46,6 +48,7 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 	return nil
 }
 
+// GetAllConfigVariables returns all ServerConfig variables in a key-value map.
 func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 	vars := make(map[string]string)
 	err := s.db.View(func(txn *badger.Txn) error {
