@@ -113,7 +113,7 @@ func (s *DBService) GetUser(username string) (*User, error) {
 	return user, nil
 }
 
-// SaveUser persists the user in the database.
+// SaveUser saves the user in the database.
 func (s *DBService) SaveUser(user *User) (err error) {
 	key := user.CreateKey()
 

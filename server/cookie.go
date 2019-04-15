@@ -52,7 +52,7 @@ type UserCookie struct {
 	Authorized time.Time
 }
 
-// NewCookie creates a new cookie.
+// NewCookie creates a new authentication cookie.
 func (handler *CookieHandler) NewCookie() *http.Cookie {
 	return &http.Cookie{
 		Name:    AuthenticationCookie,

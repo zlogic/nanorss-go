@@ -24,7 +24,7 @@ func DefaultOptions() badger.Options {
 	return opts
 }
 
-// DBService provides services for persisting structs in the database.
+// DBService provides services for reading and writing structs in the database.
 type DBService struct {
 	db *badger.DB
 }
