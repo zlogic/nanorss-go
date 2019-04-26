@@ -14,7 +14,6 @@ import (
 const rssFeed = `<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0">
 <channel>
-<pubDate>Wed, 08 Jun 2016 10:34:00 GMT</pubDate>
 <item><title>Title 1</title><link>http://site1/link1</link><description>Text 1</description><pubDate>Wed, 08 Jun 2016 10:34:00 GMT</pubDate><guid>Item@1</guid></item>
 <item><title>Title 2</title><link>http://site1/link2</link><description>Text 2</description><guid>Item@2</guid></item>
 <item><title>Title 3</title><link>http://site1/link3</link><description>Text 3</description><pubDate>Tue, 07 Jun 2016 13:19:00 GMT</pubDate></item>
@@ -22,11 +21,13 @@ const rssFeed = `<?xml version="1.0" encoding="utf-8"?>
 </channel>
 </rss>`
 
+var gmt, _ = time.LoadLocation("GMT")
+
 var expectedRssFeedItems = []*data.Feeditem{
 	&data.Feeditem{
 		Title:    "Title 1",
 		URL:      "http://site1/link1",
-		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, time.UTC),
+		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 		Contents: "Text 1",
 		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@1"},
 	},
@@ -39,15 +40,15 @@ var expectedRssFeedItems = []*data.Feeditem{
 	&data.Feeditem{
 		Title:    "Title 3",
 		URL:      "http://site1/link3",
-		Date:     time.Date(2016, time.June, 7, 13, 19, 0, 0, time.UTC),
+		Date:     time.Date(2016, time.June, 7, 13, 19, 0, 0, gmt),
 		Contents: "Text 3",
 		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "http://site1/link3"},
 	},
 	&data.Feeditem{
 		Title:    "Title 4",
 		URL:      "http://site1/link4",
-		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, time.UTC),
-		Contents: "Text 4",
+		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
+		Contents: "Content 4",
 		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@4"},
 	},
 }
@@ -116,7 +117,7 @@ func TestFetchAllFeeds(t *testing.T) {
 		&data.Feeditem{
 			Title:    "Title 21",
 			URL:      "http://site2/link1",
-			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, time.UTC),
+			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 			Contents: "Text 21",
 			Key:      &data.FeeditemKey{FeedURL: "http://site2/rss", GUID: "Item@1"},
 		},

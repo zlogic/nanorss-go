@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mmcdole/gofeed"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
@@ -25,47 +24,19 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 		return errors.Wrapf(err, "Cannot GET feed %v", feedURL)
 	}
 
-	fp := gofeed.NewParser()
-	feed, err := fp.Parse(resp.Body)
+	items, err := fetcher.ParseFeed(feedURL, resp.Body)
 	if err != nil {
 		return errors.Wrapf(err, "Cannot parse feed %v", feedURL)
 	}
 
-	if feed.Items == nil {
+	if len(items) == 0 {
 		return errors.Wrapf(err, "Feed has no items %v", feedURL)
 	}
 
-	saveItems := make([]*data.Feeditem, 0, len(feed.Items))
-	for _, item := range feed.Items {
-		guid := item.GUID
-		if guid == "" {
-			guid = item.Link
-		}
-		key := &data.FeeditemKey{
-			FeedURL: feedURL,
-			GUID:    guid,
-		}
-		date := time.Now()
-		if item.UpdatedParsed != nil {
-			date = *item.UpdatedParsed
-		} else if item.PublishedParsed != nil {
-			date = *item.PublishedParsed
-		}
-		contents := item.Description
-		if contents == "" {
-			contents = item.Content
-		}
-		dbItem := &data.Feeditem{
-			Title:    item.Title,
-			URL:      item.Link,
-			Date:     date,
-			Contents: contents,
-			Updated:  time.Now(),
-			Key:      key,
-		}
-		saveItems = append(saveItems, dbItem)
+	for _, item := range items {
+		item.Updated = time.Now()
 	}
-	return fetcher.DB.SaveFeeditems(saveItems...)
+	return fetcher.DB.SaveFeeditems(items...)
 }
 
 // FetchAllFeeds calls FetchFeed for all feeds for all users.
