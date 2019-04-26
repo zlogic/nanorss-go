@@ -9,33 +9,19 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// LastSeen can be used in a transaction to easily set the last seen date, or expire items which have expired.
-type LastSeen struct {
-	dbService *DBService
-	txn       *badger.Txn
-	lastSeen  []byte
-}
-
-// NewLastSeen creates a LastSeen instance for the dbService and txn, with the current time as the lastSeen time.
-func NewLastSeen(dbService *DBService, txn *badger.Txn) (*LastSeen, error) {
-	timeValue, err := time.Now().MarshalBinary()
-	if err != nil {
-		return nil, errors.Wrap(err, "Error marshaling current time")
-	}
-	return &LastSeen{
-		dbService: dbService,
-		txn:       txn,
-		lastSeen:  timeValue,
-	}, nil
-}
-
 // SetLastSeen creates or updates the last seen value for key.
-func (ls *LastSeen) SetLastSeen(key []byte) error {
-	lastSeenKey := CreateLastSeenKey(key)
-	if err := ls.txn.Set(lastSeenKey, ls.lastSeen); err != nil {
-		return errors.Wrap(err, "Error saving last seen time")
+func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
+	return func(txn *badger.Txn) error {
+		lastSeen, err := time.Now().MarshalBinary()
+		if err != nil {
+			return errors.Wrap(err, "Error marshaling current time")
+		}
+		lastSeenKey := CreateLastSeenKey(key)
+		if err := txn.Set(lastSeenKey, lastSeen); err != nil {
+			return errors.Wrap(err, "Error saving last seen time")
+		}
+		return nil
 	}
-	return nil
 }
 
 // DeleteExpiredItems deletes all items which SetLastSeen was not called at least itemTTL.

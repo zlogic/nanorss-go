@@ -74,12 +74,6 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 	return s.db.Update(func(txn *badger.Txn) error {
 		failed := false
 
-		ls, err := NewLastSeen(s, txn)
-		if err != nil {
-			failed = true
-			return err
-		}
-
 		getPreviousValue := func(key []byte) ([]byte, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
@@ -126,7 +120,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				return errors.Wrap(err, "Cannot marshal feed item")
 			}
 
-			if err := ls.SetLastSeen(key); err != nil {
+			if err := s.SetLastSeen(key)(txn); err != nil {
 				return errors.Wrap(err, "Cannot set last seen time")
 			}
 
