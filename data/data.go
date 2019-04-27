@@ -42,8 +42,14 @@ func Open(options badger.Options) (*DBService, error) {
 // GC deletes expired items and attempts to perform a database cleanup.
 func (service *DBService) GC() {
 	service.DeleteExpiredItems()
-	err := service.db.RunValueLogGC(0.5)
-	log.WithField("result", err).Info("Cleaned up database")
+	for {
+		if err := service.db.RunValueLogGC(0.5); err != nil {
+			log.WithField("result", err).Info("Cleanup completed")
+			break
+		}
+		log.Info("Cleanup reclaimed space")
+		break
+	}
 }
 
 // Close closes the underlying database.
