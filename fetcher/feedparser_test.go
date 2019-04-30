@@ -87,7 +87,7 @@ const parseRssFeed = `<?xml version="1.0" encoding="utf-8"?>
 </rss>`
 
 const parseRdfFeed = `<?xml version="1.0" encoding="utf-8"?>
-<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">
 <item>
 <dc:date>2013-09-26T22:36:20+01:00</dc:date>
 <title>Title 1</title>

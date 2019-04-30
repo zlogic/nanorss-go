@@ -88,7 +88,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			}
 			return nil, nil
 		}
-		getPreviousUpdatedTime := func(previousValue []byte) (*time.Time, error) {
+		getPreviousItem := func(previousValue []byte) (*Feeditem, error) {
 			if previousValue == nil {
 				return nil, nil
 			}
@@ -97,7 +97,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "Failed to get unmarshal value of feed item")
 			}
-			return &existingFeedItem.Updated, nil
+			return existingFeedItem, nil
 		}
 
 		for _, feedItem := range feedItems {
@@ -108,11 +108,13 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				log.WithField("key", key).WithError(err).Error("Cannot get previous value for item")
 			}
 
-			previousTimeUpdated, err := getPreviousUpdatedTime(previousValue)
+			previousItem, err := getPreviousItem(previousValue)
 			if err != nil {
 				log.WithField("key", key).WithError(err).Error("Failed to read previous updated time")
-			} else if previousTimeUpdated != nil {
-				feedItem.Updated = *previousTimeUpdated
+			} else if previousItem != nil {
+				feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
+				previousItem.Updated = feedItem.Updated
+				previousItem.Key = feedItem.Key
 			}
 
 			value, err := feedItem.Encode()
@@ -124,7 +126,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				return errors.Wrap(err, "Cannot set last seen time")
 			}
 
-			if bytes.Equal(value, previousValue) {
+			if previousItem != nil && *feedItem == *previousItem {
 				// Avoid writing to the database if nothing has changed
 				return nil
 			}

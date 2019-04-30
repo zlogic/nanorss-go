@@ -86,6 +86,33 @@ func TestUpdateReadItem(t *testing.T) {
 	dbItem, err := dbService.GetFeeditem(&key)
 	assert.NoError(t, err)
 	assert.NotNil(t, dbItem)
+	assert.Equal(t, &item, dbItem)
+}
+
+func TestUpdateReadItemUnchanged(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
+	item := Feeditem{
+		Title:    "t1",
+		URL:      "http://item1",
+		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
+		Contents: "c1",
+		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
+		Key:      &key,
+	}
+	err = dbService.SaveFeeditems(&item)
+	assert.NoError(t, err)
+
+	item.Updated = time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC)
+	err = dbService.SaveFeeditems(&item)
+	assert.NoError(t, err)
+
+	dbItem, err := dbService.GetFeeditem(&key)
+	assert.NoError(t, err)
+	assert.NotNil(t, dbItem)
 	assert.Equal(t, time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC), dbItem.Updated)
 	item.Updated = time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC)
 	assert.Equal(t, &item, dbItem)

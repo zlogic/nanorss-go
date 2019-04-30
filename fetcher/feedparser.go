@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 	"golang.org/x/net/html/charset"
@@ -52,7 +53,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 	type RDFFeedEntry struct {
 		Title       string `xml:"title"`
 		Link        string `xml:"link"`
-		Date        string `xml:"dc date"`
+		Date        string `xml:"http://purl.org/dc/elements/1.1/ date"`
 		Description string `xml:"description"`
 	}
 	type RDFFeed struct {
@@ -74,6 +75,40 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 		return nil, err
 	}
 
+	//Truncate current time to apply the same losses as gob
+	timeNowTruncate := func() (time.Time, error) {
+		currentTime := time.Now()
+		currentTimeBin, err := currentTime.GobEncode()
+		if err != nil {
+			return time.Time{}, errors.Wrapf(err, "Error encoding time")
+		}
+		err = currentTime.GobDecode(currentTimeBin)
+		if err != nil {
+			return time.Time{}, errors.Wrapf(err, "Error decoding time")
+		}
+		return currentTime, nil
+	}
+	currentTime, err := timeNowTruncate()
+	if err != nil {
+		return nil, err
+	}
+
+	//RSS time parser
+	parseRssTime := func(timeStr string) (time.Time, error) {
+		timeStr = strings.TrimSpace(timeStr)
+		date, err := time.Parse(time.RFC1123, timeStr)
+		if err == nil {
+			return date, nil
+		}
+		log.WithField("date", timeStr).WithError(err).Debug("Failed to parse time as RFC1123")
+		date, err = time.Parse(time.RFC1123Z, timeStr)
+		if err == nil {
+			return date, nil
+		}
+		log.WithField("date", timeStr).WithError(err).Debug("Failed to parse time as RFC1123Z")
+		return time.Time{}, fmt.Errorf("Failed to parse RSS time")
+	}
+
 	// Convert into a common format
 	if feedXML.XMLName.Local == "feed" {
 		//Atom
@@ -84,7 +119,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 				Title: atomItem.Title,
 			}
 
-			item.Date = time.Now()
+			item.Date = currentTime
 			dateParsed, err := time.Parse(time.RFC3339, atomItem.Updated)
 			if err == nil {
 				item.Date = dateParsed
@@ -94,7 +129,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 				if err == nil {
 					item.Date = dateParsed
 				} else {
-					log.WithField("date", atomItem.Published).WithError(err).Debug("Failed to parse published time")
+					log.WithField("date", atomItem.Published).WithError(err).Info("Failed to parse published time")
 				}
 			}
 
@@ -134,8 +169,8 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 		// RSS
 		items := make([]*data.Feeditem, len(feedXML.RSSFeed.RSSFeedEntries))
 
-		fallbackDate := time.Now()
-		dateParsed, err := time.Parse(time.RFC1123, feedXML.RSSFeed.Published)
+		fallbackDate := currentTime
+		dateParsed, err := parseRssTime(feedXML.RSSFeed.Published)
 		if err == nil {
 			fallbackDate = dateParsed
 		} else {
@@ -148,11 +183,11 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 			}
 
 			item.Date = fallbackDate
-			dateParsed, err := time.Parse(time.RFC1123, rssItem.Published)
+			dateParsed, err := parseRssTime(rssItem.Published)
 			if err == nil {
 				item.Date = dateParsed
 			} else {
-				log.WithField("date", rssItem.Published).WithError(err).Debug("Failed to parse published time")
+				log.WithField("date", rssItem.Published).WithField("item", rssItem).WithError(err).Info("Failed to parse published time")
 			}
 
 			item.Contents = rssItem.Content
@@ -182,12 +217,12 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 				Title: rdfItem.Title,
 			}
 
-			item.Date = time.Now()
+			item.Date = currentTime
 			dateParsed, err := time.Parse(time.RFC3339, rdfItem.Date)
 			if err == nil {
 				item.Date = dateParsed
 			} else {
-				log.WithField("date", rdfItem.Date).WithError(err).Debug("Failed to parse time")
+				log.WithField("date", rdfItem.Date).WithError(err).Info("Failed to parse time")
 			}
 
 			item.Contents = rdfItem.Description

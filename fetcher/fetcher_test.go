@@ -37,6 +37,6 @@ func (m *DBMock) SaveFeeditems(feedItems ...*data.Feeditem) error {
 }
 
 func assertTimeBetween(t *testing.T, before, after time.Time, check time.Time) {
-	assert.True(t, before == check || before.Before(check))
-	assert.True(t, after == check || after.After(check))
+	assert.True(t, before.Equal(check) || before.Before(check), "%v >= %v", check, before)
+	assert.True(t, after.Equal(check) || after.After(check), "%v <= %v", check, after)
 }
