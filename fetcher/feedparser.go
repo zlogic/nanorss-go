@@ -13,6 +13,15 @@ import (
 	"golang.org/x/net/html/charset"
 )
 
+var dateFormats = []string{
+	time.RFC822,
+	time.RFC822Z,
+	time.RFC3339,
+	time.RFC1123,
+	time.RFC1123Z,
+	"Mon, _2 Jan 2006 15:04:05 +0300",
+}
+
 // ParseFeed parses a downloaded XML feed.
 func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Feeditem, error) {
 	// Atom
@@ -96,16 +105,13 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 	//RSS time parser
 	parseRssTime := func(timeStr string) (time.Time, error) {
 		timeStr = strings.TrimSpace(timeStr)
-		date, err := time.Parse(time.RFC1123, timeStr)
-		if err == nil {
-			return date, nil
+		for _, format := range dateFormats {
+			date, err := time.Parse(format, timeStr)
+			if err == nil {
+				return date, nil
+			}
+			log.WithField("date", timeStr).WithField("format", format).WithError(err).Debug("Failed to parse time")
 		}
-		log.WithField("date", timeStr).WithError(err).Debug("Failed to parse time as RFC1123")
-		date, err = time.Parse(time.RFC1123Z, timeStr)
-		if err == nil {
-			return date, nil
-		}
-		log.WithField("date", timeStr).WithError(err).Debug("Failed to parse time as RFC1123Z")
 		return time.Time{}, fmt.Errorf("Failed to parse RSS time")
 	}
 
