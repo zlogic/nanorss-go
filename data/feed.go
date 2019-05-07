@@ -131,7 +131,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				return nil
 			}
 
-			if err := txn.Set(key, value); err != nil {
+			if err := txn.SetWithDiscard(key, value, 0); err != nil {
 				return errors.Wrap(err, "Cannot save feed item")
 			}
 		}

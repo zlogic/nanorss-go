@@ -17,7 +17,7 @@ func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 			return errors.Wrap(err, "Error marshaling current time")
 		}
 		lastSeenKey := CreateLastSeenKey(key)
-		if err := txn.Set(lastSeenKey, lastSeen); err != nil {
+		if err := txn.SetWithDiscard(lastSeenKey, lastSeen, 0); err != nil {
 			return errors.Wrap(err, "Error saving last seen time")
 		}
 		return nil

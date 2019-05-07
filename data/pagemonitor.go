@@ -92,7 +92,7 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 			// Avoid writing to the database if nothing has changed
 			return nil
 		}
-		return txn.Set(key, value)
+		return txn.SetWithDiscard(key, value, 0)
 	})
 }
 
