@@ -24,25 +24,46 @@ func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 	}
 }
 
-// DeleteExpiredItems deletes all items which SetLastSeen was not called at least itemTTL.
-func (s *DBService) DeleteExpiredItems() error {
-	now := time.Now()
+func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
+	return func(txn *badger.Txn) error {
+		now := time.Now()
 
-	failed := false
-	return s.db.Update(func(txn *badger.Txn) error {
+		failed := false
+
+		purgeItem := func(key []byte) {
+			if err := txn.Delete(key); err != nil {
+				failed = true
+				log.WithField("key", key).WithError(err).Error("Failed to delete item")
+			}
+
+			key = CreateLastSeenKey(key)
+			if err := txn.Delete(key); err != nil {
+				failed = true
+				log.WithField("key", key).WithError(err).Error("Failed to delete item last seen time")
+			}
+		}
+
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		defer it.Close()
-		prefix := []byte(LastSeenKeyPrefix)
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
-
 			k := item.Key()
-			itemKey := DecodeLastSeenKey(k)
 
-			v, err := item.Value()
+			lastSeenKey := CreateLastSeenKey(k)
+			lastSeenItem, err := txn.Get(lastSeenKey)
+
 			if err != nil {
 				failed = true
-				log.WithField("key", k).WithError(err).Error("Failed to get last seen time")
+				log.WithField("key", k).WithError(err).Error("Failed to get last seen time item")
+				purgeItem(k)
+				continue
+			}
+
+			v, err := lastSeenItem.Value()
+			if err != nil {
+				failed = true
+				log.WithField("key", k).WithError(err).Error("Failed to get last seen time value")
+				purgeItem(k)
 				continue
 			}
 
@@ -50,28 +71,40 @@ func (s *DBService) DeleteExpiredItems() error {
 			err = lastSeen.UnmarshalBinary(v)
 			if err != nil {
 				failed = true
-				log.WithField("value", v).WithError(err).Error("Failed to unmarshal time")
+				log.WithField("value", v).WithError(err).Error("Failed to unmarshal last seen time")
+				purgeItem(k)
 				continue
 			}
 
 			expires := lastSeen.Add(itemTTL)
-			if expires.After(now) {
-				continue
+			if !expires.After(now) {
+				log.Debug("Deleting expired item")
+				purgeItem(k)
 			}
-
-			err = txn.Delete(itemKey)
-			if err != nil {
-				failed = true
-				log.WithField("key", itemKey).WithError(err).Error("Failed to delete expired item")
-			}
-
-			err = txn.Delete(k)
-			if err != nil {
-				failed = true
-				log.WithField("key", k).WithError(err).Error("Failed to delete item expiration time")
-			}
-			return nil
 		}
+		if failed {
+			return fmt.Errorf("Failed to delete at least one expired item")
+		}
+		return nil
+	}
+}
+
+// DeleteExpiredItems deletes all items which SetLastSeen was not called at least itemTTL.
+func (s *DBService) DeleteExpiredItems() error {
+	failed := false
+	return s.db.Update(func(txn *badger.Txn) error {
+		err := s.deleteExpiredItems([]byte(FeeditemKeyPrefix))(txn)
+		if err != nil {
+			failed = true
+			log.WithError(err).Error("Failed to clean up expired feed items")
+		}
+
+		err = s.deleteExpiredItems([]byte(PagemonitorKeyPrefix))(txn)
+		if err != nil {
+			failed = true
+			log.WithError(err).Error("Failed to clean up expired pages")
+		}
+
 		if failed {
 			return fmt.Errorf("Failed to delete at least one expired item")
 		}

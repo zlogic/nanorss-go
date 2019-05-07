@@ -78,7 +78,6 @@ func TestSavePage(t *testing.T) {
 
 func TestSaveReadPageTTLExpired(t *testing.T) {
 	var oldTTL = itemTTL
-	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
 	dbService, cleanup, err := createDb()
 	assert.NoError(t, err)
@@ -93,10 +92,19 @@ func TestSaveReadPageTTLExpired(t *testing.T) {
 	err = dbService.SavePage(&page)
 	assert.NoError(t, err)
 
+	itemTTL = time.Minute * 1
 	err = dbService.DeleteExpiredItems()
 	assert.NoError(t, err)
 
 	dbPage, err := dbService.GetPage(&userPage)
+	assert.NoError(t, err)
+	assert.Equal(t, &page, dbPage)
+
+	itemTTL = time.Nanosecond * 0
+	err = dbService.DeleteExpiredItems()
+	assert.NoError(t, err)
+
+	dbPage, err = dbService.GetPage(&userPage)
 	assert.NoError(t, err)
 	assert.Nil(t, dbPage)
 }
