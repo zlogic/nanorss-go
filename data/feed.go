@@ -129,9 +129,11 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			if previousItem != nil && *feedItem == *previousItem {
 				// Avoid writing to the database if nothing has changed
 				return nil
+			} else if previousItem != nil {
+				log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Info("Item has changed")
 			}
 
-			if err := txn.SetWithDiscard(key, value, 0); err != nil {
+			if err := txn.Set(key, value); err != nil {
 				return errors.Wrap(err, "Cannot save feed item")
 			}
 		}

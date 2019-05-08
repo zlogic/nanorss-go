@@ -17,7 +17,7 @@ func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 			return errors.Wrap(err, "Error marshaling current time")
 		}
 		lastSeenKey := CreateLastSeenKey(key)
-		if err := txn.SetWithDiscard(lastSeenKey, lastSeen, 0); err != nil {
+		if err := txn.Set(lastSeenKey, lastSeen); err != nil {
 			return errors.Wrap(err, "Error saving last seen time")
 		}
 		return nil
@@ -28,18 +28,14 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 	return func(txn *badger.Txn) error {
 		now := time.Now()
 
-		failed := false
-
 		purgeItem := func(key []byte) {
 			if err := txn.Delete(key); err != nil {
-				failed = true
 				log.WithField("key", key).WithError(err).Error("Failed to delete item")
 			}
 
 			key = CreateLastSeenKey(key)
 			if err := txn.Delete(key); err != nil {
-				failed = true
-				log.WithField("key", key).WithError(err).Error("Failed to delete item last seen time")
+				log.WithField("key", string(key)).WithError(err).Error("Failed to delete item last seen time")
 			}
 		}
 
@@ -47,13 +43,13 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 		defer it.Close()
 		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
 			item := it.Item()
-			k := item.Key()
+			k := make([]byte, len(item.Key()))
+			copy(k, item.Key())
 
 			lastSeenKey := CreateLastSeenKey(k)
 			lastSeenItem, err := txn.Get(lastSeenKey)
 
 			if err != nil {
-				failed = true
 				log.WithField("key", k).WithError(err).Error("Failed to get last seen time item")
 				purgeItem(k)
 				continue
@@ -61,7 +57,6 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 
 			v, err := lastSeenItem.Value()
 			if err != nil {
-				failed = true
 				log.WithField("key", k).WithError(err).Error("Failed to get last seen time value")
 				purgeItem(k)
 				continue
@@ -70,7 +65,6 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 			lastSeen := time.Time{}
 			err = lastSeen.UnmarshalBinary(v)
 			if err != nil {
-				failed = true
 				log.WithField("value", v).WithError(err).Error("Failed to unmarshal last seen time")
 				purgeItem(k)
 				continue
@@ -81,9 +75,6 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 				log.Debug("Deleting expired item")
 				purgeItem(k)
 			}
-		}
-		if failed {
-			return fmt.Errorf("Failed to delete at least one expired item")
 		}
 		return nil
 	}
