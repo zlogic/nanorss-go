@@ -113,7 +113,10 @@ func restoreData(db *data.DBService) {
 func main() {
 	// Init data layer
 	db, err := data.Open(data.DefaultOptions())
-	defer db.Close()
+	defer func() {
+		db.GC()
+		db.Close()
+	}()
 	if err != nil {
 		db.Close()
 		log.Fatalf("Failed to open data store %v", err)

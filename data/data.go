@@ -21,6 +21,7 @@ func DefaultOptions() badger.Options {
 	opts.MaxTableSize = 1 << 20
 	// Allow GC of value log
 	opts.ValueLogFileSize = 4 << 20
+	opts.ValueLogMaxEntries = 10000
 	return opts
 }
 
