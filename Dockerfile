@@ -8,22 +8,22 @@ WORKDIR /usr/src/nanorss
 COPY . /usr/src/nanorss
 
 # Install build dependencies
-RUN apk add --no-cache --update build-base git
+RUN apk add --no-cache --update build-base git ca-certificates tzdata
 
 # Run tests
 RUN go test ./...
 
 # Build app
-RUN go build -ldflags="-s -w" && \
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" && \
   mkdir /usr/src/nanorss/dist && \
   cp -r nanorss-go static templates /usr/src/nanorss/dist
 
 # Copy into a fresh image
-FROM alpine:3.9
+FROM scratch
 
 COPY --from=builder /usr/src/nanorss/dist /usr/local/nanorss
-
-RUN apk --no-cache add ca-certificates tzdata
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 WORKDIR /usr/local/nanorss
 
