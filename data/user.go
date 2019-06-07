@@ -19,6 +19,7 @@ type User struct {
 	Opml        string
 	Pagemonitor string
 	username    string
+	newUsername string
 }
 
 // UserService wraps a DBService and makes sure that only data for Username is returned.
@@ -115,15 +116,49 @@ func (s *DBService) GetUser(username string) (*User, error) {
 
 // SaveUser saves the user in the database.
 func (s *DBService) SaveUser(user *User) (err error) {
-	key := user.CreateKey()
+	if user.newUsername == "" {
+		user.newUsername = user.username
+	}
+	key := CreateUserKey(user.newUsername)
 
 	var value bytes.Buffer
 	if err := gob.NewEncoder(&value).Encode(user); err != nil {
 		return errors.Wrap(err, "Cannot marshal user")
 	}
-	return s.db.Update(func(txn *badger.Txn) error {
+	err = s.db.Update(func(txn *badger.Txn) error {
+		if user.newUsername != user.username {
+			existingUser, err := txn.Get(key)
+			if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
+				return fmt.Errorf("New username %v is already in use", key)
+			}
+
+			oldUserKey := CreateUserKey(user.username)
+			if err := txn.Delete(oldUserKey); err != nil {
+				return err
+			}
+		}
 		return txn.Set(key, value.Bytes())
 	})
+	if err == nil {
+		user.username = user.newUsername
+		user.newUsername = ""
+	}
+	return err
+}
+
+// GetUsername returns the user's current username.
+func (user *User) GetUsername() string {
+	return user.username
+}
+
+// SetUsername sets a new username for User which will be updated when SaveUser is called.
+func (user *User) SetUsername(newUsername string) error {
+	newUsername = strings.TrimSpace(newUsername)
+	if newUsername == "" {
+		return fmt.Errorf("Cannot set username to an empty string")
+	}
+	user.newUsername = newUsername
+	return nil
 }
 
 // SetPassword sets a new password for user. The password is hashed and salted with bcrypt.
@@ -134,42 +169,6 @@ func (user *User) SetPassword(newPassword string) error {
 	}
 	user.Password = string(hash)
 	return nil
-}
-
-// SetUsername sets a new username for user.
-// If newUsername is already in use, returns an error.
-func (s *DBService) SetUsername(user *User, newUsername string) error {
-	newUsername = strings.TrimSpace(newUsername)
-	if newUsername == "" {
-		return fmt.Errorf("Cannot set username to an empty string")
-	}
-	newUser := *user
-	newUser.username = newUsername
-	err := s.db.Update(func(txn *badger.Txn) error {
-		oldUserKey := user.CreateKey()
-		item, err := txn.Get(oldUserKey)
-		if err != nil {
-			return err
-		}
-		value, err := item.Value()
-		if err != nil {
-			return err
-		}
-		newUserKey := newUser.CreateKey()
-		existingUser, err := txn.Get(newUserKey)
-		if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
-			return fmt.Errorf("New username %v is already in use", newUsername)
-		}
-		err = txn.Set(newUserKey, value)
-		if err != nil {
-			return err
-		}
-		return txn.Delete(oldUserKey)
-	})
-	if err == nil {
-		user.username = newUser.username
-	}
-	return err
 }
 
 // ValidatePassword checks if password matches the user's password.

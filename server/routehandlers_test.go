@@ -175,7 +175,7 @@ func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User {   }\nName feed\nContent feedpage", string(res.Body.Bytes()))
+	assert.Equal(t, "User {    }\nName feed\nContent feedpage", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 }
@@ -230,7 +230,7 @@ func TestHtmlSettingsHandlerLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User {   }\nName settings\nContent settingspage", string(res.Body.Bytes()))
+	assert.Equal(t, "User {    }\nName settings\nContent settingspage", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 }

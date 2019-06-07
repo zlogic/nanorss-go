@@ -37,9 +37,14 @@ func DecodeLastSeenKey(lastSeenKey []byte) []byte {
 // UserKeyPrefix is the key prefix for User entries.
 const UserKeyPrefix = "user" + separator
 
+// CreateUserKey creates a key for user.
+func CreateUserKey(username string) []byte {
+	return []byte(UserKeyPrefix + username)
+}
+
 // CreateKey creates a key for user.
 func (user *User) CreateKey() []byte {
-	return []byte(UserKeyPrefix + user.username)
+	return CreateUserKey(user.username)
 }
 
 // DecodeUserKey decodes the username from a user key.

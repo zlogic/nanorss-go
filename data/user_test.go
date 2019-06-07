@@ -113,7 +113,53 @@ func TestSetUsername(t *testing.T) {
 	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
-	err = dbService.SetUsername(&user, "user02")
+	err = user.SetUsername("user02")
+	assert.NoError(t, err)
+	err = dbService.SaveUser(&user)
+	assert.NoError(t, err)
+	assert.Equal(t, "user02", user.username)
+
+	dbUser, err := dbService.GetUser(user.username)
+	assert.Equal(t, user, *dbUser)
+
+	dbUsers := []*User{}
+	ch := make(chan *User)
+	done := make(chan bool)
+	go func() {
+		for user := range ch {
+			dbUsers = append(dbUsers, user)
+		}
+		close(done)
+	}()
+	err = dbService.ReadAllUsers(ch)
+	<-done
+	assert.NoError(t, err)
+	assert.EqualValues(t, users, dbUsers)
+}
+
+func TestSetUsernameAndOtherFields(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	user := User{
+		Password:    "pass1",
+		Opml:        "opml1",
+		Pagemonitor: "pagemonitor1",
+		username:    "user01",
+	}
+	users := []*User{&user}
+	err = dbService.SaveUser(&user)
+	assert.NoError(t, err)
+
+	user.Password = "pass1new"
+	user.Opml = "opml1new"
+	user.Pagemonitor = "pagemonitor1new"
+	err = user.SetUsername("user02")
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 	assert.Equal(t, "user02", user.username)
 
@@ -158,9 +204,13 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 	err = dbService.SaveUser(&user2)
 	assert.NoError(t, err)
 
-	err = dbService.SetUsername(&user1, "user02")
+	err = user1.SetUsername("user02")
+	assert.NoError(t, err)
+	err = dbService.SaveUser(&user1)
 	assert.Error(t, err)
 	assert.Equal(t, "user01", user1.username)
+	assert.Equal(t, "user02", user1.newUsername)
+	user1.newUsername = ""
 
 	dbUser1, err := dbService.GetUser("user01")
 	assert.Equal(t, user1, *dbUser1)
@@ -198,8 +248,10 @@ func TestSetUsernameEmptyString(t *testing.T) {
 	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
-	err = dbService.SetUsername(&user, "  ")
+	err = user.SetUsername("  ")
 	assert.Error(t, err)
+	err = dbService.SaveUser(&user)
+	assert.NoError(t, err)
 
 	dbUser, err := dbService.GetUser(user.username)
 	assert.Equal(t, user, *dbUser)

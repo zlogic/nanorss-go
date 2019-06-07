@@ -217,23 +217,26 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			user.Pagemonitor = r.Form.Get("Pagemonitor")
 
 			newUsername := r.Form.Get("Username")
-			if username != newUsername {
-				err := s.db.SetUsername(user, newUsername)
-				if err != nil {
-					handleError(w, r, err)
-					return
-				}
-				username = newUsername
-				// Force logout
-				cookie := s.cookieHandler.NewCookie()
-				http.SetCookie(w, cookie)
-			} else if err := s.db.SaveUser(user); err != nil {
+			err := user.SetUsername(newUsername)
+			if err != nil {
 				handleError(w, r, err)
 				return
 			}
 
+			if err := s.db.SaveUser(user); err != nil {
+				handleError(w, r, err)
+				return
+			}
+
+			if username != newUsername {
+				// Force logout
+				cookie := s.cookieHandler.NewCookie()
+				http.SetCookie(w, cookie)
+			}
+
 			//Reload user to return updated values
-			user, err = s.db.GetUser(newUsername)
+			username = user.GetUsername()
+			user, err = s.db.GetUser(username)
 			if err != nil {
 				handleError(w, r, err)
 				return

@@ -10,7 +10,6 @@ type DB interface {
 	GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error)
 	GetUser(username string) (*data.User, error)
 	SaveUser(*data.User) error
-	SetUsername(user *data.User, newUsername string) error
 	GetFeeditem(*data.FeeditemKey) (*data.Feeditem, error)
 	ReadAllFeedItems(chan *data.Feeditem) error
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)

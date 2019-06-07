@@ -543,6 +543,8 @@ func TestSaveSettingsAuthorized(t *testing.T) {
 	saveUser := *user
 	saveUser.Opml = "opml2"
 	saveUser.Pagemonitor = "pagemonitor2"
+	err = saveUser.SetUsername("user01")
+	assert.NoError(t, err)
 	dbMock.On("SaveUser", &saveUser).Return(nil).Once()
 
 	router.ServeHTTP(res, req)
@@ -616,9 +618,19 @@ func TestSaveSettingsChangeUsernameAuthorized(t *testing.T) {
 	saveUser := *user
 	saveUser.Opml = "opml2"
 	saveUser.Pagemonitor = "pagemonitor2"
-	dbMock.On("SetUsername", &saveUser, "user02").Return(nil).Once()
+	err = saveUser.SetUsername("user02")
+	assert.NoError(t, err)
 
-	dbMock.On("GetUser", "user02").Return(&saveUser, nil).Once()
+	getUpdatedUser := data.NewUser("user02")
+	getUpdatedUser.Opml = "opml2"
+	getUpdatedUser.Pagemonitor = "pagemonitor2"
+
+	dbMock.On("SaveUser", &saveUser).Return(nil).Once().
+		Run(func(args mock.Arguments) {
+			userArg := args.Get(0).(*data.User)
+			*userArg = *getUpdatedUser
+		})
+	dbMock.On("GetUser", "user02").Return(getUpdatedUser, nil).Once()
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
@@ -653,7 +665,8 @@ func TestSaveSettingsChangeUsernameFailedAuthorized(t *testing.T) {
 	saveUser := *user
 	saveUser.Opml = "opml2"
 	saveUser.Pagemonitor = "pagemonitor2"
-	dbMock.On("SetUsername", &saveUser, "user02").Return(fmt.Errorf("Username already in use")).Once()
+	err = saveUser.SetUsername("user02")
+	dbMock.On("SaveUser", &saveUser).Return(fmt.Errorf("Username already in use")).Once()
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
