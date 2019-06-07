@@ -70,9 +70,16 @@ $(document).ready(function() {
   // Load current field items
   var loadItems = function() {
     lockConfiguration(true);
+    spinner.prop("hidden", true);
     $.getJSON("api/configuration").done(function(settings) {
       lockConfiguration(false);
       updateFormValues(settings);
+    }).fail(function() {
+      var alertDiv = $('<div class="alert alert-danger" role="alert">Failed to fetch current configuration.</div>');
+      var form = $("#configurationForm");
+      form.empty().append(alertDiv);
+      alertDiv.hide();
+      alertDiv.slideDown();
     });
   }
   loadItems();
