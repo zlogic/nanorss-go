@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/stretchr/testify/assert"
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -93,6 +94,56 @@ const parseRdfFeed = `<?xml version="1.0" encoding="utf-8"?>
 <title>Title 1</title>
 <link>http://site1/link1</link>
 <description>Description 1</description>
+</item>
+</rdf:RDF>`
+
+const sanitizeAtomFeed = `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<entry>
+<content type="xhtml">
+<div xmlns="http://www.w3.org/1999/xhtml">
+<p>Content 1</p>
+<iframe src="http://hackersite.ru"></iframe>
+<p>More content</p>
+</div>
+</content>
+</entry>
+<entry>
+<content type="html">
+&lt;div xmlns=&#34;http://www.w3.org/1999/xhtml&#34;&gt;
+&lt;p&gt;Content 2&lt;/p&gt;
+&lt;iframe src=&#34;http://hackersite.ru&#34;&gt;&lt;/iframe&gt;
+&lt;p&gt;More content&lt;/p&gt;
+&lt;/div&gt;
+</content>
+</entry>
+</feed>`
+
+const sanitizeRssFeed = `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+<channel>
+<item>
+<description>&lt;p&gt;Content 1&lt;/p&gt;
+&lt;iframe src=&#34;http://hackersite.ru&#34;&gt;&lt;/iframe&gt;
+&lt;p&gt;More content&lt;/p&gt;</description>
+</item>
+<item>
+<description>Text 2</description>
+<content:encoded>&lt;p&gt;Content 2&lt;/p&gt;
+&lt;iframe src=&#34;http://hackersite.ru&#34;&gt;&lt;/iframe&gt;
+&lt;p&gt;More content&lt;/p&gt;</content:encoded>
+<pubDate>Wed, 08 Jun 2016 10:34:00 GMT</pubDate>
+<guid>Item@4</guid>
+</item>
+</channel>
+</rss>`
+
+const sanitizeRdfFeed = `<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<item>
+<description>&lt;p&gt;Content&lt;/p&gt;
+&lt;iframe src=&#34;http://hackersite.ru&#34;&gt;&lt;/iframe&gt;
+&lt;p&gt;More content&lt;/p&gt;</description>
 </item>
 </rdf:RDF>`
 
@@ -213,6 +264,41 @@ func TestParseRdf(t *testing.T) {
 			},
 		},
 	}, items)
+}
+
+func TestSanitizeAtom(t *testing.T) {
+	fetcher := Fetcher{TagsPolicy: bluemonday.UGCPolicy()}
+
+	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(sanitizeAtomFeed)))
+	assert.NoError(t, err)
+
+	assert.Len(t, items, 2)
+
+	assert.Equal(t, "<div>\n<p>Content 1</p>\n\n<p>More content</p>\n</div>", items[0].Contents)
+	assert.Equal(t, "<div>\n<p>Content 2</p>\n\n<p>More content</p>\n</div>", items[1].Contents)
+}
+
+func TestSanitizeRss(t *testing.T) {
+	fetcher := Fetcher{TagsPolicy: bluemonday.UGCPolicy()}
+
+	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(sanitizeRssFeed)))
+	assert.NoError(t, err)
+
+	assert.Len(t, items, 2)
+
+	assert.Equal(t, "<p>Content 1</p>\n\n<p>More content</p>", items[0].Contents)
+	assert.Equal(t, "<p>Content 2</p>\n\n<p>More content</p>", items[1].Contents)
+}
+
+func TestSanitizeRdf(t *testing.T) {
+	fetcher := Fetcher{TagsPolicy: bluemonday.UGCPolicy()}
+
+	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(sanitizeRdfFeed)))
+	assert.NoError(t, err)
+
+	assert.Len(t, items, 1)
+
+	assert.Equal(t, "<p>Content</p>\n\n<p>More content</p>", items[0].Contents)
 }
 
 func TestParseInvalid(t *testing.T) {

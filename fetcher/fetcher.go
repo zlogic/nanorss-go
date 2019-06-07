@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/microcosm-cc/bluemonday"
 	"github.com/zlogic/nanorss-go/data"
 )
 
@@ -18,13 +19,15 @@ type DB interface {
 
 // Fetcher contains services needed to fetch items and save them into a database.
 type Fetcher struct {
-	DB     DB
-	Client *http.Client
+	DB         DB
+	Client     *http.Client
+	TagsPolicy *bluemonday.Policy
 }
 
 // NewFetcher creates a new Fetcher instance with db.
 func NewFetcher(db DB) *Fetcher {
-	return &Fetcher{DB: db}
+	policy := bluemonday.UGCPolicy()
+	return &Fetcher{DB: db, TagsPolicy: policy}
 }
 
 // Refresh performs a fetch of all monitored items.
