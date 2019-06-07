@@ -23,6 +23,7 @@ func CreateRouter(s *Services) (*mux.Router, error) {
 	r.HandleFunc("/logout", LogoutHandler(s)).Methods(http.MethodGet)
 	r.HandleFunc("/feed", HTMLFeedHandler(s)).Methods(http.MethodGet).Name("feed")
 	r.HandleFunc("/settings", HTMLSettingsHandler(s)).Methods(http.MethodGet).Name("settings")
+	r.HandleFunc("/status", HTMLStatusHandler(s)).Methods(http.MethodGet).Name("status")
 	r.HandleFunc("/favicon.ico", FaviconHandler)
 	fs := http.FileServer(staticResourceFileSystem{http.Dir("static")})
 	r.PathPrefix("/static/").Handler(http.StripPrefix(strings.TrimRight("/static", "/"), fs))
@@ -34,5 +35,6 @@ func CreateRouter(s *Services) (*mux.Router, error) {
 	api.HandleFunc("/feed", FeedHandler(s)).Methods(http.MethodGet)
 	api.HandleFunc("/items/{key}", FeedItemHandler(s)).Methods(http.MethodGet)
 	api.HandleFunc("/refresh", RefreshHandler(s)).Methods(http.MethodGet)
+	api.HandleFunc("/status", StatusHandler(s)).Methods(http.MethodGet)
 	return r, nil
 }

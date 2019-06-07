@@ -70,6 +70,16 @@ func (m *DBMock) ReadAllPages(ch chan *data.PagemonitorPage) error {
 	return args.Error(0)
 }
 
+func (m *DBMock) GetFetchStatus(key []byte) (*data.FetchStatus, error) {
+	args := m.Called(key)
+	fetchStatus := args.Get(0)
+	var returnFetchStatus *data.FetchStatus
+	if fetchStatus != nil {
+		returnFetchStatus = fetchStatus.(*data.FetchStatus)
+	}
+	return returnFetchStatus, args.Error(1)
+}
+
 func createTestCookieHandler() (*CookieHandler, error) {
 	hashKey := base64.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(64))
 	blockKey := base64.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(32))

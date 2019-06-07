@@ -9,6 +9,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var itemTTL = 14 * 24 * time.Hour
+
 // SetLastSeen creates or updates the last seen value for key.
 func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 	return func(txn *badger.Txn) error {
@@ -71,7 +73,7 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 			}
 
 			expires := lastSeen.Add(itemTTL)
-			if !expires.After(now) {
+			if now.After(expires) || now.Equal(expires) {
 				log.Debug("Deleting expired item")
 				purgeItem(k)
 			}

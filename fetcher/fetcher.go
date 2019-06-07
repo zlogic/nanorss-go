@@ -11,9 +11,10 @@ import (
 
 // DB provides functions to read and write items in the database.
 type DB interface {
-	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
-	SavePage(page *data.PagemonitorPage) error
-	SaveFeeditems(feedItems ...*data.Feeditem) (err error)
+	GetPage(*data.UserPagemonitor) (*data.PagemonitorPage, error)
+	SavePage(*data.PagemonitorPage) error
+	SaveFeeditems(...*data.Feeditem) (err error)
+	SetFetchStatus([]byte, *data.FetchStatus) error
 	ReadAllUsers(chan *data.User) error
 }
 

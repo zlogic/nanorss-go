@@ -29,9 +29,12 @@ func CreateLastSeenKey(itemKey []byte) []byte {
 	return append([]byte(LastSeenKeyPrefix), itemKey...)
 }
 
-// DecodeLastSeenKey extracts the item key from a LastSeen key.
-func DecodeLastSeenKey(lastSeenKey []byte) []byte {
-	return lastSeenKey[len(LastSeenKeyPrefix):]
+// FetchStatusKeyPrefix is the key prefix for FetchStatus entries.
+const FetchStatusKeyPrefix = "fetchstatus" + separator
+
+// CreateFetchStatusKey creates a FetchStatus key for itemKey.
+func CreateFetchStatusKey(itemKey []byte) []byte {
+	return append([]byte(FetchStatusKeyPrefix), itemKey...)
 }
 
 // UserKeyPrefix is the key prefix for User entries.
@@ -96,6 +99,15 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 		return nil, errors.Errorf("Failed to decode Replace of Pagemonitor key: %v because of %v", keyString, err)
 	}
 	return res, nil
+}
+
+// FeedKeyPrefix is the key prefix for a UserFeed.
+const FeedKeyPrefix = "feed" + separator
+
+// CreateKey creates a key for a Pagemonitor entry.
+func (feed *UserFeed) CreateKey() []byte {
+	keyURL := encodePart(feed.URL)
+	return []byte(FeedKeyPrefix + keyURL)
 }
 
 // FeeditemKeyPrefix is the key prefix for Feeditem.

@@ -272,3 +272,70 @@ func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+// StatusHandler returns the fetch status for all monitored items for an authenticated user.
+func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user := validateUserForAPI(w, r, s)
+		if user == nil {
+			return
+		}
+
+		feeds, err := user.GetFeeds()
+		if err != nil {
+			handleError(w, r, err)
+			return
+		}
+		pages, err := user.GetPages()
+		if err != nil {
+			handleError(w, r, err)
+			return
+		}
+
+		type itemStatus struct {
+			Name        string
+			Success     bool
+			LastFailure *time.Time `json:",omitempty"`
+			LastSuccess *time.Time `json:",omitempty"`
+		}
+		itemStatuses := make([]itemStatus, len(feeds)+len(pages))
+
+		convertItemStatus := func(name string, status *data.FetchStatus) *itemStatus {
+			itemStatus := itemStatus{Name: name}
+			if status == nil {
+				return &itemStatus
+			}
+			var emptyTime = time.Time{}
+			if status.LastFailure != emptyTime {
+				itemStatus.LastFailure = &status.LastFailure
+			}
+			if status.LastSuccess != emptyTime {
+				itemStatus.LastSuccess = &status.LastSuccess
+			}
+			itemStatus.Success = status.LastSuccess.After(status.LastFailure)
+			return &itemStatus
+		}
+
+		for i, feed := range feeds {
+			fetchStatus, err := s.db.GetFetchStatus(feed.CreateKey())
+			if err != nil {
+				handleError(w, r, err)
+				return
+			}
+			itemStatuses[i] = *convertItemStatus(feed.Title, fetchStatus)
+		}
+
+		for i, page := range pages {
+			fetchStatus, err := s.db.GetFetchStatus(page.CreateKey())
+			if err != nil {
+				handleError(w, r, err)
+				return
+			}
+			itemStatuses[len(feeds)+i] = *convertItemStatus(page.Title, fetchStatus)
+		}
+
+		if err := json.NewEncoder(w).Encode(itemStatuses); err != nil {
+			handleError(w, r, err)
+		}
+	}
+}

@@ -118,3 +118,25 @@ func HTMLSettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Reques
 		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
 	}
 }
+
+// HTMLStatusHandler serves the feed status page.
+func HTMLStatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		username := validateUser(w, r, s)
+		if username == "" {
+			return
+		}
+		user, err := s.db.GetUser(username)
+		if err != nil {
+			handleError(w, r, err)
+			return
+		}
+
+		t, err := loadTemplate("status")
+		if err != nil {
+			handleError(w, r, err)
+			return
+		}
+		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
+	}
+}

@@ -14,6 +14,7 @@ type DB interface {
 	ReadAllFeedItems(chan *data.Feeditem) error
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
 	ReadAllPages(chan *data.PagemonitorPage) error
+	GetFetchStatus(key []byte) (*data.FetchStatus, error)
 }
 
 // Fetcher provides a method to refresh all feeds.

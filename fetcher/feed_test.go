@@ -66,6 +66,7 @@ func TestFetchFeed(t *testing.T) {
 	}
 
 	feedURL := "http://site1/rss"
+	feedKey := (&data.UserFeed{URL: feedURL}).CreateKey()
 	beforeUpdate := time.Now()
 	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
@@ -80,6 +81,14 @@ func TestFetchFeed(t *testing.T) {
 				savedItem.Updated = time.Time{}
 			}
 			assert.Equal(t, expectedRssFeedItems, savedItems)
+		})
+	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+		Run(func(args mock.Arguments) {
+			currentTime := time.Now()
+			fetchStatus := args.Get(1).(*data.FetchStatus)
+			emptyTime := time.Time{}
+			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
+			assert.Equal(t, emptyTime, fetchStatus.LastFailure)
 		})
 	err := fetcher.FetchFeed(feedURL)
 	assert.NoError(t, err)
@@ -98,6 +107,16 @@ func TestFetchFeedError(t *testing.T) {
 	}
 
 	feedURL := "http://site1/rss"
+	feedKey := (&data.UserFeed{URL: feedURL}).CreateKey()
+	beforeUpdate := time.Now()
+	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+		Run(func(args mock.Arguments) {
+			currentTime := time.Now()
+			fetchStatus := args.Get(1).(*data.FetchStatus)
+			emptyTime := time.Time{}
+			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastFailure)
+			assert.Equal(t, emptyTime, fetchStatus.LastSuccess)
+		})
 	err := fetcher.FetchFeed(feedURL)
 	assert.Error(t, err)
 	dbMock.AssertExpectations(t)
@@ -165,6 +184,19 @@ func TestFetchAllFeeds(t *testing.T) {
 			}
 			dbSavedItems = append(dbSavedItems, savedItems)
 		})
+	assertSetFetchStatus := func(args mock.Arguments) {
+		currentTime := time.Now()
+		fetchStatus := args.Get(1).(*data.FetchStatus)
+		emptyTime := time.Time{}
+		assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
+		assert.Equal(t, emptyTime, fetchStatus.LastFailure)
+	}
+	feedKey1 := (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()
+	feedKey2 := (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()
+	dbMock.On("SetFetchStatus", feedKey1, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+		Run(assertSetFetchStatus)
+	dbMock.On("SetFetchStatus", feedKey2, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+		Run(assertSetFetchStatus)
 	err := fetcher.FetchAllFeeds()
 	assert.NoError(t, err)
 	assert.ElementsMatch(t, expectedSavedItems, dbSavedItems)

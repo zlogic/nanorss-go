@@ -3,7 +3,6 @@ package data
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger"
@@ -26,8 +25,6 @@ type Feeditem struct {
 	Updated  time.Time
 	Key      *FeeditemKey `json:",omitempty"`
 }
-
-var itemTTL = 14 * 24 * time.Hour
 
 // Encode serializes a Feeditem.
 func (feedItem *Feeditem) Encode() ([]byte, error) {
@@ -72,8 +69,6 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 // SaveFeeditems saves feedItems in the database.
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 	return s.db.Update(func(txn *badger.Txn) error {
-		failed := false
-
 		getPreviousValue := func(key []byte) ([]byte, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
@@ -136,9 +131,6 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			if err := txn.Set(key, value); err != nil {
 				return errors.Wrap(err, "Cannot save feed item")
 			}
-		}
-		if failed {
-			return fmt.Errorf("At least one feed failed to save properly")
 		}
 		return nil
 	})

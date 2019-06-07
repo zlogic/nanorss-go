@@ -59,6 +59,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	go func() {
 		for feedItem := range feedItemsChan {
 			title, err := findFeedTitle(feedItem.Key.FeedURL)
+			//TODO: this is not efficient for more than a couple of users
 			if err != nil {
 				// Probably an orphaned feed
 				continue

@@ -1,0 +1,48 @@
+{{ define "content" }}
+<div id="status">
+  <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>
+</div>
+<script>
+$(document).ready(function() {
+  var statusTarget = $("#status");
+  // Load current field items
+  var loadStatus = function() {
+    $.getJSON("api/status").done(function(items) {
+      statusTarget.empty();
+      var itemsCard = $('<div class="card"></div>').appendTo(statusTarget);
+      var itemsList = $('<ul class="list-group list-group-flush"></ul>').appendTo(itemsCard);
+      var createDateNode = function(label, date) {
+        var dateNode = $('<em></em>').text(new Date(date).toLocaleString());
+        var label = $('<span></span>').text(label);
+        return $('<div></div>').append($('<small></small>').append(label).append(dateNode));
+      }
+      for (i in items) {
+        var item = items[i];
+        var itemListItem = $('<li class="list-group-item"></li>').appendTo(itemsList);
+        var itemEntry = $('<div></div>').appendTo(itemListItem);
+        if (item.Success) {
+          itemListItem.addClass("list-group-item-success");
+        } else if (item.LastFailure !== undefined) {
+          itemListItem.addClass("list-group-item-danger");
+        } else {
+          itemListItem.addClass("list-group-item-warning");
+        }
+        itemEntry.append($('<h5></h5>').text(item.Name));
+        if (item.LastFailure !== undefined) {
+          itemEntry.append(createDateNode("Last failure: ", item.LastFailure));
+        }
+        if (item.LastSuccess !== undefined) {
+          itemEntry.append(createDateNode("Last success: ", item.LastSuccess));
+        }
+      }
+    }).fail(function() {
+      var alertDiv = $('<div class="alert alert-danger" role="alert">Failed to fetch feed status.</div>');
+      statusTarget.empty().append(alertDiv);
+      alertDiv.hide();
+      alertDiv.slideDown();
+    });
+  }
+  loadStatus();
+});
+</script>
+{{ end }}

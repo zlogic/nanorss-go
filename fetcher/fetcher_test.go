@@ -31,6 +31,11 @@ func (m *DBMock) ReadAllUsers(ch chan *data.User) error {
 	return args.Error(0)
 }
 
+func (m *DBMock) SetFetchStatus(key []byte, fetchStatus *data.FetchStatus) error {
+	args := m.Called(key, fetchStatus)
+	return args.Error(0)
+}
+
 func (m *DBMock) SaveFeeditems(feedItems ...*data.Feeditem) error {
 	args := m.Called(feedItems)
 	return args.Error(0)

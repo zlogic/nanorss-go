@@ -800,3 +800,159 @@ func TestRefreshUserDoesNotExist(t *testing.T) {
 	dbMock.AssertExpectations(t)
 	fetcherMock.AssertExpectations(t)
 }
+
+func TestGetStatusAuthorizedSuccess(t *testing.T) {
+	dbMock := new(DBMock)
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
+	assert.NoError(t, err)
+
+	user := data.NewUser("user01")
+	user.Opml = defaultOpml
+	user.Pagemonitor = defaultPagemonitor
+	date1 := time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)
+	date2 := time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
+	dbMock.On("GetUser", "user01").Return(user, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date2, LastFailure: date1}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date1}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date2, LastFailure: date1}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/2"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date2}, nil).Once()
+
+	req, _ := http.NewRequest("GET", "/api/status", nil)
+	res := httptest.NewRecorder()
+
+	cookie := cookieHandler.NewCookie()
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
+
+	router.ServeHTTP(res, req)
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "["+`{"Name":"Feed 1","Success":true,"LastFailure":"2019-02-16T23:00:00Z","LastSuccess":"2019-02-16T23:01:00Z"},`+
+		`{"Name":"Feed 2","Success":true,"LastSuccess":"2019-02-16T23:00:00Z"},`+
+		`{"Name":"Site 1","Success":true,"LastFailure":"2019-02-16T23:00:00Z","LastSuccess":"2019-02-16T23:01:00Z"},`+
+		`{"Name":"Site 2","Success":true,"LastSuccess":"2019-02-16T23:01:00Z"}`+
+		"]\n", string(res.Body.Bytes()))
+
+	dbMock.AssertExpectations(t)
+}
+
+func TestGetStatusAuthorizedFailure(t *testing.T) {
+	dbMock := new(DBMock)
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
+	assert.NoError(t, err)
+
+	user := data.NewUser("user01")
+	user.Opml = defaultOpml
+	user.Pagemonitor = defaultPagemonitor
+	date1 := time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)
+	date2 := time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
+	dbMock.On("GetUser", "user01").Return(user, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date1, LastFailure: date2}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()).Return(&data.FetchStatus{LastFailure: date1}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date1, LastFailure: date2}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/2"}).CreateKey()).Return(&data.FetchStatus{LastFailure: date2}, nil).Once()
+
+	req, _ := http.NewRequest("GET", "/api/status", nil)
+	res := httptest.NewRecorder()
+
+	cookie := cookieHandler.NewCookie()
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
+
+	router.ServeHTTP(res, req)
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "["+`{"Name":"Feed 1","Success":false,"LastFailure":"2019-02-16T23:01:00Z","LastSuccess":"2019-02-16T23:00:00Z"},`+
+		`{"Name":"Feed 2","Success":false,"LastFailure":"2019-02-16T23:00:00Z"},`+
+		`{"Name":"Site 1","Success":false,"LastFailure":"2019-02-16T23:01:00Z","LastSuccess":"2019-02-16T23:00:00Z"},`+
+		`{"Name":"Site 2","Success":false,"LastFailure":"2019-02-16T23:01:00Z"}`+
+		"]\n", string(res.Body.Bytes()))
+
+	dbMock.AssertExpectations(t)
+}
+
+func TestGetStatusAuthorizedUnknown(t *testing.T) {
+	dbMock := new(DBMock)
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
+	assert.NoError(t, err)
+
+	user := data.NewUser("user01")
+	user.Opml = defaultOpml
+	user.Pagemonitor = defaultPagemonitor
+	dbMock.On("GetUser", "user01").Return(user, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/2"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
+
+	req, _ := http.NewRequest("GET", "/api/status", nil)
+	res := httptest.NewRecorder()
+
+	cookie := cookieHandler.NewCookie()
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
+
+	router.ServeHTTP(res, req)
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "["+`{"Name":"Feed 1","Success":false},`+
+		`{"Name":"Feed 2","Success":false},`+
+		`{"Name":"Site 1","Success":false},`+
+		`{"Name":"Site 2","Success":false}`+
+		"]\n", string(res.Body.Bytes()))
+
+	dbMock.AssertExpectations(t)
+}
+
+func TestGetStatusNotAuthorized(t *testing.T) {
+	dbMock := new(DBMock)
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
+	assert.NoError(t, err)
+
+	req, _ := http.NewRequest("GET", "/api/status", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+	assert.Equal(t, http.StatusUnauthorized, res.Code)
+	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+
+	dbMock.AssertExpectations(t)
+}
+
+func TestGetStatusUserDoesNotExist(t *testing.T) {
+	dbMock := new(DBMock)
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
+	assert.NoError(t, err)
+
+	dbMock.On("GetUser", "user01").Return(nil, nil).Once()
+
+	req, _ := http.NewRequest("GET", "/api/status", nil)
+	res := httptest.NewRecorder()
+
+	cookie := cookieHandler.NewCookie()
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
+
+	router.ServeHTTP(res, req)
+	assert.Equal(t, http.StatusUnauthorized, res.Code)
+	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+
+	dbMock.AssertExpectations(t)
+}
