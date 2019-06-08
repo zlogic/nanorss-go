@@ -136,6 +136,9 @@ func (s *DBService) SaveUser(user *User) (err error) {
 			if err := txn.Delete(oldUserKey); err != nil {
 				return err
 			}
+			if err := s.renameReadStatus(user)(txn); err != nil {
+				return err
+			}
 		}
 		return txn.Set(key, value.Bytes())
 	})

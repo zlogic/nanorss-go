@@ -16,6 +16,7 @@ type Item struct {
 	Origin   string
 	SortDate time.Time `json:"-"`
 	FetchURL string
+	IsRead   bool
 }
 
 // FeedListService is a service which gets feed items for a user.
@@ -29,9 +30,17 @@ func escapeKeyForURL(key []byte) string {
 	return strings.Replace(string(key), "/", "-", -1)
 }
 
-func (a itemsSortable) Len() int           { return len(a) }
-func (a itemsSortable) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a itemsSortable) Less(i, j int) bool { return a[i].SortDate.After(a[j].SortDate) }
+func (a itemsSortable) Len() int      { return len(a) }
+func (a itemsSortable) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
+func (a itemsSortable) Less(i, j int) bool {
+	if !a[i].IsRead && a[j].IsRead {
+		return true
+	}
+	if a[i].IsRead && !a[j].IsRead {
+		return false
+	}
+	return a[i].SortDate.After(a[j].SortDate)
+}
 
 // GetAllItems returns all Items for user.
 func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
@@ -40,6 +49,11 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		return nil, err
 	}
 	pages, err := user.GetPages()
+	if err != nil {
+		return nil, err
+	}
+
+	readItems, err := h.db.GetReadStatus(user)
 	if err != nil {
 		return nil, err
 	}
@@ -53,6 +67,14 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 			}
 		}
 		return "", errors.New("Not found")
+	}
+	isRead := func(itemKey []byte) bool {
+		for _, readItemKey := range readItems {
+			if bytes.Equal(readItemKey, itemKey) {
+				return true
+			}
+		}
+		return false
 	}
 	feedItemsChan := make(chan *data.Feeditem)
 	feedItemsDone := make(chan bool)
@@ -68,7 +90,8 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				Title:    feedItem.Title,
 				Origin:   title,
 				FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
-				SortDate: feedItem.Updated,
+				SortDate: feedItem.Date,
+				IsRead:   isRead(feedItem.Key.CreateKey()),
 			}
 			items = append(items, item)
 		}
@@ -101,6 +124,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				Origin:   title,
 				FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),
 				SortDate: page.Updated,
+				IsRead:   isRead(page.Config.CreateKey()),
 			}
 			items = append(items, item)
 		}

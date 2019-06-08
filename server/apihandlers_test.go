@@ -131,6 +131,7 @@ func TestFeedHandlerAuthorized(t *testing.T) {
 			Origin:   "Site 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 			FetchURL: "fetchurl1",
+			IsRead:   true,
 		},
 		&Item{
 			Title:    "t2",
@@ -149,7 +150,7 @@ func TestFeedHandlerAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `[{"Title":"","Origin":"Site 1","FetchURL":"fetchurl1"},{"Title":"t2","Origin":"Feed 1","FetchURL":"fetchurl2"}]`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `[{"Title":"","Origin":"Site 1","FetchURL":"fetchurl1","IsRead":true},{"Title":"t2","Origin":"Feed 1","FetchURL":"fetchurl2","IsRead":false}]`+"\n", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 	feedListHelper.AssertExpectations(t)
@@ -260,6 +261,7 @@ func TestFeedItemAuthorized(t *testing.T) {
 	}
 
 	dbMock.On("GetFeeditem", key).Return(item, nil).Once()
+	dbMock.On("SetReadStatus", user, key.CreateKey(), true).Return(nil).Once()
 
 	req, _ := http.NewRequest("GET", "/api/items/"+escapeKeyForURL(key.CreateKey()), nil)
 	res := httptest.NewRecorder()

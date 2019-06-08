@@ -42,7 +42,7 @@ const UserKeyPrefix = "user" + separator
 
 // CreateUserKey creates a key for user.
 func CreateUserKey(username string) []byte {
-	return []byte(UserKeyPrefix + username)
+	return []byte(UserKeyPrefix + encodePart(username))
 }
 
 // CreateKey creates a key for user.
@@ -60,7 +60,11 @@ func DecodeUserKey(key []byte) (*string, error) {
 	if len(parts) != 2 {
 		return nil, errors.Errorf("Invalid format of user key: %v", keyString)
 	}
-	return &parts[1], nil
+	username, err := decodePart(parts[1])
+	if err != nil {
+		return nil, errors.Errorf("Failed to decode username: %v because of %v", keyString, err)
+	}
+	return &username, nil
 }
 
 // PagemonitorKeyPrefix is the key prefix for Pagemonitor.
@@ -143,6 +147,32 @@ func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	return res, nil
 }
 
+// ReadStatusPrefix is the key prefix for an item read status.
+const ReadStatusPrefix = "feed" + separator
+
+// CreateReadStatusPrefix creates a read status key prefix for user.
+func (user *User) CreateReadStatusPrefix() string {
+	return ReadStatusPrefix + encodePart(user.username) + separator
+}
+
+// CreateReadStatusKey creates a read status key for an item key.
+func (user *User) CreateReadStatusKey(itemKey []byte) []byte {
+	return append([]byte(user.CreateReadStatusPrefix()), itemKey...)
+}
+
+// DecodeReadStatusKey decodes the item key from the read status key.
+func DecodeReadStatusKey(key []byte) ([]byte, error) {
+	keyString := string(key)
+	if !strings.HasPrefix(keyString, ReadStatusPrefix) {
+		return nil, errors.Errorf("Not a read status key: %v", keyString)
+	}
+	parts := strings.SplitN(keyString, separator, 3)
+	if len(parts) != 3 {
+		return nil, errors.Errorf("Invalid format of read status key: %v", keyString)
+	}
+	return []byte(parts[2]), nil
+}
+
 // ServerConfigKeyPrefix is the key prefix for a ServerConfig item.
 const ServerConfigKeyPrefix = "serverconfig" + separator
 
@@ -163,7 +193,7 @@ func DecodeServerConfigKey(key []byte) (string, error) {
 	}
 	value, err := decodePart(parts[1])
 	if err != nil {
-		return "", errors.Errorf("Failed to config item valye: %v because of %v", keyString, err)
+		return "", errors.Errorf("Failed to decode config item value: %v because of %v", keyString, err)
 	}
 	return value, nil
 }

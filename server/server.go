@@ -14,6 +14,8 @@ type DB interface {
 	ReadAllFeedItems(chan *data.Feeditem) error
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
 	ReadAllPages(chan *data.PagemonitorPage) error
+	GetReadStatus(*data.User) ([][]byte, error)
+	SetReadStatus(user *data.User, itemKey []byte, read bool) error
 	GetFetchStatus(key []byte) (*data.FetchStatus, error)
 }
 

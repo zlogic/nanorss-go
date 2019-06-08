@@ -70,13 +70,23 @@ const backupData = `{
       "Password": "pass1",
       "Opml": "opml1",
       "Pagemonitor": "pagemonitor1",
-      "Username": "user01"
+      "Username": "user01",
+      "ReadItems": [
+        "feeditem/aHR0cDovL2ZlZWQx/ZzE",
+        "feeditem/aHR0cDovL2ZlZWQx/ZzI",
+        "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE"
+      ]
     },
     {
       "Password": "pass2",
       "Opml": "opml2",
       "Pagemonitor": "pagemonitor2",
-      "Username": "user02"
+      "Username": "user02",
+      "ReadItems": [
+        "feeditem/aHR0cDovL2ZlZWQx/ZzE",
+        "feeditem/aHR0cDovL2ZlZWQy/ZzE",
+        "pagemonitor/aHR0cDovL3NpdGUy//"
+      ]
     }
   ],
   "Feeds": [
@@ -147,6 +157,13 @@ func TestBackup(t *testing.T) {
 		dbService.SavePage(page)
 	}
 
+	dbService.SetReadStatus(backupUsers[0], backupFeeditems[0].Key.CreateKey(), true)
+	dbService.SetReadStatus(backupUsers[0], backupFeeditems[1].Key.CreateKey(), true)
+	dbService.SetReadStatus(backupUsers[0], backupPagemonitor[0].Config.CreateKey(), true)
+	dbService.SetReadStatus(backupUsers[1], backupFeeditems[0].Key.CreateKey(), true)
+	dbService.SetReadStatus(backupUsers[1], backupFeeditems[2].Key.CreateKey(), true)
+	dbService.SetReadStatus(backupUsers[1], backupPagemonitor[1].Config.CreateKey(), true)
+
 	dbService.SetConfigVariable("k1", "v1")
 	dbService.SetConfigVariable("k2", "v2")
 
@@ -176,6 +193,22 @@ func TestRestore(t *testing.T) {
 	assert.NoError(t, err)
 	<-done
 	assert.Equal(t, backupUsers, dbUsers)
+
+	user1ReadStatus, err := dbService.GetReadStatus(backupUsers[0])
+	assert.NoError(t, err)
+	assert.Equal(t, [][]byte{
+		backupFeeditems[0].Key.CreateKey(),
+		backupFeeditems[1].Key.CreateKey(),
+		backupPagemonitor[0].Config.CreateKey(),
+	}, user1ReadStatus)
+
+	user2ReadStatus, err := dbService.GetReadStatus(backupUsers[1])
+	assert.NoError(t, err)
+	assert.Equal(t, [][]byte{
+		backupFeeditems[0].Key.CreateKey(),
+		backupFeeditems[2].Key.CreateKey(),
+		backupPagemonitor[1].Config.CreateKey(),
+	}, user2ReadStatus)
 
 	feedChan := make(chan *Feeditem)
 	dbFeeditems := make([]*Feeditem, 0)

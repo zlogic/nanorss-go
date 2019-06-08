@@ -1,0 +1,116 @@
+package data
+
+import (
+	"github.com/dgraph-io/badger"
+	log "github.com/sirupsen/logrus"
+)
+
+type itemKey = []byte
+
+// GetReadStatus returns the read status for keys and returns the list of items which are marked as read for user.
+func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
+	items := make([]itemKey, 0)
+	prefix := []byte(user.CreateReadStatusPrefix())
+	err := s.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		defer it.Close()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			k := item.Key()
+
+			itemKey, err := DecodeReadStatusKey(k)
+			if err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
+				return err
+			}
+			items = append(items, itemKey)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+// SetReadStatus sets the read status for item, true for read, false for unread.
+func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
+	readStatusKey := user.CreateReadStatusKey(k)
+	return s.db.Update(func(txn *badger.Txn) error {
+		if read {
+			return txn.Set(readStatusKey, nil)
+		}
+		return txn.Delete(readStatusKey)
+	})
+}
+
+// RenameReadStatus updates read status items for user to the new username.
+func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
+	newUser := &User{username: user.newUsername}
+	readStatusPrefix := user.CreateReadStatusPrefix()
+	prefix := []byte(readStatusPrefix)
+	return func(txn *badger.Txn) error {
+		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		defer it.Close()
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			k := make([]byte, len(item.Key()))
+			copy(k, it.Item().Key())
+
+			itemKey, err := DecodeReadStatusKey(k)
+			if err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
+				return err
+			}
+
+			err = txn.Delete(k)
+			if err != nil {
+				log.WithField("key", k).WithField("user", user.username).WithError(err).Error("Failed to delete read status from old username")
+				return err
+			}
+
+			newK := newUser.CreateReadStatusKey(itemKey)
+			err = txn.Set(newK, nil)
+			if err != nil {
+				log.WithField("key", newK).WithField("user", newUser.username).WithError(err).Error("Failed to create read status for new username")
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// DeleteStaleReadStatuses deletes all read statuses which are referring to items which no longer exist.
+func (s *DBService) DeleteStaleReadStatuses() error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		defer it.Close()
+		prefix := []byte(ReadStatusPrefix)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			k := make([]byte, len(item.Key()))
+			copy(k, item.Key())
+
+			itemKey, err := DecodeReadStatusKey(k)
+			if err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to decode key of read status")
+				continue
+			}
+
+			referencedItem, err := txn.Get(itemKey)
+			if err == badger.ErrKeyNotFound {
+				log.WithField("item", referencedItem).Debug("Deleting invalid read status")
+				if err := txn.Delete(k); err != nil {
+					log.WithField("key", k).WithError(err).Error("Failed to delete read status")
+					continue
+				}
+			} else if err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to get item referenced by read status")
+				continue
+			}
+		}
+		return nil
+	})
+}

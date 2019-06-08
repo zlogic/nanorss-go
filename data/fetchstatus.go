@@ -95,8 +95,8 @@ func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
 	})
 }
 
-// DeleteStaleStatuses deletes all FetchStatus items which were not updated for itemTTL.
-func (s *DBService) DeleteStaleStatuses() error {
+// DeleteStaleFetchStatuses deletes all FetchStatus items which were not updated for itemTTL.
+func (s *DBService) DeleteStaleFetchStatuses() error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		now := time.Now()
 

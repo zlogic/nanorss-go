@@ -20,10 +20,13 @@ $(document).ready(function() {
       placeholderElement.hide();
       for (i in items) {
         var item = items[i];
-        var titleText = item.Title !== "" ? [item.Title, item.Origin].join(" / ") : item.Origin;
-        var titleElement = $('<a href="#item-' + i + '" data-toggle="collapse" aria-expanded="false" aria-controls="item-' + i +  '">' + titleText + '</a>');
+        var titleText = $('<span></span> ').text(item.Title !== "" ? [item.Title, item.Origin].join(" / ") : item.Origin);
+        var titleElement = $('<a href="#item-' + i + '" data-toggle="collapse" aria-expanded="false" aria-controls="item-' + i +  '"></a>').append(titleText);
         var expandElement = $('<div id="item-' + i + '" class="collapse" data-fetchurl="' + item.FetchURL +'"></div>');
         var itemElement = $('<div></div>');
+        if (item.IsRead === false) {
+          $('<span><span class="badge badge-secondary">New</span> </span>').prependTo(titleText);
+        }
         itemElement.append($('<h3></h3>').append(titleElement));
         itemElement.append(expandElement);
         placeholderElement.append(itemElement);

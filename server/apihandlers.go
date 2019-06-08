@@ -138,6 +138,10 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				if feedItem == nil {
 					return nil
 				}
+				err = s.db.SetReadStatus(user, feeditemKey.CreateKey(), true)
+				if err != nil {
+					log.WithField("key", key).WithError(err).Error("Failed to set read status")
+				}
 				return &clientFeedItem{
 					Contents:  feedItem.Contents,
 					Date:      feedItem.Date,

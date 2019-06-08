@@ -13,7 +13,8 @@ import (
 // BackupUser is a backup-friendly version of User.
 type BackupUser struct {
 	User
-	Username string
+	Username  string
+	ReadItems []string
 }
 
 // BackupFeeditem is a backup-friendly version of Feeditem and its FeeditemKey.
@@ -53,6 +54,17 @@ func (service *DBService) Backup() (string, error) {
 		return "", errors.Wrap(err, "Error backing up users")
 	}
 	<-done
+
+	for _, user := range data.Users {
+		readStatus, err := service.GetReadStatus(&user.User)
+		if err != nil {
+			return "", errors.Wrap(err, "Error backing up item read status for user")
+		}
+		user.ReadItems = make([]string, len(readStatus))
+		for i, readItemKey := range readStatus {
+			user.ReadItems[i] = string(readItemKey)
+		}
+	}
 
 	feedChan := make(chan *Feeditem)
 	go func() {
@@ -118,6 +130,12 @@ func (service *DBService) Restore(value string) error {
 		if err := service.SaveUser(&user.User); err != nil {
 			failed = true
 			log.WithField("user", user).WithError(err).Printf("Error saving user")
+		}
+		for _, readStatus := range user.ReadItems {
+			if err := service.SetReadStatus(&user.User, []byte(readStatus), true); err != nil {
+				failed = true
+				log.WithField("user", user).WithField("item", readStatus).WithError(err).Printf("Error saving read status")
+			}
 		}
 	}
 	convertFeeditems := func() []*Feeditem {
