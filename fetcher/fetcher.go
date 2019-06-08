@@ -15,6 +15,7 @@ type DB interface {
 	SavePage(*data.PagemonitorPage) error
 	SaveFeeditems(...*data.Feeditem) (err error)
 	SetFetchStatus([]byte, *data.FetchStatus) error
+	SetReadStatusForAll(k []byte, read bool) error
 	ReadAllUsers(chan *data.User) error
 }
 

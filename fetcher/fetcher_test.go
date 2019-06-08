@@ -26,6 +26,11 @@ func (m *DBMock) SavePage(page *data.PagemonitorPage) error {
 	return args.Error(0)
 }
 
+func (m *DBMock) SetReadStatusForAll(k []byte, read bool) error {
+	args := m.Called(k, read)
+	return args.Error(0)
+}
+
 func (m *DBMock) ReadAllUsers(ch chan *data.User) error {
 	args := m.Called(ch)
 	return args.Error(0)

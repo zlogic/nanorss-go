@@ -140,7 +140,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				}
 				err = s.db.SetReadStatus(user, feeditemKey.CreateKey(), true)
 				if err != nil {
-					log.WithField("key", key).WithError(err).Error("Failed to set read status")
+					log.WithField("key", key).WithError(err).Error("Failed to set read status for feed item")
 				}
 				return &clientFeedItem{
 					Contents:  feedItem.Contents,
@@ -161,6 +161,10 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				}
 				if pagemonitorPage == nil {
 					return nil
+				}
+				err = s.db.SetReadStatus(user, pagemonitorKey.CreateKey(), true)
+				if err != nil {
+					log.WithField("key", key).WithError(err).Error("Failed to set read status for page")
 				}
 				// Bootstrap automatically handles line endings
 				return &clientFeedItem{

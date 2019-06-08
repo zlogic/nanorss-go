@@ -101,6 +101,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	if err != nil {
 		return nil, err
 	}
+	<-feedItemsDone
 
 	findPagemonitorTitle := func(key []byte) (string, error) {
 		for _, page := range pages {
@@ -134,8 +135,6 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	<-feedItemsDone
 	<-pagemonitorDone
 
 	sort.Sort(items)

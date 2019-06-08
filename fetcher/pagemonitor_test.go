@@ -45,6 +45,7 @@ func TestFetchPageFirstTime(t *testing.T) {
 			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
 			assert.Equal(t, emptyTime, fetchStatus.LastFailure)
 		})
+	dbMock.On("SetReadStatusForAll", pageConfig.CreateKey(), false).Return(nil).Once()
 	err := fetcher.FetchPage(&pageConfig)
 	assert.NoError(t, err)
 	dbMock.AssertExpectations(t)
@@ -125,6 +126,7 @@ func TestFetchPageChanged(t *testing.T) {
 			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
 			assert.Equal(t, emptyTime, fetchStatus.LastFailure)
 		})
+	dbMock.On("SetReadStatusForAll", pageConfig.CreateKey(), false).Return(nil).Once()
 	err := fetcher.FetchPage(&pageConfig)
 	assert.NoError(t, err)
 	dbMock.AssertExpectations(t)
@@ -171,6 +173,7 @@ func TestFetchPageMatchReplace(t *testing.T) {
 			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
 			assert.Equal(t, emptyTime, fetchStatus.LastFailure)
 		})
+	dbMock.On("SetReadStatusForAll", pageConfig.CreateKey(), false).Return(nil).Once()
 	err := fetcher.FetchPage(&pageConfig)
 	assert.NoError(t, err)
 	dbMock.AssertExpectations(t)
@@ -268,6 +271,8 @@ func TestFetchTwoPages(t *testing.T) {
 			savedPage.Updated = time.Time{}
 			dbSavedItems = append(dbSavedItems, savedPage)
 		})
+	dbMock.On("SetReadStatusForAll", pageConfig1.CreateKey(), false).Return(nil).Once()
+	dbMock.On("SetReadStatusForAll", pageConfig2.CreateKey(), false).Return(nil).Once()
 	assertSetFetchStatus := func(args mock.Arguments) {
 		currentTime := time.Now()
 		fetchStatus := args.Get(1).(*data.FetchStatus)

@@ -79,6 +79,10 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		page.Contents = text
 		page.Updated = time.Now()
 		page.Config = config
+		err = fetcher.DB.SetReadStatusForAll(config.CreateKey(), false)
+		if err != nil {
+			return errors.Wrapf(err, "Cannot mark page as unread %v", config)
+		}
 		return fetcher.DB.SavePage(page)
 	}()
 

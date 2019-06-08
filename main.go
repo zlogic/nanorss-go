@@ -131,6 +131,7 @@ func main() {
 		case "restore":
 			restoreData(db)
 		default:
+			db.Close()
 			log.Fatalf("Unrecognized directive %v", directive)
 		}
 	}

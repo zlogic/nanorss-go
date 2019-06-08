@@ -298,6 +298,7 @@ func TestPageAuthorized(t *testing.T) {
 	}
 
 	dbMock.On("GetPage", config).Return(page, nil).Once()
+	dbMock.On("SetReadStatus", user, config.CreateKey(), true).Return(nil).Once()
 
 	req, _ := http.NewRequest("GET", "/api/items/"+escapeKeyForURL(config.CreateKey()), nil)
 	res := httptest.NewRecorder()

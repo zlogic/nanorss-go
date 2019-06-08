@@ -45,6 +45,42 @@ func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
 	})
 }
 
+// SetReadStatusForAll sets the read status for item (for all users), true for read, false for unread.
+func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
+	return s.db.Update(func(txn *badger.Txn) error {
+		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		defer it.Close()
+		prefix := []byte(UserKeyPrefix)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+
+			userKey := item.Key()
+
+			username, err := DecodeUserKey(userKey)
+			if err != nil {
+				log.WithField("key", userKey).WithError(err).Error("Failed to decode username of user")
+				continue
+			}
+
+			user := &User{username: *username}
+			readStatusKey := user.CreateReadStatusKey(k)
+
+			if read {
+				if err := txn.Set(readStatusKey, nil); err != nil {
+					log.WithField("key", readStatusKey).WithError(err).Error("Failed to set read status for all users")
+					return err
+				}
+				continue
+			}
+			if err := txn.Delete(readStatusKey); err != nil {
+				log.WithField("key", readStatusKey).WithError(err).Error("Failed to set unread status for all users")
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // RenameReadStatus updates read status items for user to the new username.
 func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
 	newUser := &User{username: user.newUsername}

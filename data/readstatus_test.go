@@ -182,3 +182,72 @@ func TestCleanupStaleReadStatus(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, [][]byte{feedItem1.Key.CreateKey()}, dbReadStatus2)
 }
+
+func TestSetUnreadStatusForAll(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	user1 := User{username: "user01"}
+	err = dbService.SaveUser(&user1)
+	assert.NoError(t, err)
+
+	user2 := User{username: "user02"}
+	err = dbService.SaveUser(&user2)
+	assert.NoError(t, err)
+
+	key1 := []byte("i1")
+	key2 := []byte("i2")
+
+	err = dbService.SetReadStatus(&user1, key1, true)
+	assert.NoError(t, err)
+
+	err = dbService.SetReadStatus(&user1, key2, true)
+	assert.NoError(t, err)
+
+	err = dbService.SetReadStatus(&user2, key1, true)
+	assert.NoError(t, err)
+
+	err = dbService.SetReadStatusForAll(key1, false)
+
+	readStatuses, err := dbService.GetReadStatus(&user1)
+	assert.NoError(t, err)
+	assert.Equal(t, [][]byte{key2}, readStatuses)
+
+	readStatuses, err = dbService.GetReadStatus(&user2)
+	assert.NoError(t, err)
+	assert.Empty(t, readStatuses)
+}
+
+func TestSetReadStatusForAll(t *testing.T) {
+	dbService, cleanup, err := createDb()
+	assert.NoError(t, err)
+	defer cleanup()
+
+	user1 := User{username: "user01"}
+	err = dbService.SaveUser(&user1)
+	assert.NoError(t, err)
+
+	user2 := User{username: "user02"}
+	err = dbService.SaveUser(&user2)
+	assert.NoError(t, err)
+
+	key1 := []byte("i1")
+	key2 := []byte("i2")
+
+	err = dbService.SetReadStatus(&user1, key1, true)
+	assert.NoError(t, err)
+
+	err = dbService.SetReadStatus(&user2, key2, true)
+	assert.NoError(t, err)
+
+	err = dbService.SetReadStatusForAll(key1, true)
+
+	readStatuses, err := dbService.GetReadStatus(&user1)
+	assert.NoError(t, err)
+	assert.Equal(t, [][]byte{key1}, readStatuses)
+
+	readStatuses, err = dbService.GetReadStatus(&user2)
+	assert.NoError(t, err)
+	assert.Equal(t, [][]byte{key1, key2}, readStatuses)
+}
