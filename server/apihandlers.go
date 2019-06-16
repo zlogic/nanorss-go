@@ -117,10 +117,11 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		type clientFeedItem struct {
-			URL       string
-			Contents  string
-			Date      time.Time
-			Plaintext bool
+			URL           string
+			Contents      string
+			Date          time.Time
+			Plaintext     bool
+			MarkUnreadURL string
 		}
 
 		getItem := func(key string) *clientFeedItem {
@@ -138,15 +139,16 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				if feedItem == nil {
 					return nil
 				}
-				err = s.db.SetReadStatus(user, feeditemKey.CreateKey(), true)
+				err = s.db.SetReadStatus(user, []byte(key), true)
 				if err != nil {
 					log.WithField("key", key).WithError(err).Error("Failed to set read status for feed item")
 				}
 				return &clientFeedItem{
-					Contents:  feedItem.Contents,
-					Date:      feedItem.Date,
-					URL:       feedItem.URL,
-					Plaintext: false,
+					Contents:      feedItem.Contents,
+					Date:          feedItem.Date,
+					URL:           feedItem.URL,
+					Plaintext:     false,
+					MarkUnreadURL: "api/items/" + escapeKeyForURL([]byte(key)),
 				}
 			} else if strings.HasPrefix(key, data.PagemonitorKeyPrefix) {
 				pagemonitorKey, err := data.DecodePagemonitorKey([]byte(key))
@@ -162,16 +164,17 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				if pagemonitorPage == nil {
 					return nil
 				}
-				err = s.db.SetReadStatus(user, pagemonitorKey.CreateKey(), true)
+				err = s.db.SetReadStatus(user, []byte(key), true)
 				if err != nil {
 					log.WithField("key", key).WithError(err).Error("Failed to set read status for page")
 				}
 				// Bootstrap automatically handles line endings
 				return &clientFeedItem{
-					Contents:  pagemonitorPage.Delta,
-					Date:      pagemonitorPage.Updated,
-					URL:       pagemonitorKey.URL,
-					Plaintext: true,
+					Contents:      pagemonitorPage.Delta,
+					Date:          pagemonitorPage.Updated,
+					URL:           pagemonitorKey.URL,
+					Plaintext:     true,
+					MarkUnreadURL: "api/items/" + escapeKeyForURL([]byte(key)),
 				}
 			}
 			log.WithField("key", key).Error("Unknown item key format")
@@ -180,14 +183,37 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 
 		vars := mux.Vars(r)
 		key := strings.Replace(vars["key"], "-", "/", -1)
-		item := getItem(key)
 
-		if item == nil {
-			http.Error(w, "Not found", http.StatusNotFound)
-			return
-		}
-		if err := json.NewEncoder(w).Encode(item); err != nil {
-			handleError(w, r, err)
+		if r.Method == http.MethodGet {
+			item := getItem(key)
+
+			if item == nil {
+				http.Error(w, "Not found", http.StatusNotFound)
+				return
+			}
+			if err := json.NewEncoder(w).Encode(item); err != nil {
+				handleError(w, r, err)
+			}
+		} else if r.Method == http.MethodPost {
+			if err := r.ParseForm(); err != nil {
+				handleError(w, r, err)
+				return
+			}
+
+			readStatus := r.Form.Get("Read")
+			if readStatus != "false" {
+				handleError(w, r, fmt.Errorf("Unsupported update operation %v", r.Form))
+				return
+			}
+
+			if err := s.db.SetReadStatus(user, []byte(key), false); err != nil {
+				handleError(w, r, err)
+				return
+			}
+
+			if _, err := io.WriteString(w, "OK"); err != nil {
+				log.WithError(err).Error("Failed to write response")
+			}
 		}
 	}
 }

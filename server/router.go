@@ -33,7 +33,7 @@ func CreateRouter(s *Services) (*mux.Router, error) {
 	api.HandleFunc("/login", LoginHandler(s)).Methods(http.MethodPost)
 	api.HandleFunc("/configuration", SettingsHandler(s)).Methods(http.MethodGet, http.MethodPost)
 	api.HandleFunc("/feed", FeedHandler(s)).Methods(http.MethodGet)
-	api.HandleFunc("/items/{key}", FeedItemHandler(s)).Methods(http.MethodGet)
+	api.HandleFunc("/items/{key}", FeedItemHandler(s)).Methods(http.MethodGet, http.MethodPost)
 	api.HandleFunc("/refresh", RefreshHandler(s)).Methods(http.MethodGet)
 	api.HandleFunc("/status", StatusHandler(s)).Methods(http.MethodGet)
 	return r, nil

@@ -24,10 +24,11 @@ $(document).ready(function() {
         var titleElement = $('<a href="#item-' + i + '" data-toggle="collapse" aria-expanded="false" aria-controls="item-' + i +  '"></a>').append(titleText);
         var expandElement = $('<div id="item-' + i + '" class="collapse" data-fetchurl="' + item.FetchURL +'"></div>');
         var itemElement = $('<div></div>');
+        itemHeaderElement = $('<h3></h3>').append(titleElement);
         if (item.IsRead === false) {
-          $('<span><span class="badge badge-secondary">New</span> </span>').prependTo(titleText);
+          $('<span><span class="badge badge-secondary">New</span> </span>').prependTo(itemHeaderElement);
         }
-        itemElement.append($('<h3></h3>').append(titleElement));
+        itemElement.append(itemHeaderElement);
         itemElement.append(expandElement);
         placeholderElement.append(itemElement);
       }
@@ -61,12 +62,16 @@ $(document).ready(function() {
       }
       itemContentsElement.append(item.Contents);
 
-      var dateElement = $('<p><em>Updated: ' + new Date(item.Date).toLocaleString() + '</em></p>');
+      var dateElement = $('<div class="py-2"><em>Date: ' + new Date(item.Date).toLocaleString() + '</em></div>');
       var bodyElement = $('<div class="card-body"></div>');
-      var footerElement = $('<div class="card-footer"><h4><a href="' + item.URL + '">Go to site</a></h4></div>');
+      var siteLink = $('<a class="btn btn-primary">Go to site</a>').prop('href', item.URL);
+      var markUnreadLink = $('<button type="button" class="btn btn-outline-primary"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span> Mark as unread</button>')
+        .attr('data-markunread', item.MarkUnreadURL);
+      var footerElement = $('<div class="py-1"></div>').append(siteLink).append(" ").append(markUnreadLink);
+      var markUnreadResult = $('<div class="py-1 mark-unread-result" hidden></div>');
 
-      bodyElement.append(itemContentsElement).append($('<br>')).append(dateElement);
-      placeholderElement.hide().append(bodyElement).append(footerElement);
+      bodyElement.append(itemContentsElement).append(dateElement).append(footerElement).append(markUnreadResult);
+      placeholderElement.hide().append(bodyElement);
       collapse.append(placeholderElement);
       placeholderElement.slideDown();
     }).fail(function() {
@@ -80,6 +85,36 @@ $(document).ready(function() {
   $(document).on('hidden.bs.collapse', 'div[id^="item"].collapse', function() {
     var collapse = jQuery(this);
     collapse.empty();
+  });
+  // Mark read/unread
+  $(document).on('click', 'button[data-markunread]', function() {
+    var button = jQuery(this);
+    var spinner = button.children('span[role="status"]');
+    spinner.prop("hidden", false);
+
+    var alertTarget = button.parent().parent().find('.mark-unread-result').empty().prop("hidden", true);
+    var markUnreadURL = button.attr('data-markunread');
+
+    var showMarkUnreadResult = function(alertClass, message) {
+      var alertDiv = $('<div class="alert" role="alert"></div>');
+      alertTarget.empty().prop("hidden", false).append(alertDiv);
+      alertDiv.addClass(alertClass);
+      alertDiv.text(message);
+      alertDiv.hide();
+      alertDiv.slideDown();
+    }
+
+    $.post(markUnreadURL, "Read=false")
+    .done(function(){
+      showMarkUnreadResult("alert-success", "Marked as unread");
+    })
+    .fail(function(){
+      showMarkUnreadResult("alert-danger", "Failed to mark as unread");
+    })
+    .always(function() {
+      spinner.prop("hidden", true);
+    });
+    
   });
   // Refresh button
   var refreshResult = $("#refreshResult");
