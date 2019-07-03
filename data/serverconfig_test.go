@@ -8,9 +8,8 @@ import (
 )
 
 func TestGetValue(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	err = dbService.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(CreateServerConfigKey("k1"), []byte("v1"))
@@ -26,9 +25,8 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestGenerateValue(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	value, err := dbService.GetOrCreateConfigVariable("k1", func() (string, error) {
 		return "v1", nil
@@ -45,9 +43,8 @@ func TestGenerateValue(t *testing.T) {
 }
 
 func TestGetAllValues(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	err = dbService.SetConfigVariable("k1", "v1")
 	assert.NoError(t, err)

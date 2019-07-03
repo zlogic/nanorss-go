@@ -24,9 +24,8 @@ func checkPages(t *testing.T, dbService *DBService, userPages *[]UserPagemonitor
 }
 
 func TestGetPage(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	userPage := UserPagemonitor{
 		URL:     "http://site1.com",
@@ -41,10 +40,10 @@ func TestGetPage(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, &page, dbPage)
 }
+
 func TestSavePage(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	userPage1 := UserPagemonitor{
 		URL:     "http://site1.com",
@@ -77,11 +76,10 @@ func TestSavePage(t *testing.T) {
 }
 
 func TestSaveReadPageTTLExpired(t *testing.T) {
+	err := resetDb()
+	assert.NoError(t, err)
 	var oldTTL = itemTTL
 	defer func() { itemTTL = oldTTL }()
-	dbService, cleanup, err := createDb()
-	assert.NoError(t, err)
-	defer cleanup()
 
 	userPage := UserPagemonitor{
 		URL:     "http://site1.com",
@@ -110,9 +108,8 @@ func TestSaveReadPageTTLExpired(t *testing.T) {
 }
 
 func TestSaveReadPageTTLNotExpired(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	userPage := UserPagemonitor{
 		URL:     "http://site1.com",

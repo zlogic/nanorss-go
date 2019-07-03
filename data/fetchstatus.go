@@ -16,6 +16,11 @@ type FetchStatus struct {
 	LastFailure time.Time
 }
 
+// Decode deserializes a FetchStatus.
+func (fetchStatus *FetchStatus) Decode(val []byte) error {
+	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(fetchStatus)
+}
+
 func getFetchStatus(k []byte) func(*badger.Txn) (*FetchStatus, error) {
 	return func(txn *badger.Txn) (*FetchStatus, error) {
 		item, err := txn.Get(k)
@@ -27,18 +32,12 @@ func getFetchStatus(k []byte) func(*badger.Txn) (*FetchStatus, error) {
 			return nil, err
 		}
 
-		v, err := item.Value()
-		if err != nil {
+		fetchStatus := &FetchStatus{}
+		if err := item.Value(fetchStatus.Decode); err != nil {
 			log.WithField("key", k).WithError(err).Error("Failed to read value of fetch status")
 			return nil, err
 		}
 
-		fetchStatus := &FetchStatus{}
-		err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(fetchStatus)
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to decode value of fetch status")
-			return nil, err
-		}
 		return fetchStatus, nil
 	}
 }
@@ -100,24 +99,17 @@ func (s *DBService) DeleteStaleFetchStatuses() error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		now := time.Now()
 
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte(FetchStatusKeyPrefix)
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(FetchStatusKeyPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-			k := make([]byte, len(item.Key()))
-			copy(k, item.Key())
-
-			v, err := item.Value()
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
-				continue
-			}
+			k := item.KeyCopy(nil)
 
 			fetchStatus := &FetchStatus{}
-			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(fetchStatus)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode value of fetch status")
+			if err := item.Value(fetchStatus.Decode); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
 				continue
 			}
 

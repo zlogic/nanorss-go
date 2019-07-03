@@ -47,14 +47,20 @@ func NewUser(username string) *User {
 	return &User{username: username}
 }
 
+// Decode deserializes a User.
+func (user *User) Decode(val []byte) error {
+	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(user)
+}
+
 // ReadAllUsers reads all users from database and sends them to the provided channel.
 func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
 	err := s.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte(UserKeyPrefix)
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(UserKeyPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 
 			k := item.Key()
@@ -65,16 +71,9 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 				continue
 			}
 
-			v, err := item.Value()
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
-				continue
-			}
-
 			user := &User{username: *username}
-			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(&user)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to unmarshal value of user")
+			if err := item.Value(user.Decode); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
 				continue
 			}
 			ch <- user
@@ -98,12 +97,7 @@ func (s *DBService) GetUser(username string) (*User, error) {
 			return nil
 		}
 
-		value, err := item.Value()
-		if err != nil {
-			return err
-		}
-		err = gob.NewDecoder(bytes.NewBuffer(value)).Decode(&user)
-		if err != nil {
+		if err := item.Value(user.Decode); err != nil {
 			user = nil
 		}
 		return err

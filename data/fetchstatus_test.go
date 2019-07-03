@@ -8,9 +8,8 @@ import (
 )
 
 func TestGetFetchStatusEmpty(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key := []byte("i1")
 	fetchStatus, err := dbService.GetFetchStatus(key)
@@ -19,9 +18,8 @@ func TestGetFetchStatusEmpty(t *testing.T) {
 }
 
 func TestSaveGetFetchStatus(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key := []byte("i1")
 	fetchStatus := &FetchStatus{LastSuccess: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)}
@@ -34,9 +32,8 @@ func TestSaveGetFetchStatus(t *testing.T) {
 }
 
 func TestUpdateFetchStatus(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key := []byte("i1")
 	fetchStatus := &FetchStatus{LastSuccess: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)}
@@ -67,9 +64,8 @@ func TestUpdateFetchStatus(t *testing.T) {
 }
 
 func TestCleanupStaleFetchStatus(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key1 := []byte("i1")
 	fetchStatus1 := &FetchStatus{LastSuccess: time.Now().Add(-itemTTL - time.Minute)}

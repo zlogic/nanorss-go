@@ -145,9 +145,8 @@ const backupData = `{
 }`
 
 func TestBackup(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	for _, user := range backupUsers {
 		dbService.SaveUser(user)
@@ -173,9 +172,8 @@ func TestBackup(t *testing.T) {
 }
 
 func TestRestore(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	err = dbService.Restore(backupData)
 	assert.NoError(t, err)

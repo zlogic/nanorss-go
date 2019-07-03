@@ -14,9 +14,8 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestGetUserEmpty(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user, err := dbService.GetUser(defaultUsername)
 	assert.NoError(t, err)
@@ -24,9 +23,7 @@ func TestGetUserEmpty(t *testing.T) {
 }
 
 func TestCreateGetUser(t *testing.T) {
-	dbService, cleanup, err := createDb()
-	assert.NoError(t, err)
-	defer cleanup()
+	err := resetDb()
 	assert.NoError(t, err)
 
 	user := &User{
@@ -47,9 +44,8 @@ func TestCreateGetUser(t *testing.T) {
 }
 
 func TestReadAllUsers(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user1 := User{
 		Password:    "pass1",
@@ -99,9 +95,8 @@ func TestSetUserPassword(t *testing.T) {
 }
 
 func TestSetUsername(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{
 		Password:    "pass1",
@@ -138,9 +133,8 @@ func TestSetUsername(t *testing.T) {
 }
 
 func TestSetUsernameAndOtherFields(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{
 		Password:    "pass1",
@@ -182,9 +176,8 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 }
 
 func TestSetUsernameAlreadyExists(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user1 := User{
 		Password:    "pass1",
@@ -234,9 +227,8 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 }
 
 func TestSetUsernameEmptyString(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{
 		Password:    "pass1",

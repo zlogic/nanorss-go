@@ -7,9 +7,8 @@ import (
 )
 
 func TestGetReadStatusEmpty(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{username: "user01"}
 
@@ -19,9 +18,8 @@ func TestGetReadStatusEmpty(t *testing.T) {
 }
 
 func TestSaveGetReadStatus(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{username: "user01"}
 
@@ -40,9 +38,8 @@ func TestSaveGetReadStatus(t *testing.T) {
 }
 
 func TestRemoveGetReadStatus(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{username: "user01"}
 
@@ -64,9 +61,8 @@ func TestRemoveGetReadStatus(t *testing.T) {
 }
 
 func TestSetStatusDoesntExist(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{username: "user01"}
 
@@ -80,9 +76,8 @@ func TestSetStatusDoesntExist(t *testing.T) {
 }
 
 func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user := User{username: "user01"}
 
@@ -108,9 +103,8 @@ func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
 }
 
 func TestRenameUserTransferReadStatusAlreadyExists(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user1 := User{username: "user01"}
 
@@ -139,9 +133,8 @@ func TestRenameUserTransferReadStatusAlreadyExists(t *testing.T) {
 }
 
 func TestCleanupStaleReadStatus(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user1 := User{username: "user01"}
 	err = dbService.SaveUser(&user1)
@@ -184,9 +177,8 @@ func TestCleanupStaleReadStatus(t *testing.T) {
 }
 
 func TestSetUnreadStatusForAll(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user1 := User{username: "user01"}
 	err = dbService.SaveUser(&user1)
@@ -220,9 +212,8 @@ func TestSetUnreadStatusForAll(t *testing.T) {
 }
 
 func TestSetReadStatusForAll(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	user1 := User{username: "user01"}
 	err = dbService.SaveUser(&user1)

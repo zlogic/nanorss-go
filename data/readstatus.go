@@ -10,11 +10,12 @@ type itemKey = []byte
 // GetReadStatus returns the read status for keys and returns the list of items which are marked as read for user.
 func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
 	items := make([]itemKey, 0)
-	prefix := []byte(user.CreateReadStatusPrefix())
 	err := s.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		opts := IteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(user.CreateReadStatusPrefix())
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 
 			k := item.Key()
@@ -48,10 +49,11 @@ func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
 // SetReadStatusForAll sets the read status for item (for all users), true for read, false for unread.
 func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
 	return s.db.Update(func(txn *badger.Txn) error {
-		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		opts := IteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(UserKeyPrefix)
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(UserKeyPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 
 			userKey := item.Key()
@@ -84,16 +86,14 @@ func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
 // RenameReadStatus updates read status items for user to the new username.
 func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
 	newUser := &User{username: user.newUsername}
-	readStatusPrefix := user.CreateReadStatusPrefix()
-	prefix := []byte(readStatusPrefix)
 	return func(txn *badger.Txn) error {
-		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		opts := IteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(user.CreateReadStatusPrefix())
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-
-			k := make([]byte, len(item.Key()))
-			copy(k, it.Item().Key())
+			k := item.KeyCopy(nil)
 
 			itemKey, err := DecodeReadStatusKey(k)
 			if err != nil {
@@ -121,13 +121,13 @@ func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
 // DeleteStaleReadStatuses deletes all read statuses which are referring to items which no longer exist.
 func (s *DBService) DeleteStaleReadStatuses() error {
 	return s.db.Update(func(txn *badger.Txn) error {
-		it := txn.NewIterator(IteratorDoNotPrefetchOptions())
+		opts := IteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(ReadStatusPrefix)
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(ReadStatusPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-			k := make([]byte, len(item.Key()))
-			copy(k, item.Key())
+			k := item.KeyCopy(nil)
 
 			itemKey, err := DecodeReadStatusKey(k)
 			if err != nil {

@@ -8,9 +8,8 @@ import (
 )
 
 func TestGetItemEmpty(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item, err := dbService.GetFeeditem(&key)
@@ -19,9 +18,8 @@ func TestGetItemEmpty(t *testing.T) {
 }
 
 func TestSaveReadItem(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key1 := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item1 := Feeditem{
@@ -59,9 +57,8 @@ func TestSaveReadItem(t *testing.T) {
 }
 
 func TestUpdateReadItem(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item := Feeditem{
@@ -90,9 +87,8 @@ func TestUpdateReadItem(t *testing.T) {
 }
 
 func TestUpdateReadItemUnchanged(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item := Feeditem{
@@ -119,12 +115,11 @@ func TestUpdateReadItemUnchanged(t *testing.T) {
 }
 
 func TestSaveReadItemTTLExpired(t *testing.T) {
+	err := resetDb()
+	assert.NoError(t, err)
 	var oldTTL = itemTTL
 	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
-	dbService, cleanup, err := createDb()
-	assert.NoError(t, err)
-	defer cleanup()
 
 	item := &Feeditem{
 		Title:    "t1",
@@ -146,9 +141,8 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 }
 
 func TestSaveReadItemTTLNotExpired(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	item := &Feeditem{
 		Title:    "t1",
@@ -170,9 +164,8 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 }
 
 func TestSaveReadAllItems(t *testing.T) {
-	dbService, cleanup, err := createDb()
+	err := resetDb()
 	assert.NoError(t, err)
-	defer cleanup()
 
 	item1 := Feeditem{
 		Title:    "t1",

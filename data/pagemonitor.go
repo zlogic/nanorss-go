@@ -31,6 +31,11 @@ func (page *PagemonitorPage) Encode() ([]byte, error) {
 	return value.Bytes(), nil
 }
 
+// Decode deserializes a PagemonitorPage.
+func (page *PagemonitorPage) Decode(val []byte) error {
+	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(page)
+}
+
 // GetPage retrieves a PagemonitorPage for the UserPagemonitor configuration.
 // If page doesn't exist, returns nil.
 func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
@@ -42,15 +47,7 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 			return nil
 		}
 
-		value, err := item.Value()
-		if err != nil {
-			return err
-		}
-		err = gob.NewDecoder(bytes.NewBuffer(value)).Decode(&page)
-		if err != nil {
-			page = nil
-		}
-		return err
+		return item.Value(page.Decode)
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot read page %v", page)
@@ -70,25 +67,27 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 			return errors.Wrap(err, "Cannot set last seen time")
 		}
 
-		getPreviousValue := func() ([]byte, error) {
+		pageUpdated := func() bool {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, errors.Wrapf(err, "Failed to get page %v", string(key))
+				log.WithField("key", key).WithError(err).Error("Failed to get previous value of page")
+				return true
 			} else if err == nil {
-				value, err := item.Value()
+				updated := true
+				err := item.Value(func(val []byte) error {
+					updated = !bytes.Equal(value, val)
+					return nil
+				})
 				if err != nil {
-					return nil, errors.Wrapf(err, "Failed to read previous value of page %v %v", string(key), err)
+					log.WithField("key", key).WithError(err).Error("Failed to read previous value of page")
+					return true
 				}
-				return value, nil
+				return updated
 			}
-			return nil, nil
+			return true
 		}
 
-		previousValue, err := getPreviousValue()
-		if err != nil {
-			log.WithField("key", key).WithError(err).Error("Failed to read previous value of page")
-		}
-		if bytes.Equal(value, previousValue) {
+		if !pageUpdated() {
 			// Avoid writing to the database if nothing has changed
 			return nil
 		}
@@ -101,28 +100,23 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 	defer close(ch)
 	err = s.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = []byte(PagemonitorKeyPrefix)
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(PagemonitorKeyPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 
 			k := item.Key()
 			pm, err := DecodePagemonitorKey(k)
 			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
+				log.WithField("key", k).WithError(err).Error("Failed to decode key of page")
 				continue
 			}
 
-			v, err := item.Value()
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
-				continue
-			}
 			page := &PagemonitorPage{Config: pm}
-			err = gob.NewDecoder(bytes.NewBuffer(v)).Decode(page)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to unmarshal value of item")
+			if err := item.Value(page.Decode); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to read value of page")
 				continue
 			}
 			ch <- page

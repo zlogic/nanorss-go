@@ -10,13 +10,13 @@ import (
 
 // DefaultOptions returns default options for the database, customized based on environment variables.
 func DefaultOptions() badger.Options {
-	opts := badger.DefaultOptions
 	dbPath, ok := os.LookupEnv("DATABASE_DIR")
 	if !ok {
 		dbPath = path.Join(os.TempDir(), "nanorss")
 	}
-	opts.Dir = dbPath
-	opts.ValueDir = dbPath
+	opts := badger.DefaultOptions(dbPath)
+	// Add a logger
+	opts.Logger = log.New()
 	// Optimize options for low memory usage
 	opts.MaxTableSize = 1 << 20
 	// Allow GC of value log

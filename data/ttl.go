@@ -41,12 +41,13 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 			}
 		}
 
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
-			k := make([]byte, len(item.Key()))
-			copy(k, item.Key())
+			k := item.KeyCopy(nil)
 
 			lastSeenKey := CreateLastSeenKey(k)
 			lastSeenItem, err := txn.Get(lastSeenKey)
@@ -57,17 +58,12 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 				continue
 			}
 
-			v, err := lastSeenItem.Value()
+			lastSeen := time.Time{}
+			err = lastSeenItem.Value(func(val []byte) error {
+				return lastSeen.UnmarshalBinary(val)
+			})
 			if err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to get last seen time value")
-				purgeItem(k)
-				continue
-			}
-
-			lastSeen := time.Time{}
-			err = lastSeen.UnmarshalBinary(v)
-			if err != nil {
-				log.WithField("value", v).WithError(err).Error("Failed to unmarshal last seen time")
 				purgeItem(k)
 				continue
 			}

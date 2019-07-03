@@ -1,30 +1,48 @@
 package data
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"testing"
 
 	"github.com/dgraph-io/badger"
+	log "github.com/sirupsen/logrus"
 )
 
-func createDb() (dbService *DBService, cleanupFunc func(), err error) {
+var dbService *DBService
+
+func TestMain(m *testing.M) {
 	dir, err := ioutil.TempDir("", "nanorss")
 	if err != nil {
-		return nil, func() {}, err
+		panic(fmt.Sprintf("cannot create tempdir %v", err))
+	}
+	err = createDb(dir)
+	if err != nil {
+		panic(fmt.Sprintf("cannot open database %v", err))
 	}
 
-	var opts = badger.DefaultOptions
+	code := m.Run()
+	destroyDb(dir)
+	os.Exit(code)
+}
+
+func createDb(dir string) (err error) {
+	var opts = badger.DefaultOptions(dir)
+	opts.Logger = log.New()
 	opts.ValueLogFileSize = 1 << 20
 	opts.SyncWrites = false
-	opts.Dir = dir
-	opts.ValueDir = dir
+	opts.CompactL0OnClose = false
 
 	dbService, err = Open(opts)
-	if err != nil {
-		return nil, func() {}, err
-	}
-	return dbService, func() {
-		dbService.Close()
-		os.RemoveAll(opts.Dir)
-	}, nil
+	return
+}
+
+func resetDb() error {
+	return dbService.db.DropAll()
+}
+
+func destroyDb(dir string) {
+	dbService.Close()
+	os.RemoveAll(dir)
 }

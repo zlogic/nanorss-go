@@ -23,11 +23,13 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 			return txn.Set(varKey, []byte(varValue))
 		}
 
-		value, err := item.Value()
+		err = item.Value(func(val []byte) error {
+			varValue = string(val)
+			return nil
+		})
 		if err != nil {
 			return err
 		}
-		varValue = string(value)
 		return nil
 	})
 	if err != nil {
@@ -51,11 +53,12 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 // GetAllConfigVariables returns all ServerConfig variables in a key-value map.
 func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 	vars := make(map[string]string)
+	opts := badger.DefaultIteratorOptions
+	opts.Prefix = []byte(ServerConfigKeyPrefix)
 	err := s.db.View(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		it := txn.NewIterator(opts)
 		defer it.Close()
-		prefix := []byte(ServerConfigKeyPrefix)
-		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			k := item.Key()
 
@@ -64,11 +67,13 @@ func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 				return errors.Wrapf(err, "Error reading config key %v", k)
 			}
 
-			value, err := item.Value()
+			err = item.Value(func(val []byte) error {
+				vars[key] = string(val)
+				return nil
+			})
 			if err != nil {
 				return errors.Wrapf(err, "Error reading config value %v", k)
 			}
-			vars[key] = string(value)
 		}
 		return nil
 	})
