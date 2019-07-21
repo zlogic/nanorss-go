@@ -58,40 +58,15 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 // SavePage saves a PagemonitorPage.
 func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
-	value, err := page.Encode()
-	if err != nil {
-		return errors.Wrap(err, "Cannot marshal page")
-	}
 	return s.db.Update(func(txn *badger.Txn) error {
 		if err := s.SetLastSeen(key)(txn); err != nil {
 			return errors.Wrap(err, "Cannot set last seen time")
 		}
 
-		pageUpdated := func() bool {
-			item, err := txn.Get(key)
-			if err != nil && err != badger.ErrKeyNotFound {
-				log.WithField("key", key).WithError(err).Error("Failed to get previous value of page")
-				return true
-			} else if err == nil {
-				updated := true
-				err := item.Value(func(val []byte) error {
-					updated = !bytes.Equal(value, val)
-					return nil
-				})
-				if err != nil {
-					log.WithField("key", key).WithError(err).Error("Failed to read previous value of page")
-					return true
-				}
-				return updated
-			}
-			return true
+		value, err := page.Encode()
+		if err != nil {
+			return errors.Wrap(err, "Cannot marshal page")
 		}
-
-		if !pageUpdated() {
-			// Avoid writing to the database if nothing has changed
-			return nil
-		}
-
 		return txn.Set(key, value)
 	})
 }

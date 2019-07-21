@@ -83,6 +83,9 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		if err != nil {
 			return errors.Wrapf(err, "Cannot mark page as unread %v", config)
 		}
+
+		log.WithField("value", page).WithField("page", config).WithField("delta", page.Delta).Info("Page has changed")
+
 		return fetcher.DB.SavePage(page)
 	}()
 
