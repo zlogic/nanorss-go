@@ -63,10 +63,43 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 			return errors.Wrap(err, "Cannot set last seen time")
 		}
 
+		getPreviousPage := func(key []byte) (*PagemonitorPage, error) {
+			item, err := txn.Get(key)
+			if err != nil && err != badger.ErrKeyNotFound {
+				return nil, errors.Wrapf(err, "Failed to get previous page %v", string(key))
+			}
+			if err == nil {
+				existingPage := &PagemonitorPage{}
+				if err := item.Value(existingPage.Decode); err != nil {
+					return nil, errors.Wrapf(err, "Failed to read previous value of page %v %v", string(key), err)
+				}
+				return existingPage, nil
+			}
+			// Page doesn't exist
+			return nil, nil
+		}
+
+		previousPage, err := getPreviousPage(key)
+		if err != nil {
+			log.WithField("key", key).WithError(err).Error("Failed to read previous page")
+		} else if previousPage != nil {
+			previousPage.Config = page.Config
+		}
+
 		value, err := page.Encode()
 		if err != nil {
 			return errors.Wrap(err, "Cannot marshal page")
 		}
+
+		if err := s.SetLastSeen(key)(txn); err != nil {
+			return errors.Wrap(err, "Cannot set last seen time")
+		}
+
+		if previousPage != nil && *previousPage == *page {
+			// Avoid writing to the database if nothing has changed
+			return nil
+		}
+
 		return txn.Set(key, value)
 	})
 }

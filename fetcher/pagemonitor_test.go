@@ -74,6 +74,7 @@ func TestFetchPageNoChange(t *testing.T) {
 	}
 	beforeUpdate := time.Now()
 	dbMock.On("GetPage", &pageConfig).Return(&existingResult, nil)
+	dbMock.On("SavePage", &existingResult).Return(nil).Once()
 	dbMock.On("SetFetchStatus", pageConfig.CreateKey(), mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()

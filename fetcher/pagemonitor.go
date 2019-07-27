@@ -63,8 +63,8 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		}
 
 		if previousTextFiltered == textFiltered {
-			// No changes
-			return nil
+			// Save if nothing changed to update last seen time
+			return fetcher.DB.SavePage(page)
 		}
 
 		diff, err := difflib.GetUnifiedDiffString(difflib.UnifiedDiff{
@@ -84,7 +84,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			return errors.Wrapf(err, "Cannot mark page as unread %v", config)
 		}
 
-		log.WithField("value", page).WithField("page", config).WithField("delta", page.Delta).Info("Page has changed")
+		log.WithField("value", page).WithField("page", config).WithField("delta", page.Delta).Debug("Page has changed")
 
 		return fetcher.DB.SavePage(page)
 	}()

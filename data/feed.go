@@ -73,7 +73,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 		getPreviousItem := func(key []byte) (*Feeditem, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, errors.Wrapf(err, "Failed to get feed item %v", string(key))
+				return nil, errors.Wrapf(err, "Failed to get previous feed item %v", string(key))
 			}
 			if err == nil {
 				existingFeedItem := &Feeditem{}
@@ -91,7 +91,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 
 			previousItem, err := getPreviousItem(key)
 			if err != nil {
-				log.WithField("key", key).WithError(err).Error("Failed to read previous updated time")
+				log.WithField("key", key).WithError(err).Error("Failed to read previous item")
 			} else if previousItem != nil {
 				feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
 				previousItem.Updated = feedItem.Updated
