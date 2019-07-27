@@ -11,15 +11,35 @@ import (
 
 var itemTTL = 14 * 24 * time.Hour
 
+var skipUpdateTTL = itemTTL / 2
+
 // SetLastSeen creates or updates the last seen value for key.
 func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 	return func(txn *badger.Txn) error {
-		lastSeen, err := time.Now().MarshalBinary()
+		currentTime := time.Now()
+		lastSeenKey := CreateLastSeenKey(key)
+
+		previous, err := txn.Get(lastSeenKey)
+		if err == nil {
+			previousLastSeen := time.Time{}
+			if err := previous.Value(previousLastSeen.UnmarshalBinary); err != nil {
+				log.WithError(err).Error("Failed to read previous last seen time")
+			} else {
+				if currentTime.Before(previousLastSeen.Add(skipUpdateTTL)) {
+					// Add a safe barrier to previousLastSeen;
+					// If current time hasn't reached the half-life of previousLastSeen, skip update
+					return nil
+				}
+			}
+		} else if err != badger.ErrKeyNotFound {
+			log.WithError(err).Error("Failed to get previous last seen time")
+		}
+
+		value, err := currentTime.MarshalBinary()
 		if err != nil {
 			return errors.Wrap(err, "Error marshaling current time")
 		}
-		lastSeenKey := CreateLastSeenKey(key)
-		if err := txn.Set(lastSeenKey, lastSeen); err != nil {
+		if err := txn.Set(lastSeenKey, value); err != nil {
 			return errors.Wrap(err, "Error saving last seen time")
 		}
 		return nil
