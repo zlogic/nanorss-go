@@ -1,13 +1,11 @@
 package data
 
 import (
-	"bytes"
-	"encoding/gob"
 	"encoding/xml"
 	"fmt"
 	"strings"
 
-	"github.com/dgraph-io/badger"
+	"github.com/go-redis/redis"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
@@ -47,39 +45,44 @@ func NewUser(username string) *User {
 	return &User{username: username}
 }
 
-// Decode deserializes a User.
-func (user *User) Decode(val []byte) error {
-	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(user)
+// decode deserializes a User.
+func decodeUser(username string, res map[string]string) *User {
+	return &User{
+		username:    username,
+		Password:    res["password"],
+		Opml:        res["opml"],
+		Pagemonitor: res["pagemonitor"],
+	}
+}
+
+// encode serializes a User.
+func (user *User) encode() map[string]interface{} {
+	return map[string]interface{}{
+		"password":    user.Password,
+		"opml":        user.Opml,
+		"pagemonitor": user.Pagemonitor,
+	}
 }
 
 // ReadAllUsers reads all users from database and sends them to the provided channel.
 func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
-	err := s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(UserKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
+	// TODO: use Scan to avoid loading all keys to RAM
+	userKeys, err := s.client.Keys(UserKeyPrefix + "*").Result()
+	if err != nil {
+		log.WithError(err).Error("Failed to get list of users")
+	}
+	for _, userKey := range userKeys {
+		username, err := DecodeUserKey(userKey)
 
-			k := item.Key()
-
-			username, err := DecodeUserKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
-				continue
-			}
-
-			user := &User{username: *username}
-			if err := item.Value(user.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
-				continue
-			}
-			ch <- user
+		user, err := s.GetUser(username)
+		if err != nil {
+			log.WithError(err).Errorf("Failed to get user %v", username)
+			continue
 		}
-		return nil
-	})
+
+		ch <- user
+	}
 	if err != nil {
 		return errors.Wrapf(err, "Cannot read users")
 	}
@@ -89,58 +92,68 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 // GetUser returns the User by username.
 // If user doesn't exist, returns nil.
 func (s *DBService) GetUser(username string) (*User, error) {
-	user := &User{username: username}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(user.CreateKey())
-		if err == badger.ErrKeyNotFound {
-			user = nil
-			return nil
-		}
-
-		if err := item.Value(user.Decode); err != nil {
-			user = nil
-		}
-		return err
-	})
+	userMap, err := s.client.HGetAll(CreateUserKey(username)).Result()
 	if err != nil {
 		return nil, errors.Wrapf(err, "Cannot read User %v", username)
 	}
+
+	if len(userMap) == 0 {
+		return nil, nil
+	}
+	user := decodeUser(username, userMap)
 	return user, nil
 }
 
 // SaveUser saves the user in the database.
-func (s *DBService) SaveUser(user *User) (err error) {
+func (s *DBService) SaveUser(user *User) error {
 	if user.newUsername == "" {
 		user.newUsername = user.username
 	}
-	key := CreateUserKey(user.newUsername)
-
-	var value bytes.Buffer
-	if err := gob.NewEncoder(&value).Encode(user); err != nil {
-		return errors.Wrap(err, "Cannot marshal user")
-	}
-	err = s.db.Update(func(txn *badger.Txn) error {
-		if user.newUsername != user.username {
-			existingUser, err := txn.Get(key)
-			if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
-				return fmt.Errorf("New username %v is already in use", key)
-			}
-
-			oldUserKey := CreateUserKey(user.username)
-			if err := txn.Delete(oldUserKey); err != nil {
+	if user.username != user.newUsername {
+		userKey := CreateUserKey(user.username)
+		newUserKey := CreateUserKey(user.newUsername)
+		readStatusKey := CreateReadStatusKey(user.username)
+		newReadStatusKey := CreateReadStatusKey(user.newUsername)
+		var renameUser *redis.BoolCmd
+		err := s.client.Watch(func(tx *redis.Tx) error {
+			existsUser, err := tx.Exists(newUserKey).Result()
+			if err != nil {
 				return err
 			}
-			if err := s.renameReadStatus(user)(txn); err != nil {
+			if existsUser != 0 {
+				return fmt.Errorf("Failed to rename user to %v is already in use", user.newUsername)
+			}
+
+			existsReadStatus, err := tx.Exists(readStatusKey).Result()
+			if err != nil {
 				return err
 			}
+			_, err = tx.Pipelined(func(pipe redis.Pipeliner) error {
+
+				renameUser = pipe.RenameNX(userKey, newUserKey)
+				if existsReadStatus != 0 {
+					pipe.RenameNX(readStatusKey, newReadStatusKey)
+				}
+				return nil
+			})
+			return err
+		}, userKey, newUserKey)
+		//renameReadStatus := pipe.RenameNX(oldKey, newKey)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to rename user from %v to %v", user.username, user.newUsername)
 		}
-		return txn.Set(key, value.Bytes())
-	})
-	if err == nil {
-		user.username = user.newUsername
-		user.newUsername = ""
+		if !renameUser.Val() {
+			return fmt.Errorf("Failed to rename user to %v is already in use", user.newUsername)
+		}
 	}
-	return err
+	user.username = user.newUsername
+	user.newUsername = ""
+	err := s.client.HMSet(user.CreateKey(), user.encode()).Err()
+	if err != nil {
+		return errors.Wrapf(err, "Failed to update user %v", user.username)
+	}
+
+	return nil
 }
 
 // GetUsername returns the user's current username.
@@ -179,8 +192,8 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 		XMLName xml.Name          `xml:"pages"`
 		Pages   []UserPagemonitor `xml:"page"`
 	}
-	items := &UserPages{}
-	err := xml.Unmarshal([]byte(user.Pagemonitor), items)
+	items := UserPages{}
+	err := xml.Unmarshal([]byte(user.Pagemonitor), &items)
 	if err != nil {
 		err = errors.Wrap(err, "Cannot parse pagemonitor xml")
 		return nil, err
@@ -198,8 +211,8 @@ func (user *User) GetFeeds() ([]UserFeed, error) {
 		XMLName xml.Name          `xml:"opml"`
 		Feeds   []UserOPMLOutline `xml:"body>outline"`
 	}
-	items := &UserOPML{}
-	err := xml.Unmarshal([]byte(user.Opml), items)
+	items := UserOPML{}
+	err := xml.Unmarshal([]byte(user.Opml), &items)
 	if err != nil {
 		err = errors.Wrap(err, "Cannot parse opml xml")
 		return nil, err

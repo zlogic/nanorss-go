@@ -3,7 +3,6 @@ package data
 import (
 	"testing"
 
-	"github.com/dgraph-io/badger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -11,9 +10,7 @@ func TestGetValue(t *testing.T) {
 	err := resetDb()
 	assert.NoError(t, err)
 
-	err = dbService.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(CreateServerConfigKey("k1"), []byte("v1"))
-	})
+	_, err = dbService.client.HSet(ServerConfigKey, "k1", "v1").Result()
 	assert.NoError(t, err)
 
 	value, err := dbService.GetOrCreateConfigVariable("k1", func() (string, error) {

@@ -55,7 +55,6 @@ func serve(db *data.DBService) {
 	worker.Start(func() {
 		fetcher := fetcher.NewFetcher(db)
 		fetcher.Refresh()
-		db.GC()
 	})
 
 	// Create the router and webserver
@@ -112,15 +111,10 @@ func restoreData(db *data.DBService) {
 
 func main() {
 	// Init data layer
-	db, err := data.Open(data.DefaultOptions())
+	db := data.Open(data.DefaultOptions())
 	defer func() {
-		db.GC()
 		db.Close()
 	}()
-	if err != nil {
-		db.Close()
-		log.Fatalf("Failed to open data store %v", err)
-	}
 
 	if len(os.Args) < 2 || os.Args[1] == "serve" {
 		serve(db)

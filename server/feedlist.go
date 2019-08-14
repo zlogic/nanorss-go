@@ -1,10 +1,9 @@
 package server
 
 import (
-	"bytes"
 	"errors"
+	"net/url"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/zlogic/nanorss-go/data"
@@ -26,8 +25,8 @@ type FeedListService struct {
 
 type itemsSortable []*Item
 
-func escapeKeyForURL(key []byte) string {
-	return strings.Replace(string(key), "/", "-", -1)
+func escapeKeyForURL(key string) string {
+	return url.QueryEscape(key)
 }
 
 func (a itemsSortable) Len() int      { return len(a) }
@@ -68,9 +67,9 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		}
 		return "", errors.New("Not found")
 	}
-	isRead := func(itemKey []byte) bool {
+	isRead := func(itemKey string) bool {
 		for _, readItemKey := range readItems {
-			if bytes.Equal(readItemKey, itemKey) {
+			if readItemKey == itemKey {
 				return true
 			}
 		}
@@ -103,9 +102,9 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	}
 	<-feedItemsDone
 
-	findPagemonitorTitle := func(key []byte) (string, error) {
+	findPagemonitorTitle := func(key string) (string, error) {
 		for _, page := range pages {
-			if bytes.Equal(key, page.CreateKey()) {
+			if key == page.CreateKey() {
 				return page.Title, nil
 			}
 		}

@@ -132,8 +132,7 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
-	assert.NoError(t, err)
+	dbService.DeleteExpiredItems()
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
 	assert.NoError(t, err)
@@ -155,8 +154,7 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
-	assert.NoError(t, err)
+	dbService.DeleteExpiredItems()
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
 	assert.NoError(t, err)

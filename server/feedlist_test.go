@@ -70,34 +70,34 @@ func TestFeedListHelperOrdering(t *testing.T) {
 		&Item{
 			Origin:   "Site 2",
 			SortDate: time.Date(2019, time.February, 18, 23, 3, 0, 0, time.UTC),
-			FetchURL: "api/items/pagemonitor-aHR0cDovL3NpdGUxLzI--",
+			FetchURL: "api/items/pagemonitor%3Ahttp%253A%252F%252Fsite1%252F2%3A%3A",
 			IsRead:   false,
 		},
 		&Item{
 			Title:    "t2",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
-			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzI",
+			FetchURL: "api/items/feeditem%3Ahttp%253A%252F%252Fsite1%252Frss%3Ag2",
 			IsRead:   false,
 		},
 		&Item{
 			Title:    "t1",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
-			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE",
+			FetchURL: "api/items/feeditem%3Ahttp%253A%252F%252Fsite1%252Frss%3Ag1",
 			IsRead:   false,
 		},
 		&Item{
 			Title:    "t21",
 			Origin:   "Feed 2",
 			SortDate: time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUyL3Jzcw-ZzE",
+			FetchURL: "api/items/feeditem%3Ahttp%253A%252F%252Fsite2%252Frss%3Ag1",
 			IsRead:   true,
 		},
 		&Item{
 			Origin:   "Site 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
-			FetchURL: "api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE",
+			FetchURL: "api/items/pagemonitor%3Ahttp%253A%252F%252Fsite1%252F1%3Am1%3Ar1",
 			IsRead:   true,
 		},
 	}
@@ -134,7 +134,7 @@ func TestFeedListHelperOrdering(t *testing.T) {
 		},
 	}
 
-	readItems := [][]byte{
+	readItems := []string{
 		pages[0].Config.CreateKey(),
 		feedItems[1].Key.CreateKey(),
 	}

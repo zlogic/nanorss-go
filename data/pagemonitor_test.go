@@ -54,8 +54,8 @@ func TestSavePage(t *testing.T) {
 		URL: "http://site1.com",
 	}
 	userPages := []UserPagemonitor{userPage1, userPage2}
-	page1 := PagemonitorPage{Config: &userPage1}
-	page2 := PagemonitorPage{Config: &userPage2}
+	page1 := PagemonitorPage{Contents: "c1", Config: &userPage1}
+	page2 := PagemonitorPage{Contents: "c2", Config: &userPage2}
 	pages := []PagemonitorPage{page1, page2}
 
 	//Empty pages
@@ -91,16 +91,14 @@ func TestSaveReadPageTTLExpired(t *testing.T) {
 	assert.NoError(t, err)
 
 	itemTTL = time.Minute * 1
-	err = dbService.DeleteExpiredItems()
-	assert.NoError(t, err)
+	dbService.DeleteExpiredItems()
 
 	dbPage, err := dbService.GetPage(&userPage)
 	assert.NoError(t, err)
 	assert.Equal(t, &page, dbPage)
 
 	itemTTL = time.Nanosecond * 0
-	err = dbService.DeleteExpiredItems()
-	assert.NoError(t, err)
+	dbService.DeleteExpiredItems()
 
 	dbPage, err = dbService.GetPage(&userPage)
 	assert.NoError(t, err)
@@ -120,8 +118,7 @@ func TestSaveReadPageTTLNotExpired(t *testing.T) {
 	err = dbService.SavePage(&page)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
-	assert.NoError(t, err)
+	dbService.DeleteExpiredItems()
 
 	dbPage, err := dbService.GetPage(&userPage)
 	assert.NoError(t, err)

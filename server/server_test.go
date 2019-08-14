@@ -70,22 +70,22 @@ func (m *DBMock) ReadAllPages(ch chan *data.PagemonitorPage) error {
 	return args.Error(0)
 }
 
-func (m *DBMock) GetReadStatus(user *data.User) ([][]byte, error) {
+func (m *DBMock) GetReadStatus(user *data.User) ([]string, error) {
 	args := m.Called(user)
 	readItems := args.Get(0)
-	var returnReadItems [][]byte
+	var returnReadItems []string
 	if readItems != nil {
-		returnReadItems = readItems.([][]byte)
+		returnReadItems = readItems.([]string)
 	}
 	return returnReadItems, args.Error(1)
 }
 
-func (m *DBMock) SetReadStatus(user *data.User, itemKey []byte, read bool) error {
+func (m *DBMock) SetReadStatus(user *data.User, itemKey string, read bool) error {
 	args := m.Called(user, itemKey, read)
 	return args.Error(0)
 }
 
-func (m *DBMock) GetFetchStatus(key []byte) (*data.FetchStatus, error) {
+func (m *DBMock) GetFetchStatus(key string) (*data.FetchStatus, error) {
 	args := m.Called(key)
 	fetchStatus := args.Get(0)
 	var returnFetchStatus *data.FetchStatus

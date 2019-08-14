@@ -72,9 +72,9 @@ const backupData = `{
       "Pagemonitor": "pagemonitor1",
       "Username": "user01",
       "ReadItems": [
-        "feeditem/aHR0cDovL2ZlZWQx/ZzE",
-        "feeditem/aHR0cDovL2ZlZWQx/ZzI",
-        "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE"
+        "feeditem:http%3A%2F%2Ffeed1:g1",
+        "feeditem:http%3A%2F%2Ffeed1:g2",
+        "pagemonitor:http%3A%2F%2Fsite1:m1:r1"
       ]
     },
     {
@@ -83,9 +83,9 @@ const backupData = `{
       "Pagemonitor": "pagemonitor2",
       "Username": "user02",
       "ReadItems": [
-        "feeditem/aHR0cDovL2ZlZWQx/ZzE",
-        "feeditem/aHR0cDovL2ZlZWQy/ZzE",
-        "pagemonitor/aHR0cDovL3NpdGUy//"
+        "feeditem:http%3A%2F%2Ffeed1:g1",
+        "feeditem:http%3A%2F%2Ffeed2:g1",
+        "pagemonitor:http%3A%2F%2Fsite2::"
       ]
     }
   ],
@@ -194,7 +194,7 @@ func TestRestore(t *testing.T) {
 
 	user1ReadStatus, err := dbService.GetReadStatus(backupUsers[0])
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{
+	assert.Equal(t, []string{
 		backupFeeditems[0].Key.CreateKey(),
 		backupFeeditems[1].Key.CreateKey(),
 		backupPagemonitor[0].Config.CreateKey(),
@@ -202,7 +202,7 @@ func TestRestore(t *testing.T) {
 
 	user2ReadStatus, err := dbService.GetReadStatus(backupUsers[1])
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{
+	assert.Equal(t, []string{
 		backupFeeditems[0].Key.CreateKey(),
 		backupFeeditems[2].Key.CreateKey(),
 		backupPagemonitor[1].Config.CreateKey(),

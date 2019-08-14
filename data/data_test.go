@@ -1,48 +1,32 @@
 package data
 
 import (
-	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/dgraph-io/badger"
-	log "github.com/sirupsen/logrus"
+	"github.com/go-redis/redis"
+
+	"github.com/alicebob/miniredis"
 )
 
 var dbService *DBService
 
 func TestMain(m *testing.M) {
-	dir, err := ioutil.TempDir("", "nanorss")
+	s, err := miniredis.Run()
 	if err != nil {
-		panic(fmt.Sprintf("cannot create tempdir %v", err))
+		panic(err)
 	}
-	err = createDb(dir)
-	if err != nil {
-		panic(fmt.Sprintf("cannot open database %v", err))
-	}
+	defer s.Close()
+
+	dbService = Open(redis.Options{Addr: s.Addr()})
 
 	code := m.Run()
-	destroyDb(dir)
+
+	s.Close()
 	os.Exit(code)
 }
 
-func createDb(dir string) (err error) {
-	var opts = badger.DefaultOptions(dir)
-	opts.Logger = log.New()
-	opts.ValueLogFileSize = 1 << 20
-	opts.SyncWrites = false
-	opts.CompactL0OnClose = false
-
-	dbService, err = Open(opts)
-	return
-}
-
 func resetDb() error {
-	return dbService.db.DropAll()
-}
-
-func destroyDb(dir string) {
-	dbService.Close()
-	os.RemoveAll(dir)
+	_, err := dbService.client.FlushAll().Result()
+	return err
 }

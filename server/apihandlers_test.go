@@ -272,7 +272,7 @@ func TestFeedItemAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem%3Ahttp%253A%252F%252Fsite1%252Frss%3Ag1"}`+"\n", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 }
@@ -309,7 +309,7 @@ func TestPageAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":true,"MarkUnreadURL":"api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"URL":"http://site1/1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":true,"MarkUnreadURL":"api/items/pagemonitor%3Ahttp%253A%252F%252Fsite1%252F1%3Am1%3Ar1"}`+"\n", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 }

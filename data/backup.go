@@ -132,7 +132,7 @@ func (service *DBService) Restore(value string) error {
 			log.WithField("user", user).WithError(err).Printf("Error saving user")
 		}
 		for _, readStatus := range user.ReadItems {
-			if err := service.SetReadStatus(&user.User, []byte(readStatus), true); err != nil {
+			if err := service.SetReadStatus(&user.User, readStatus, true); err != nil {
 				failed = true
 				log.WithField("user", user).WithField("item", readStatus).WithError(err).Printf("Error saving read status")
 			}

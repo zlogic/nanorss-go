@@ -18,6 +18,7 @@ func (fetcher *Fetcher) getPreviousResult(config *data.UserPagemonitor) *data.Pa
 	page, err := fetcher.DB.GetPage(config)
 	if err != nil {
 		log.WithField("page", config).WithError(err).Error("Failed to fetch previous result")
+		return nil
 	}
 	if page == nil {
 		return &data.PagemonitorPage{}
@@ -117,11 +118,11 @@ func (fetcher *Fetcher) FetchAllPages() error {
 			}
 			countPages := len(pages)
 			completed := make(chan int)
-			for i, page := range pages {
-				go func(config data.UserPagemonitor, index int) {
-					fetcher.FetchPage(&config)
+			for i := range pages {
+				go func(index int) {
+					fetcher.FetchPage(&pages[index])
 					completed <- index
-				}(page, i)
+				}(i)
 			}
 			for i := 0; i < countPages; i++ {
 				<-completed

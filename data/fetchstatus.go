@@ -1,11 +1,8 @@
 package data
 
 import (
-	"bytes"
-	"encoding/gob"
 	"time"
 
-	"github.com/dgraph-io/badger"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -16,100 +13,129 @@ type FetchStatus struct {
 	LastFailure time.Time
 }
 
-// Decode deserializes a FetchStatus.
-func (fetchStatus *FetchStatus) Decode(val []byte) error {
-	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(fetchStatus)
+// encode serializes a FetchStatus.
+func (fetchStatus *FetchStatus) encode() (map[string]interface{}, error) {
+	lastSuccess, err := fetchStatus.LastSuccess.MarshalText()
+	if err != nil {
+		return nil, errors.Wrap(err, "Error marshaling last success time")
+	}
+	lastFailure, err := fetchStatus.LastFailure.MarshalText()
+	if err != nil {
+		return nil, errors.Wrap(err, "Error marshaling last failure time")
+	}
+	return map[string]interface{}{
+		"lastSuccess": string(lastSuccess),
+		"lastFailure": string(lastFailure),
+	}, nil
 }
 
-func getFetchStatus(k []byte) func(*badger.Txn) (*FetchStatus, error) {
-	return func(txn *badger.Txn) (*FetchStatus, error) {
-		item, err := txn.Get(k)
-		if err == badger.ErrKeyNotFound {
-			return nil, nil
-		}
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read fetch status")
-			return nil, err
-		}
-
-		fetchStatus := &FetchStatus{}
-		if err := item.Value(fetchStatus.Decode); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read value of fetch status")
-			return nil, err
-		}
-
-		return fetchStatus, nil
+// decodeFetchStatus deserializes a FetchStatus.
+func decodeFetchStatus(res map[string]string) (*FetchStatus, error) {
+	lastSuccess := time.Time{}
+	err := lastSuccess.UnmarshalText([]byte(res["lastSuccess"]))
+	if err != nil {
+		return nil, errors.Wrap(err, "Error unmarshaling last success time")
 	}
+	lastFailure := time.Time{}
+	err = lastFailure.UnmarshalText([]byte(res["lastFailure"]))
+	if err != nil {
+		return nil, errors.Wrap(err, "Error unmarshaling last failure time")
+	}
+	return &FetchStatus{
+		LastSuccess: lastSuccess,
+		LastFailure: lastFailure,
+	}, nil
+}
+
+func (s *DBService) getFetchStatus(k string) (*FetchStatus, error) {
+	fetchStatusMap, err := s.client.HGetAll(k).Result()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to read fetch status %v", k)
+	}
+
+	if len(fetchStatusMap) == 0 {
+		return nil, nil
+	}
+
+	fetchStatus, err := decodeFetchStatus(fetchStatusMap)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to decode fetch status %v", k)
+	}
+	return fetchStatus, nil
 }
 
 // GetFetchStatus returns the fetch status for key, or nil if the fetch status is unknown.
-func (s *DBService) GetFetchStatus(key []byte) (fetchStatus *FetchStatus, err error) {
-	fetchStatus = &FetchStatus{}
+func (s *DBService) GetFetchStatus(key string) (*FetchStatus, error) {
 	k := CreateFetchStatusKey(key)
 
-	err = s.db.View(func(txn *badger.Txn) error {
-		var err error
-		fetchStatus, err = getFetchStatus(k)(txn)
-		return err
-	})
+	fetchStatus, err := s.getFetchStatus(k)
 	if err != nil {
 		return nil, err
 	}
-	return
+	return fetchStatus, nil
 }
 
 // SetFetchStatus creates or updates the fetch status for key.
-func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
-	k := CreateFetchStatusKey(key)
+func (s *DBService) SetFetchStatus(key string, fetchStatus *FetchStatus) error {
+	key = CreateFetchStatusKey(key)
 
-	return s.db.Update(func(txn *badger.Txn) error {
-		previousFetchStatus, err := getFetchStatus(k)(txn)
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read existing fetch status")
-			return err
-		}
+	previousFetchStatus, err := s.getFetchStatus(key)
+	if err != nil {
+		log.WithField("key", key).WithError(err).Error("Failed to read existing fetch status")
+		return err
+	}
 
-		newFetchStatus := FetchStatus{}
-		if previousFetchStatus != nil {
-			newFetchStatus = *previousFetchStatus
-		}
+	newFetchStatus := FetchStatus{}
+	if previousFetchStatus != nil {
+		newFetchStatus = *previousFetchStatus
+	}
 
-		var emptyTime time.Time
-		if fetchStatus.LastSuccess != emptyTime {
-			newFetchStatus.LastSuccess = fetchStatus.LastSuccess
-		}
-		if fetchStatus.LastFailure != emptyTime {
-			newFetchStatus.LastFailure = fetchStatus.LastFailure
-		}
+	var emptyTime time.Time
+	if fetchStatus.LastSuccess != emptyTime {
+		newFetchStatus.LastSuccess = fetchStatus.LastSuccess
+	}
+	if fetchStatus.LastFailure != emptyTime {
+		newFetchStatus.LastFailure = fetchStatus.LastFailure
+	}
 
-		var value bytes.Buffer
-		if err := gob.NewEncoder(&value).Encode(newFetchStatus); err != nil {
-			return errors.Wrap(err, "Error encoding fetch status")
-		}
+	value, err := newFetchStatus.encode()
+	if err != nil {
+		return errors.Wrap(err, "Cannot marshal fetch status")
+	}
 
-		if err := txn.Set(k, value.Bytes()); err != nil {
-			return errors.Wrap(err, "Error saving fetch status")
-		}
-		return nil
-	})
+	_, err = s.client.HMSet(key, value).Result()
+	if err != nil {
+		return errors.Wrap(err, "Error saving fetch status")
+	}
+	return nil
 }
 
 // DeleteStaleFetchStatuses deletes all FetchStatus items which were not updated for itemTTL.
-func (s *DBService) DeleteStaleFetchStatuses() error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		now := time.Now()
+func (s *DBService) DeleteStaleFetchStatuses() {
+	now := time.Now()
 
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(FetchStatusKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.KeyCopy(nil)
+	cursor := uint64(0)
+	for haveData := true; haveData; {
+		var keys []string
+		var err error
+		keys, cursor, err = s.client.Scan(cursor, FetchStatusKeyPrefix+"*", 100).Result()
+		if err != nil {
+			log.WithError(err).Error("Failed to get fetch statuses")
+		}
+		if cursor == 0 {
+			haveData = false
+		}
 
-			fetchStatus := &FetchStatus{}
-			if err := item.Value(fetchStatus.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
+		for _, key := range keys {
+			value, err := s.client.HGetAll(key).Result()
+			if err != nil {
+				log.WithField("key", key).WithError(err).Error("Failed get value of fetch status")
+				continue
+			}
+
+			fetchStatus, err := decodeFetchStatus(value)
+			if err != nil {
+				log.WithField("key", key).WithError(err).Error("Failed to decode value of fetch status")
 				continue
 			}
 
@@ -124,11 +150,11 @@ func (s *DBService) DeleteStaleFetchStatuses() error {
 			expires := lastUpdated.Add(itemTTL)
 			if now.After(expires) {
 				log.Debug("Deleting expired fetch status")
-				if err := txn.Delete(k); err != nil {
-					log.WithField("key", k).WithError(err).Error("Failed to delete fetch status")
+				_, err := s.client.Del(key).Result()
+				if err != nil {
+					log.WithField("key", key).WithError(err).Error("Failed to delete fetch status")
 				}
 			}
 		}
-		return nil
-	})
+	}
 }

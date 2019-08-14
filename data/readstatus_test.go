@@ -23,8 +23,8 @@ func TestSaveGetReadStatus(t *testing.T) {
 
 	user := User{username: "user01"}
 
-	key1 := []byte("i1")
-	key2 := []byte("i2")
+	key1 := "i1"
+	key2 := "i2"
 
 	err = dbService.SetReadStatus(&user, key1, true)
 	assert.NoError(t, err)
@@ -34,7 +34,7 @@ func TestSaveGetReadStatus(t *testing.T) {
 
 	readStatuses, err := dbService.GetReadStatus(&user)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key1, key2}, readStatuses)
+	assert.Equal(t, []string{key1, key2}, readStatuses)
 }
 
 func TestRemoveGetReadStatus(t *testing.T) {
@@ -43,8 +43,8 @@ func TestRemoveGetReadStatus(t *testing.T) {
 
 	user := User{username: "user01"}
 
-	key1 := []byte("i1")
-	key2 := []byte("i2")
+	key1 := "i1"
+	key2 := "i2"
 
 	err = dbService.SetReadStatus(&user, key1, true)
 	assert.NoError(t, err)
@@ -57,7 +57,7 @@ func TestRemoveGetReadStatus(t *testing.T) {
 
 	readStatuses, err := dbService.GetReadStatus(&user)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key2}, readStatuses)
+	assert.Equal(t, []string{key2}, readStatuses)
 }
 
 func TestSetStatusDoesntExist(t *testing.T) {
@@ -66,13 +66,13 @@ func TestSetStatusDoesntExist(t *testing.T) {
 
 	user := User{username: "user01"}
 
-	key := []byte("i1")
+	key := "i1"
 	err = dbService.SetReadStatus(&user, key, false)
 	assert.NoError(t, err)
 
 	readStatuses, err := dbService.GetReadStatus(&user)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{}, readStatuses)
+	assert.Equal(t, []string{}, readStatuses)
 }
 
 func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
@@ -80,9 +80,11 @@ func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
 	assert.NoError(t, err)
 
 	user := User{username: "user01"}
+	err = dbService.SaveUser(&user)
+	assert.NoError(t, err)
 
-	key1 := []byte("i1")
-	key2 := []byte("i2")
+	key1 := "i1"
+	key2 := "i2"
 	err = dbService.SetReadStatus(&user, key1, true)
 	assert.NoError(t, err)
 	err = dbService.SetReadStatus(&user, key2, true)
@@ -94,7 +96,7 @@ func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
 
 	readStatuses, err := dbService.GetReadStatus(&user)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key1, key2}, readStatuses)
+	assert.Equal(t, []string{key1, key2}, readStatuses)
 
 	oldUser := User{username: "user01"}
 	readStatuses, err = dbService.GetReadStatus(&oldUser)
@@ -107,9 +109,10 @@ func TestRenameUserTransferReadStatusAlreadyExists(t *testing.T) {
 	assert.NoError(t, err)
 
 	user1 := User{username: "user01"}
+	err = dbService.SaveUser(&user1)
 
-	key1 := []byte("i1")
-	key2 := []byte("i2")
+	key1 := "i1"
+	key2 := "i2"
 	err = dbService.SetReadStatus(&user1, key1, true)
 	assert.NoError(t, err)
 	err = dbService.SetReadStatus(&user1, key2, true)
@@ -125,7 +128,7 @@ func TestRenameUserTransferReadStatusAlreadyExists(t *testing.T) {
 
 	readStatuses, err := dbService.GetReadStatus(&user1)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key1, key2}, readStatuses)
+	assert.Equal(t, []string{key1, key2}, readStatuses)
 
 	readStatuses, err = dbService.GetReadStatus(&user2)
 	assert.NoError(t, err)
@@ -144,9 +147,9 @@ func TestCleanupStaleReadStatus(t *testing.T) {
 	err = dbService.SaveUser(&user2)
 	assert.NoError(t, err)
 
-	feedItem1 := &Feeditem{Key: &FeeditemKey{FeedURL: "http://site1", GUID: "g1"}}
-	feedItem2 := &Feeditem{Key: &FeeditemKey{FeedURL: "http://site2", GUID: "g2"}}
-	err = dbService.SaveFeeditems(feedItem1)
+	feedItem1 := Feeditem{Title: "t1", Key: &FeeditemKey{FeedURL: "http://site1", GUID: "g1"}}
+	feedItem2 := Feeditem{Title: "t2", Key: &FeeditemKey{FeedURL: "http://site2", GUID: "g2"}}
+	err = dbService.SaveFeeditems(&feedItem1)
 	assert.NoError(t, err)
 
 	err = dbService.SetReadStatus(&user1, feedItem1.Key.CreateKey(), true)
@@ -158,22 +161,21 @@ func TestCleanupStaleReadStatus(t *testing.T) {
 
 	dbReadStatus1, err := dbService.GetReadStatus(&user1)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{feedItem1.Key.CreateKey(), feedItem2.Key.CreateKey()}, dbReadStatus1)
+	assert.Equal(t, []string{feedItem1.Key.CreateKey(), feedItem2.Key.CreateKey()}, dbReadStatus1)
 
 	dbReadStatus2, err := dbService.GetReadStatus(&user2)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{feedItem1.Key.CreateKey()}, dbReadStatus2)
+	assert.Equal(t, []string{feedItem1.Key.CreateKey()}, dbReadStatus2)
 
-	err = dbService.DeleteStaleReadStatuses()
-	assert.NoError(t, err)
+	dbService.DeleteStaleReadStatuses()
 
 	dbReadStatus1, err = dbService.GetReadStatus(&user1)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{feedItem1.Key.CreateKey()}, dbReadStatus1)
+	assert.Equal(t, []string{feedItem1.Key.CreateKey()}, dbReadStatus1)
 
 	dbReadStatus2, err = dbService.GetReadStatus(&user2)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{feedItem1.Key.CreateKey()}, dbReadStatus2)
+	assert.Equal(t, []string{feedItem1.Key.CreateKey()}, dbReadStatus2)
 }
 
 func TestSetUnreadStatusForAll(t *testing.T) {
@@ -188,8 +190,8 @@ func TestSetUnreadStatusForAll(t *testing.T) {
 	err = dbService.SaveUser(&user2)
 	assert.NoError(t, err)
 
-	key1 := []byte("i1")
-	key2 := []byte("i2")
+	key1 := "i1"
+	key2 := "i2"
 
 	err = dbService.SetReadStatus(&user1, key1, true)
 	assert.NoError(t, err)
@@ -204,7 +206,7 @@ func TestSetUnreadStatusForAll(t *testing.T) {
 
 	readStatuses, err := dbService.GetReadStatus(&user1)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key2}, readStatuses)
+	assert.Equal(t, []string{key2}, readStatuses)
 
 	readStatuses, err = dbService.GetReadStatus(&user2)
 	assert.NoError(t, err)
@@ -223,8 +225,8 @@ func TestSetReadStatusForAll(t *testing.T) {
 	err = dbService.SaveUser(&user2)
 	assert.NoError(t, err)
 
-	key1 := []byte("i1")
-	key2 := []byte("i2")
+	key1 := "i1"
+	key2 := "i2"
 
 	err = dbService.SetReadStatus(&user1, key1, true)
 	assert.NoError(t, err)
@@ -236,9 +238,9 @@ func TestSetReadStatusForAll(t *testing.T) {
 
 	readStatuses, err := dbService.GetReadStatus(&user1)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key1}, readStatuses)
+	assert.Equal(t, []string{key1}, readStatuses)
 
 	readStatuses, err = dbService.GetReadStatus(&user2)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key1, key2}, readStatuses)
+	assert.Equal(t, []string{key1, key2}, readStatuses)
 }

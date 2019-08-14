@@ -1,11 +1,10 @@
 package data
 
 import (
-	"bytes"
-	"encoding/gob"
+	"fmt"
 	"time"
 
-	"github.com/dgraph-io/badger"
+	"github.com/go-redis/redis"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
@@ -26,128 +25,166 @@ type Feeditem struct {
 	Key      *FeeditemKey `json:",omitempty"`
 }
 
-// Encode serializes a Feeditem.
-func (feedItem *Feeditem) Encode() ([]byte, error) {
-	key := feedItem.Key
-	defer func() { feedItem.Key = key }()
-	feedItem.Key = nil
-
-	var value bytes.Buffer
-	if err := gob.NewEncoder(&value).Encode(feedItem); err != nil {
-		return nil, err
+// encode serializes a Feeditem.
+func (feedItem Feeditem) encode() (map[string]interface{}, error) {
+	updated, err := feedItem.Updated.MarshalText()
+	if err != nil {
+		return nil, errors.Wrap(err, "Error marshaling updated time")
 	}
-	return value.Bytes(), nil
+	date, err := feedItem.Date.MarshalText()
+	if err != nil {
+		return nil, errors.Wrap(err, "Error marshaling item date")
+	}
+	return map[string]interface{}{
+		"title":    feedItem.Title,
+		"url":      feedItem.URL,
+		"date":     string(date),
+		"contents": feedItem.Contents,
+		"updated":  string(updated),
+	}, nil
 }
 
-// Decode deserializes a Feeditem.
-func (feedItem *Feeditem) Decode(val []byte) error {
-	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(feedItem)
+// decodeFeeditem deserializes a Feeditem.
+func decodeFeeditem(key *FeeditemKey, res map[string]string) (*Feeditem, error) {
+	updated := time.Time{}
+	err := updated.UnmarshalText([]byte(res["updated"]))
+	if err != nil {
+		return nil, errors.Wrap(err, "Error unmarshaling updated time")
+	}
+	date := time.Time{}
+	err = date.UnmarshalText([]byte(res["date"]))
+	if err != nil {
+		return nil, errors.Wrap(err, "Error unmarshaling item date")
+	}
+	return &Feeditem{
+		Title:    res["title"],
+		URL:      res["url"],
+		Date:     date,
+		Contents: res["contents"],
+		Updated:  updated,
+		Key:      key,
+	}, nil
 }
 
 // GetFeeditem retrieves a Feeditem for the FeeditemKey.
 // If item doesn't exist, returns nil.
 func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
-	feeditem := &Feeditem{Key: key}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(key.CreateKey())
-		if err == badger.ErrKeyNotFound {
-			feeditem = nil
-			return nil
-		}
-
-		if err := item.Value(feeditem.Decode); err != nil {
-			feeditem = nil
-			return err
-		}
-		return nil
-	})
+	feeditemMap, err := s.client.HGetAll(key.CreateKey()).Result()
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read feed item %v", key)
+		return nil, errors.Wrapf(err, "Cannot get feed item %v", key)
 	}
+
+	if len(feeditemMap) == 0 {
+		return nil, nil
+	}
+
+	feeditem, err := decodeFeeditem(key, feeditemMap)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Cannot decode feed item %v", key)
+	}
+
 	return feeditem, nil
 }
 
 // SaveFeeditems saves feedItems in the database.
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
-	return s.db.Update(func(txn *badger.Txn) error {
-		getPreviousItem := func(key []byte) (*Feeditem, error) {
-			item, err := txn.Get(key)
-			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, errors.Wrapf(err, "Failed to get previous feed item %v", string(key))
+	getPreviousItem := func(key string) (*Feeditem, error) {
+		previous, err := s.client.HGetAll(key).Result()
+		if err != nil && err != redis.Nil {
+			return nil, errors.Wrapf(err, "Failed to get previous feed item %v", key)
+		} else if len(previous) > 0 {
+			existingFeeditem, err := decodeFeeditem(nil, previous)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to decode previous value of feed item %v %v", key, err)
 			}
-			if err == nil {
-				existingFeedItem := &Feeditem{}
-				if err := item.Value(existingFeedItem.Decode); err != nil {
-					return nil, errors.Wrapf(err, "Failed to read previous value of feed item %v %v", string(key), err)
-				}
-				return existingFeedItem, nil
-			}
-			// Item doesn't exist
-			return nil, nil
+			return existingFeeditem, nil
+		}
+		// Page doesn't exist
+		return nil, nil
+	}
+
+	for _, feedItem := range feedItems {
+		key := feedItem.Key.CreateKey()
+
+		previousItem, err := getPreviousItem(key)
+		if err != nil {
+			log.WithField("key", key).WithError(err).Error("Failed to read previous item")
+		} else if previousItem != nil {
+			feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
+			previousItem.Updated = feedItem.Updated
+			previousItem.Key = feedItem.Key
 		}
 
-		for _, feedItem := range feedItems {
-			key := feedItem.Key.CreateKey()
-
-			previousItem, err := getPreviousItem(key)
-			if err != nil {
-				log.WithField("key", key).WithError(err).Error("Failed to read previous item")
-			} else if previousItem != nil {
-				feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
-				previousItem.Updated = feedItem.Updated
-				previousItem.Key = feedItem.Key
-			}
-
-			value, err := feedItem.Encode()
-			if err != nil {
-				return errors.Wrap(err, "Cannot marshal feed item")
-			}
-
-			if err := s.SetLastSeen(key)(txn); err != nil {
-				return errors.Wrap(err, "Cannot set last seen time")
-			}
-
-			if previousItem != nil && *feedItem == *previousItem {
-				// Avoid writing to the database if nothing has changed
-				continue
-			} else if previousItem != nil {
-				log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Debug("Item has changed")
-			}
-
-			if err := txn.Set(key, value); err != nil {
-				return errors.Wrap(err, "Cannot save feed item")
-			}
+		value, err := feedItem.encode()
+		if err != nil {
+			return errors.Wrap(err, "Cannot marshal feed item")
 		}
-		return nil
-	})
+
+		if err := s.SetLastSeen(key); err != nil {
+			return errors.Wrap(err, "Cannot set last seen time")
+		}
+
+		if previousItem != nil && *feedItem == *previousItem {
+			// Avoid writing to the database if nothing has changed
+			continue
+		} else if previousItem != nil {
+			log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Debug("Item has changed")
+		}
+
+		err = s.client.HMSet(key, value).Err()
+		if err != nil {
+			return errors.Wrap(err, "Cannot save feed item")
+		}
+	}
+	return nil
 }
 
 // ReadAllFeedItems reads all Feeditem items from database and sends them to the provided channel.
-func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
+func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) error {
 	defer close(ch)
-	err = s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(FeeditemKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
 
-			k := item.Key()
-			key, err := DecodeFeeditemKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
-				continue
-			}
+	failed := false
 
-			feedItem := &Feeditem{Key: key}
-			if err := item.Value(feedItem.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
-				continue
-			}
-			ch <- feedItem
+	cursor := uint64(0)
+	for haveData := true; haveData; {
+		var keys []string
+		var err error
+		keys, cursor, err = s.client.Scan(cursor, FeeditemKeyPrefix+"*", 100).Result()
+		if err != nil {
+			log.WithError(err).Error("Failed to get pages")
+			failed = true
+			continue
 		}
-		return nil
-	})
-	return
+		if cursor == 0 {
+			haveData = false
+		}
+
+		for _, key := range keys {
+			feeditemKey, err := DecodeFeeditemKey(key)
+			if err != nil {
+				log.WithField("key", key).WithError(err).Error("Failed to decode key of feed item")
+				failed = true
+				continue
+			}
+
+			value, err := s.client.HGetAll(key).Result()
+			if err != nil {
+				log.WithField("key", key).WithError(err).Error("Failed get value of feed item")
+				failed = true
+				continue
+			}
+
+			feeditem, err := decodeFeeditem(feeditemKey, value)
+			if err != nil {
+				log.WithField("key", key).WithError(err).Error("Failed to decode value of feed item")
+				failed = true
+				continue
+			}
+			ch <- feeditem
+		}
+	}
+	if failed {
+		return fmt.Errorf("Failed to read at least one item")
+	}
+	return nil
 }
