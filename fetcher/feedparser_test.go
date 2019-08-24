@@ -158,32 +158,32 @@ func TestParseAtom(t *testing.T) {
 	assertTimeBetween(t, beforeParse, time.Now(), items[2].Date)
 	items[2].Date = time.Time{}
 
-	assert.Equal(t, []*data.Feeditem{
-		&data.Feeditem{
+	assert.Equal(t, []data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 1",
 			URL:      "http://site1/link1-good",
 			Date:     time.Date(2003, time.December, 13, 18, 30, 2, 0, time.UTC),
 			Contents: "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n<p>Content 1</p>\n</div>",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "Item@1",
 			},
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 2",
 			URL:      "http://site1/link2-good",
 			Date:     time.Date(2003, time.December, 14, 18, 30, 2, 0, time.UTC),
 			Contents: "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n<p>Content 2</p>\n</div>",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "http://site1/link2-good",
 			},
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 3",
 			URL:      "http://site1/link3-good",
 			Contents: "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n<p>Content 3</p>\n</div>",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "Item@3",
 			},
@@ -199,43 +199,43 @@ func TestParseRss(t *testing.T) {
 	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(parseRssFeed)))
 	assert.NoError(t, err)
 
-	assert.Equal(t, []*data.Feeditem{
-		&data.Feeditem{
+	assert.Equal(t, []data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 1",
 			URL:      "http://site1/link1",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 			Contents: "Text 1",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "Item@1",
 			},
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 2",
 			URL:      "http://site1/link2",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 			Contents: "Text 2",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "Item@2",
 			},
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 3",
 			URL:      "http://site1/link3",
 			Date:     time.Date(2016, time.June, 7, 13, 19, 0, 0, gmt),
 			Contents: "Text 3",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "http://site1/link3",
 			},
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 4",
 			URL:      "http://site1/link4",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 			Contents: "Content 4",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "Item@4",
 			},
@@ -253,12 +253,12 @@ func TestParseRdf(t *testing.T) {
 	assert.Equal(t, "2013-09-26 22:36:20 +0100 +0100", items[0].Date.String())
 	items[0].Date = time.Time{}
 
-	assert.Equal(t, []*data.Feeditem{
-		&data.Feeditem{
+	assert.Equal(t, []data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 1",
 			URL:      "http://site1/link1",
 			Contents: "Description 1",
-			Key: &data.FeeditemKey{
+			Key: data.FeeditemKey{
 				FeedURL: "http://sites-site1.com",
 				GUID:    "http://site1/link1",
 			},

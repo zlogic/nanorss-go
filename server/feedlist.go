@@ -24,7 +24,7 @@ type FeedListService struct {
 	db DB
 }
 
-type itemsSortable []*Item
+type itemsSortable []Item
 
 func escapeKeyForURL(key []byte) string {
 	return strings.Replace(string(key), "/", "-", -1)
@@ -43,7 +43,7 @@ func (a itemsSortable) Less(i, j int) bool {
 }
 
 // GetAllItems returns all Items for user.
-func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
+func (h FeedListService) GetAllItems(user data.User) ([]Item, error) {
 	feeds, err := user.GetFeeds()
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		}
 		return false
 	}
-	feedItemsChan := make(chan *data.Feeditem)
+	feedItemsChan := make(chan data.Feeditem)
 	feedItemsDone := make(chan bool)
 	go func() {
 		for feedItem := range feedItemsChan {
@@ -86,7 +86,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				// Probably an orphaned feed
 				continue
 			}
-			item := &Item{
+			item := Item{
 				Title:    feedItem.Title,
 				Origin:   title,
 				FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
@@ -111,7 +111,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		}
 		return "", errors.New("Not found")
 	}
-	pagemonitorPageChan := make(chan *data.PagemonitorPage)
+	pagemonitorPageChan := make(chan data.PagemonitorPage)
 	pagemonitorDone := make(chan bool)
 	go func() {
 		for page := range pagemonitorPageChan {
@@ -120,7 +120,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				// Probably an orphaned feed
 				continue
 			}
-			item := &Item{
+			item := Item{
 				Title:    "",
 				Origin:   title,
 				FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),

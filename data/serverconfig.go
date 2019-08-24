@@ -6,7 +6,7 @@ import (
 )
 
 // GetOrCreateConfigVariable returns the value for the varName ServerConfig variable, or if there's no entry, uses generator to create and save a value.
-func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error) {
+func (s DBService) GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error) {
 	varValue := ""
 	varKey := CreateServerConfigKey(varName)
 	err := s.db.Update(func(txn *badger.Txn) error {
@@ -39,7 +39,7 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 }
 
 // SetConfigVariable returns the value for the varName ServerConfig variable, or nil if no value is saved.
-func (s *DBService) SetConfigVariable(varName, varValue string) error {
+func (s DBService) SetConfigVariable(varName, varValue string) error {
 	varKey := CreateServerConfigKey(varName)
 	err := s.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(varKey, []byte(varValue))
@@ -51,7 +51,7 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 }
 
 // GetAllConfigVariables returns all ServerConfig variables in a key-value map.
-func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
+func (s DBService) GetAllConfigVariables() (map[string]string, error) {
 	vars := make(map[string]string)
 	opts := badger.DefaultIteratorOptions
 	opts.Prefix = []byte(ServerConfigKeyPrefix)

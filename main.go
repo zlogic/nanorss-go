@@ -17,8 +17,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func createDefaultUser(db *data.DBService) {
-	ch := make(chan *data.User)
+func createDefaultUser(db data.DBService) {
+	ch := make(chan data.User)
 	done := make(chan bool)
 	haveUsers := false
 	go func() {
@@ -39,14 +39,14 @@ func createDefaultUser(db *data.DBService) {
 	log.Warn("Creating default user")
 	defaultUser := data.NewUser("default")
 	defaultUser.SetPassword("default")
-	err = db.SaveUser(defaultUser)
+	err = db.SaveUser(&defaultUser)
 	if err != nil {
 		log.WithError(err).Error("Failed to save default user")
 		return
 	}
 }
 
-func serve(db *data.DBService) {
+func serve(db data.DBService) {
 
 	// Create default user if necessary
 	createDefaultUser(db)
@@ -86,7 +86,7 @@ func serve(db *data.DBService) {
 
 const backupFilename = "nanorss.json"
 
-func backupData(db *data.DBService) {
+func backupData(db data.DBService) {
 	data, err := db.Backup()
 	if err != nil {
 		log.WithError(err).Fatal("Failed to back up json")
@@ -98,7 +98,7 @@ func backupData(db *data.DBService) {
 	log.WithField("filename", backupFilename).Info("Backed up")
 }
 
-func restoreData(db *data.DBService) {
+func restoreData(db data.DBService) {
 	data, err := ioutil.ReadFile(backupFilename)
 	if err != nil {
 		log.Fatalf("Failed to read file %v", err)

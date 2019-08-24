@@ -22,7 +22,7 @@ func TestRootHandlerNotLoggedIn(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -38,7 +38,7 @@ func TestRootHandlerLoggedIn(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -46,8 +46,8 @@ func TestRootHandlerLoggedIn(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(cookie, "user01")
-	req.AddCookie(cookie)
+	cookieHandler.SetCookieUsername(&cookie, "user01")
+	req.AddCookie(&cookie)
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
@@ -58,7 +58,7 @@ func TestLogoutHandler(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -85,7 +85,7 @@ func TestFaviconHandler(t *testing.T) {
 	err = prepareTestFile(path.Join(tempDir, "static"), "favicon.ico", faviconBytes)
 	assert.NoError(t, err)
 
-	router, err := CreateRouter(&Services{})
+	router, err := CreateRouter(Services{})
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/favicon.ico", nil)
@@ -110,7 +110,11 @@ func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
 	err = prepareTestFile(path.Join(tempDir, "templates", "pages"), "login.html", []byte(loginTemplate))
 	assert.NoError(t, err)
 
-	router, err := CreateRouter(&Services{})
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := Services{cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/login", nil)
@@ -118,14 +122,14 @@ func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User <nil>\nName \nContent loginpage", string(res.Body.Bytes()))
+	assert.Equal(t, "User {    }\nName \nContent loginpage", string(res.Body.Bytes()))
 }
 
 func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -133,8 +137,8 @@ func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(cookie, "user01")
-	req.AddCookie(cookie)
+	cookieHandler.SetCookieUsername(&cookie, "user01")
+	req.AddCookie(&cookie)
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
@@ -159,9 +163,9 @@ func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbMock := new(DBMock)
-	dbMock.On("GetUser", "user01").Return(&data.User{}, nil).Once()
+	dbMock.On("GetUser", "user01").Return(data.User{}, nil).Once()
 
-	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	services := Services{db: dbMock, cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -169,8 +173,8 @@ func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(cookie, "user01")
-	req.AddCookie(cookie)
+	cookieHandler.SetCookieUsername(&cookie, "user01")
+	req.AddCookie(&cookie)
 
 	router.ServeHTTP(res, req)
 
@@ -184,7 +188,7 @@ func TestHtmlFeedHandlerNotLoggedIn(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -214,9 +218,9 @@ func TestHtmlSettingsHandlerLoggedIn(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbMock := new(DBMock)
-	dbMock.On("GetUser", "user01").Return(&data.User{}, nil).Once()
+	dbMock.On("GetUser", "user01").Return(data.User{}, nil).Once()
 
-	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	services := Services{db: dbMock, cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -224,8 +228,8 @@ func TestHtmlSettingsHandlerLoggedIn(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(cookie, "user01")
-	req.AddCookie(cookie)
+	cookieHandler.SetCookieUsername(&cookie, "user01")
+	req.AddCookie(&cookie)
 
 	router.ServeHTTP(res, req)
 
@@ -239,7 +243,7 @@ func TestHtmlSettingsHandlerNotLoggedIn(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -269,9 +273,9 @@ func TestHtmlStatusHandlerLoggedIn(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbMock := new(DBMock)
-	dbMock.On("GetUser", "user01").Return(&data.User{}, nil).Once()
+	dbMock.On("GetUser", "user01").Return(data.User{}, nil).Once()
 
-	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	services := Services{db: dbMock, cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -279,8 +283,8 @@ func TestHtmlStatusHandlerLoggedIn(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(cookie, "user01")
-	req.AddCookie(cookie)
+	cookieHandler.SetCookieUsername(&cookie, "user01")
+	req.AddCookie(&cookie)
 
 	router.ServeHTTP(res, req)
 
@@ -294,7 +298,7 @@ func TestHtmlStatusHandlerNotLoggedIn(t *testing.T) {
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
-	services := &Services{cookieHandler: cookieHandler}
+	services := Services{cookieHandler: cookieHandler}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 

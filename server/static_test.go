@@ -30,7 +30,7 @@ func TestGetStaticResource(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbMock := new(DBMock)
-	services := &Services{db: dbMock}
+	services := Services{db: dbMock}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
@@ -56,7 +56,7 @@ func TestListingNotAllowed(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbMock := new(DBMock)
-	services := &Services{db: dbMock}
+	services := Services{db: dbMock}
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 

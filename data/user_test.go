@@ -10,7 +10,7 @@ const defaultUsername = "default"
 
 func TestNewUser(t *testing.T) {
 	user := NewUser("user01")
-	assert.Equal(t, &User{username: "user01"}, user)
+	assert.Equal(t, User{username: "user01"}, user)
 }
 
 func TestGetUserEmpty(t *testing.T) {
@@ -19,25 +19,24 @@ func TestGetUserEmpty(t *testing.T) {
 
 	user, err := dbService.GetUser(defaultUsername)
 	assert.NoError(t, err)
-	assert.Nil(t, user)
+	assert.Equal(t, User{}, user)
 }
 
 func TestCreateGetUser(t *testing.T) {
 	err := resetDb()
 	assert.NoError(t, err)
 
-	user := &User{
+	user := User{
 		Password:    "password",
 		Opml:        "opml",
 		Pagemonitor: "pagemonitor",
 		username:    "user01",
 	}
-	err = dbService.SaveUser(user)
+	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
 	user, err = dbService.GetUser("user01")
 	assert.NoError(t, err)
-	assert.NotNil(t, user)
 	assert.Equal(t, "password", user.Password)
 	assert.Equal(t, "opml", user.Opml)
 	assert.Equal(t, "pagemonitor", user.Pagemonitor)
@@ -66,11 +65,11 @@ func TestReadAllUsers(t *testing.T) {
 	}
 
 	dbUsers := []User{}
-	ch := make(chan *User)
+	ch := make(chan User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
-			dbUsers = append(dbUsers, *user)
+			dbUsers = append(dbUsers, user)
 		}
 		close(done)
 	}()
@@ -84,7 +83,6 @@ func TestSetUserPassword(t *testing.T) {
 	user := &User{}
 	err := user.SetPassword("hello")
 	assert.NoError(t, err)
-	assert.NotNil(t, user.Password)
 	assert.NotEqual(t, "password", user.Password)
 
 	err = user.ValidatePassword("hello")
@@ -104,7 +102,6 @@ func TestSetUsername(t *testing.T) {
 		Pagemonitor: "pagemonitor1",
 		username:    "user01",
 	}
-	users := []*User{&user}
 	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
@@ -115,10 +112,11 @@ func TestSetUsername(t *testing.T) {
 	assert.Equal(t, "user02", user.username)
 
 	dbUser, err := dbService.GetUser(user.username)
-	assert.Equal(t, user, *dbUser)
+	assert.Equal(t, user, dbUser)
 
-	dbUsers := []*User{}
-	ch := make(chan *User)
+	users := []User{user}
+	dbUsers := []User{}
+	ch := make(chan User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
@@ -142,7 +140,6 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 		Pagemonitor: "pagemonitor1",
 		username:    "user01",
 	}
-	users := []*User{&user}
 	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
@@ -158,10 +155,11 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 	assert.Equal(t, "user02", user.username)
 
 	dbUser, err := dbService.GetUser(user.username)
-	assert.Equal(t, user, *dbUser)
+	assert.Equal(t, user, dbUser)
 
-	dbUsers := []*User{}
-	ch := make(chan *User)
+	users := []User{user}
+	dbUsers := []User{}
+	ch := make(chan User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
@@ -191,7 +189,6 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 		Pagemonitor: "pagemonitor2",
 		username:    "user02",
 	}
-	users := []User{user1, user2}
 	err = dbService.SaveUser(&user1)
 	assert.NoError(t, err)
 	err = dbService.SaveUser(&user2)
@@ -206,17 +203,18 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 	user1.newUsername = ""
 
 	dbUser1, err := dbService.GetUser("user01")
-	assert.Equal(t, user1, *dbUser1)
+	assert.Equal(t, user1, dbUser1)
 
 	dbUser2, err := dbService.GetUser("user02")
-	assert.Equal(t, user2, *dbUser2)
+	assert.Equal(t, user2, dbUser2)
 
+	users := []User{user1, user2}
 	dbUsers := []User{}
-	ch := make(chan *User)
+	ch := make(chan User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
-			dbUsers = append(dbUsers, *user)
+			dbUsers = append(dbUsers, user)
 		}
 		close(done)
 	}()
@@ -236,7 +234,6 @@ func TestSetUsernameEmptyString(t *testing.T) {
 		Pagemonitor: "pagemonitor1",
 		username:    "user01",
 	}
-	users := []*User{&user}
 	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
@@ -246,10 +243,11 @@ func TestSetUsernameEmptyString(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbUser, err := dbService.GetUser(user.username)
-	assert.Equal(t, user, *dbUser)
+	assert.Equal(t, user, dbUser)
 
-	dbUsers := []*User{}
-	ch := make(chan *User)
+	users := []User{user}
+	dbUsers := []User{}
+	ch := make(chan User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
@@ -270,7 +268,6 @@ func TestParsePagemonitor(t *testing.T) {
 		`</pages>`}
 	items, err := user.GetPages()
 	assert.NoError(t, err)
-	assert.NotNil(t, items)
 	assert.Equal(t, []UserPagemonitor{
 		UserPagemonitor{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1"},
 		UserPagemonitor{URL: "http://site2.com", Title: "Page 2"},
@@ -290,7 +287,6 @@ func TestParseOPML(t *testing.T) {
 		`</opml>`}
 	items, err := user.GetFeeds()
 	assert.NoError(t, err)
-	assert.NotNil(t, items)
 
 	assert.Equal(t, []UserFeed{
 		UserFeed{URL: "http://sites-site1.com", Title: "Site 1"},

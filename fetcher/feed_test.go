@@ -23,33 +23,33 @@ const rssFeed = `<?xml version="1.0" encoding="utf-8"?>
 
 var gmt, _ = time.LoadLocation("GMT")
 
-var expectedRssFeedItems = []*data.Feeditem{
-	&data.Feeditem{
+var expectedRssFeedItems = []data.Feeditem{
+	data.Feeditem{
 		Title:    "Title 1",
 		URL:      "http://site1/link1",
 		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 		Contents: "Text 1",
-		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@1"},
+		Key:      data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@1"},
 	},
-	&data.Feeditem{
+	data.Feeditem{
 		Title:    "Title 2",
 		URL:      "http://site1/link2",
 		Contents: "Text 2",
-		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@2"},
+		Key:      data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@2"},
 	},
-	&data.Feeditem{
+	data.Feeditem{
 		Title:    "Title 3",
 		URL:      "http://site1/link3",
 		Date:     time.Date(2016, time.June, 7, 13, 19, 0, 0, gmt),
 		Contents: "Text 3",
-		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "http://site1/link3"},
+		Key:      data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "http://site1/link3"},
 	},
-	&data.Feeditem{
+	data.Feeditem{
 		Title:    "Title 4",
 		URL:      "http://site1/link4",
 		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 		Contents: "Content 4",
-		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@4"},
+		Key:      data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@4"},
 	},
 }
 
@@ -66,26 +66,26 @@ func TestFetchFeed(t *testing.T) {
 	}
 
 	feedURL := "http://site1/rss"
-	feedKey := (&data.UserFeed{URL: feedURL}).CreateKey()
+	feedKey := (data.UserFeed{URL: feedURL}).CreateKey()
 	beforeUpdate := time.Now()
-	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Once().
+	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]data.Feeditem")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()
-			savedItems := args.Get(0).([]*data.Feeditem)
+			savedItems := args.Get(0).([]data.Feeditem)
 			if len(savedItems) == 4 {
 				assertTimeBetween(t, beforeUpdate, currentTime, savedItems[1].Date)
 				savedItems[1].Date = time.Time{}
 			}
-			for _, savedItem := range savedItems {
-				assertTimeBetween(t, beforeUpdate, currentTime, savedItem.Updated)
-				savedItem.Updated = time.Time{}
+			for i := range savedItems {
+				assertTimeBetween(t, beforeUpdate, currentTime, savedItems[i].Updated)
+				savedItems[i].Updated = time.Time{}
 			}
 			assert.Equal(t, expectedRssFeedItems, savedItems)
 		})
-	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("data.FetchStatus")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()
-			fetchStatus := args.Get(1).(*data.FetchStatus)
+			fetchStatus := args.Get(1).(data.FetchStatus)
 			emptyTime := time.Time{}
 			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
 			assert.Equal(t, emptyTime, fetchStatus.LastFailure)
@@ -109,10 +109,10 @@ func TestFetchFeedError(t *testing.T) {
 	feedURL := "http://site1/rss"
 	feedKey := (&data.UserFeed{URL: feedURL}).CreateKey()
 	beforeUpdate := time.Now()
-	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("data.FetchStatus")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()
-			fetchStatus := args.Get(1).(*data.FetchStatus)
+			fetchStatus := args.Get(1).(data.FetchStatus)
 			emptyTime := time.Time{}
 			assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastFailure)
 			assert.Equal(t, emptyTime, fetchStatus.LastSuccess)
@@ -132,13 +132,13 @@ func TestFetchAllFeeds(t *testing.T) {
 		`</channel>` +
 		`</rss>`
 
-	expectedSecondRssFeedItems := []*data.Feeditem{
-		&data.Feeditem{
+	expectedSecondRssFeedItems := []data.Feeditem{
+		data.Feeditem{
 			Title:    "Title 21",
 			URL:      "http://site2/link1",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 			Contents: "Text 21",
-			Key:      &data.FeeditemKey{FeedURL: "http://site2/rss", GUID: "Item@1"},
+			Key:      data.FeeditemKey{FeedURL: "http://site2/rss", GUID: "Item@1"},
 		},
 	}
 
@@ -154,9 +154,9 @@ func TestFetchAllFeeds(t *testing.T) {
 		Client: &http.Client{},
 	}
 
-	dbMock.On("ReadAllUsers", mock.AnythingOfType("chan *data.User")).Return(nil).Once().
+	dbMock.On("ReadAllUsers", mock.AnythingOfType("chan data.User")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.User)
+			ch := args.Get(0).(chan data.User)
 			defer close(ch)
 			user := data.User{Opml: `<opml version="1.0">` +
 				`<body>` +
@@ -164,38 +164,38 @@ func TestFetchAllFeeds(t *testing.T) {
 				`<outline title="Feed 2" type="rss" xmlUrl="http://site2/rss"/>` +
 				`</body>` +
 				`</opml>`}
-			ch <- &user
+			ch <- user
 		})
 
 	beforeUpdate := time.Now()
-	dbSavedItems := make([][]*data.Feeditem, 0, 2)
-	expectedSavedItems := [][]*data.Feeditem{expectedRssFeedItems, expectedSecondRssFeedItems}
-	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Twice().
+	dbSavedItems := make([][]data.Feeditem, 0, 2)
+	expectedSavedItems := [][]data.Feeditem{expectedRssFeedItems, expectedSecondRssFeedItems}
+	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]data.Feeditem")).Return(nil).Twice().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()
-			savedItems := args.Get(0).([]*data.Feeditem)
+			savedItems := args.Get(0).([]data.Feeditem)
 			if len(savedItems) == 4 {
 				assertTimeBetween(t, beforeUpdate, currentTime, savedItems[1].Date)
 				savedItems[1].Date = time.Time{}
 			}
-			for _, savedItem := range savedItems {
-				assertTimeBetween(t, beforeUpdate, currentTime, savedItem.Updated)
-				savedItem.Updated = time.Time{}
+			for i := range savedItems {
+				assertTimeBetween(t, beforeUpdate, currentTime, savedItems[i].Updated)
+				savedItems[i].Updated = time.Time{}
 			}
 			dbSavedItems = append(dbSavedItems, savedItems)
 		})
 	assertSetFetchStatus := func(args mock.Arguments) {
 		currentTime := time.Now()
-		fetchStatus := args.Get(1).(*data.FetchStatus)
+		fetchStatus := args.Get(1).(data.FetchStatus)
 		emptyTime := time.Time{}
 		assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
 		assert.Equal(t, emptyTime, fetchStatus.LastFailure)
 	}
 	feedKey1 := (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()
 	feedKey2 := (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()
-	dbMock.On("SetFetchStatus", feedKey1, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFetchStatus", feedKey1, mock.AnythingOfType("data.FetchStatus")).Return(nil).Once().
 		Run(assertSetFetchStatus)
-	dbMock.On("SetFetchStatus", feedKey2, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFetchStatus", feedKey2, mock.AnythingOfType("data.FetchStatus")).Return(nil).Once().
 		Run(assertSetFetchStatus)
 	err := fetcher.FetchAllFeeds()
 	assert.NoError(t, err)

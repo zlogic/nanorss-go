@@ -20,26 +20,26 @@ func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
 	http.Error(w, "Bad credentials", http.StatusUnauthorized)
 }
 
-func validateUserForAPI(w http.ResponseWriter, r *http.Request, s *Services) *data.User {
+func validateUserForAPI(w http.ResponseWriter, r *http.Request, s Services) data.User {
 	username := s.cookieHandler.GetUsername(w, r)
 	if username == "" {
 		http.Error(w, "Bad credentials", http.StatusUnauthorized)
-		return nil
+		return data.User{}
 	}
 
 	user, err := s.db.GetUser(username)
 	if err != nil {
 		handleError(w, r, err)
-		return nil
+		return data.User{}
 	}
-	if user == nil {
+	if user == (data.User{}) {
 		handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
 	}
 	return user
 }
 
 // LoginHandler authenticates the user and sets the encrypted session cookie if the user provided valid credentials.
-func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+func LoginHandler(s Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseForm()
 		if err != nil {
@@ -60,7 +60,7 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			handleError(w, r, err)
 			return
 		}
-		if user == nil {
+		if user == (data.User{}) {
 			handleBadCredentials(w, r, fmt.Errorf("User %v does not exist", username))
 			return
 		}
@@ -70,12 +70,12 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cookie := s.cookieHandler.NewCookie()
-		s.cookieHandler.SetCookieUsername(cookie, username)
+		s.cookieHandler.SetCookieUsername(&cookie, username)
 		if !rememberMe {
 			cookie.Expires = time.Time{}
 			cookie.MaxAge = 0
 		}
-		http.SetCookie(w, cookie)
+		http.SetCookie(w, &cookie)
 		_, err = io.WriteString(w, "OK")
 		if err != nil {
 			log.WithError(err).Error("Failed to write response")
@@ -84,16 +84,16 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // FeedHandler returns all feed (and page monitor) items for an authenticated user.
-func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+func FeedHandler(s Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := validateUserForAPI(w, r, s)
-		if user == nil {
+		if user == (data.User{}) {
 			return
 		}
 
 		items, err := s.feedListHelper.GetAllItems(user)
 		if items == nil {
-			items = make([]*Item, 0)
+			items = make([]Item, 0)
 		}
 		if err != nil {
 			handleError(w, r, err)
@@ -108,11 +108,11 @@ func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // FeedItemHandler returns a feed (or page monitor) item for an authenticated user.
-func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+func FeedItemHandler(s Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// There are no secrets, but still better check we have a valid user
 		user := validateUserForAPI(w, r, s)
-		if user == nil {
+		if user == (data.User{}) {
 			return
 		}
 
@@ -136,7 +136,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 					log.WithField("key", key).WithError(err).Error("Failed to get feed item")
 					return nil
 				}
-				if feedItem == nil {
+				if feedItem == (data.Feeditem{}) {
 					return nil
 				}
 				err = s.db.SetReadStatus(user, []byte(key), true)
@@ -161,7 +161,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 					log.WithField("key", key).WithError(err).Error("Failed to get pagemonitor page")
 					return nil
 				}
-				if pagemonitorPage == nil {
+				if pagemonitorPage == (data.PagemonitorPage{}) {
 					return nil
 				}
 				err = s.db.SetReadStatus(user, []byte(key), true)
@@ -219,7 +219,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // SettingsHandler gets or updates settings for an authenticated user.
-func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+func SettingsHandler(s Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		username := s.cookieHandler.GetUsername(w, r)
 		if username == "" {
@@ -232,7 +232,7 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			handleError(w, r, err)
 			return
 		}
-		if user == nil {
+		if user == (data.User{}) {
 			handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
 			return
 		}
@@ -257,7 +257,7 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := s.db.SaveUser(user); err != nil {
+			if err := s.db.SaveUser(&user); err != nil {
 				handleError(w, r, err)
 				return
 			}
@@ -265,7 +265,7 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			if username != newUsername {
 				// Force logout
 				cookie := s.cookieHandler.NewCookie()
-				http.SetCookie(w, cookie)
+				http.SetCookie(w, &cookie)
 			}
 
 			//Reload user to return updated values
@@ -283,19 +283,19 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			Pagemonitor string
 		}
 
-		returnUser := &clientUser{Username: username, Opml: user.Opml, Pagemonitor: user.Pagemonitor}
+		returnUser := clientUser{Username: username, Opml: user.Opml, Pagemonitor: user.Pagemonitor}
 
-		if err := json.NewEncoder(w).Encode(returnUser); err != nil {
+		if err := json.NewEncoder(w).Encode(&returnUser); err != nil {
 			handleError(w, r, err)
 		}
 	}
 }
 
 // RefreshHandler refreshes all items for an authenticated user.
-func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+func RefreshHandler(s Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := validateUserForAPI(w, r, s)
-		if user == nil {
+		if user == (data.User{}) {
 			return
 		}
 
@@ -308,10 +308,10 @@ func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 }
 
 // StatusHandler returns the fetch status for all monitored items for an authenticated user.
-func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
+func StatusHandler(s Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := validateUserForAPI(w, r, s)
-		if user == nil {
+		if user == (data.User{}) {
 			return
 		}
 
@@ -334,10 +334,10 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 		itemStatuses := make([]itemStatus, len(feeds)+len(pages))
 
-		convertItemStatus := func(name string, status *data.FetchStatus) *itemStatus {
+		convertItemStatus := func(name string, status data.FetchStatus) itemStatus {
 			itemStatus := itemStatus{Name: name}
-			if status == nil {
-				return &itemStatus
+			if status == (data.FetchStatus{}) {
+				return itemStatus
 			}
 			var emptyTime = time.Time{}
 			if status.LastFailure != emptyTime {
@@ -347,7 +347,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				itemStatus.LastSuccess = &status.LastSuccess
 			}
 			itemStatus.Success = status.LastSuccess.After(status.LastFailure)
-			return &itemStatus
+			return itemStatus
 		}
 
 		for i, feed := range feeds {
@@ -356,7 +356,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				handleError(w, r, err)
 				return
 			}
-			itemStatuses[i] = *convertItemStatus(feed.Title, fetchStatus)
+			itemStatuses[i] = convertItemStatus(feed.Title, fetchStatus)
 		}
 
 		for i, page := range pages {
@@ -365,7 +365,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				handleError(w, r, err)
 				return
 			}
-			itemStatuses[len(feeds)+i] = *convertItemStatus(page.Title, fetchStatus)
+			itemStatuses[len(feeds)+i] = convertItemStatus(page.Title, fetchStatus)
 		}
 
 		if err := json.NewEncoder(w).Encode(itemStatuses); err != nil {

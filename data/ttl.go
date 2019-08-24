@@ -14,7 +14,7 @@ var itemTTL = 14 * 24 * time.Hour
 var skipUpdateTTL = itemTTL / 2
 
 // SetLastSeen creates or updates the last seen value for key.
-func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
+func (s DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 	return func(txn *badger.Txn) error {
 		currentTime := time.Now()
 		lastSeenKey := CreateLastSeenKey(key)
@@ -46,7 +46,7 @@ func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 	}
 }
 
-func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
+func (s DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 	return func(txn *badger.Txn) error {
 		now := time.Now()
 
@@ -99,7 +99,7 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 }
 
 // DeleteExpiredItems deletes all items which SetLastSeen was not called at least itemTTL.
-func (s *DBService) DeleteExpiredItems() error {
+func (s DBService) DeleteExpiredItems() error {
 	failed := false
 	return s.db.Update(func(txn *badger.Txn) error {
 		err := s.deleteExpiredItems([]byte(FeeditemKeyPrefix))(txn)

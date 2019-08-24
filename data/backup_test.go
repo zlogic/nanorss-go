@@ -7,14 +7,14 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var backupUsers = []*User{
-	&User{
+var backupUsers = []User{
+	User{
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
 		username:    "user01",
 	},
-	&User{
+	User{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
@@ -22,45 +22,45 @@ var backupUsers = []*User{
 	},
 }
 
-var backupFeeditems = []*Feeditem{
-	&Feeditem{
+var backupFeeditems = []Feeditem{
+	Feeditem{
 		Title:    "t1",
 		URL:      "http://item1/1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
+		Key:      FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	},
-	&Feeditem{
+	Feeditem{
 		Title:    "t2",
 		URL:      "http://item1/2",
 		Date:     time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
 		Contents: "c2",
 		Updated:  time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC),
-		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g2"},
+		Key:      FeeditemKey{FeedURL: "http://feed1", GUID: "g2"},
 	},
-	&Feeditem{
+	Feeditem{
 		Title:    "t3",
 		URL:      "http://item2/1",
 		Date:     time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
 		Contents: "c3",
 		Updated:  time.Date(2019, time.February, 18, 23, 2, 0, 0, time.UTC),
-		Key:      &FeeditemKey{FeedURL: "http://feed2", GUID: "g1"},
+		Key:      FeeditemKey{FeedURL: "http://feed2", GUID: "g1"},
 	},
 }
 
-var backupPagemonitor = []*PagemonitorPage{
-	&PagemonitorPage{
+var backupPagemonitor = []PagemonitorPage{
+	PagemonitorPage{
 		Contents: "p1",
 		Delta:    "d1",
 		Updated:  time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
-		Config:   &UserPagemonitor{URL: "http://site1", Match: "m1", Replace: "r1"},
+		Config:   UserPagemonitor{URL: "http://site1", Match: "m1", Replace: "r1"},
 	},
-	&PagemonitorPage{
+	PagemonitorPage{
 		Contents: "p2",
 		Delta:    "d2",
 		Updated:  time.Date(2019, time.February, 16, 23, 4, 0, 0, time.UTC),
-		Config:   &UserPagemonitor{URL: "http://site2"},
+		Config:   UserPagemonitor{URL: "http://site2"},
 	},
 }
 
@@ -96,8 +96,10 @@ const backupData = `{
       "Date": "2019-02-16T23:00:00Z",
       "Contents": "c1",
       "Updated": "2019-02-18T23:00:00Z",
-      "FeedURL": "http://feed1",
-      "GUID": "g1"
+      "Key": {
+        "FeedURL": "http://feed1",
+        "GUID": "g1"
+      }
     },
     {
       "Title": "t2",
@@ -105,8 +107,10 @@ const backupData = `{
       "Date": "2019-02-16T23:01:00Z",
       "Contents": "c2",
       "Updated": "2019-02-18T23:01:00Z",
-      "FeedURL": "http://feed1",
-      "GUID": "g2"
+      "Key": {
+        "FeedURL": "http://feed1",
+        "GUID": "g2"
+      }
     },
     {
       "Title": "t3",
@@ -114,8 +118,10 @@ const backupData = `{
       "Date": "2019-02-16T23:02:00Z",
       "Contents": "c3",
       "Updated": "2019-02-18T23:02:00Z",
-      "FeedURL": "http://feed2",
-      "GUID": "g1"
+      "Key": {
+        "FeedURL": "http://feed2",
+        "GUID": "g1"
+      }
     }
   ],
   "Pagemonitor": [
@@ -123,19 +129,23 @@ const backupData = `{
       "Contents": "p1",
       "Delta": "d1",
       "Updated": "2019-02-16T23:03:00Z",
-      "URL": "http://site1",
-      "Title": "",
-      "Match": "m1",
-      "Replace": "r1"
+      "Config": {
+        "URL": "http://site1",
+        "Title": "",
+        "Match": "m1",
+        "Replace": "r1"
+      }
     },
     {
       "Contents": "p2",
       "Delta": "d2",
       "Updated": "2019-02-16T23:04:00Z",
-      "URL": "http://site2",
-      "Title": "",
-      "Match": "",
-      "Replace": ""
+      "Config": {
+        "URL": "http://site2",
+        "Title": "",
+        "Match": "",
+        "Replace": ""
+      }
     }
   ],
   "ServerConfig": {
@@ -149,7 +159,7 @@ func TestBackup(t *testing.T) {
 	assert.NoError(t, err)
 
 	for _, user := range backupUsers {
-		dbService.SaveUser(user)
+		dbService.SaveUser(&user)
 	}
 	dbService.SaveFeeditems(backupFeeditems...)
 	for _, page := range backupPagemonitor {
@@ -179,8 +189,8 @@ func TestRestore(t *testing.T) {
 	assert.NoError(t, err)
 
 	done := make(chan bool)
-	userChan := make(chan *User)
-	dbUsers := make([]*User, 0)
+	userChan := make(chan User)
+	dbUsers := make([]User, 0)
 	go func() {
 		for user := range userChan {
 			dbUsers = append(dbUsers, user)
@@ -208,8 +218,8 @@ func TestRestore(t *testing.T) {
 		backupPagemonitor[1].Config.CreateKey(),
 	}, user2ReadStatus)
 
-	feedChan := make(chan *Feeditem)
-	dbFeeditems := make([]*Feeditem, 0)
+	feedChan := make(chan Feeditem)
+	dbFeeditems := make([]Feeditem, 0)
 	go func() {
 		for feedItem := range feedChan {
 			dbFeeditems = append(dbFeeditems, feedItem)
@@ -221,8 +231,8 @@ func TestRestore(t *testing.T) {
 	<-done
 	assert.Equal(t, backupFeeditems, dbFeeditems)
 
-	pageChan := make(chan *PagemonitorPage)
-	dbPages := make([]*PagemonitorPage, 0)
+	pageChan := make(chan PagemonitorPage)
+	dbPages := make([]PagemonitorPage, 0)
 	go func() {
 		for page := range pageChan {
 			dbPages = append(dbPages, page)

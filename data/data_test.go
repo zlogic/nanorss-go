@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var dbService *DBService
+var dbService DBService
 
 func TestMain(m *testing.M) {
 	dir, err := ioutil.TempDir("", "nanorss")

@@ -21,21 +21,21 @@ func (fetchStatus *FetchStatus) Decode(val []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(fetchStatus)
 }
 
-func getFetchStatus(k []byte) func(*badger.Txn) (*FetchStatus, error) {
-	return func(txn *badger.Txn) (*FetchStatus, error) {
+func getFetchStatus(k []byte) func(*badger.Txn) (FetchStatus, error) {
+	return func(txn *badger.Txn) (FetchStatus, error) {
 		item, err := txn.Get(k)
 		if err == badger.ErrKeyNotFound {
-			return nil, nil
+			return FetchStatus{}, nil
 		}
 		if err != nil {
 			log.WithField("key", k).WithError(err).Error("Failed to read fetch status")
-			return nil, err
+			return FetchStatus{}, err
 		}
 
-		fetchStatus := &FetchStatus{}
+		fetchStatus := FetchStatus{}
 		if err := item.Value(fetchStatus.Decode); err != nil {
 			log.WithField("key", k).WithError(err).Error("Failed to read value of fetch status")
-			return nil, err
+			return FetchStatus{}, err
 		}
 
 		return fetchStatus, nil
@@ -43,8 +43,8 @@ func getFetchStatus(k []byte) func(*badger.Txn) (*FetchStatus, error) {
 }
 
 // GetFetchStatus returns the fetch status for key, or nil if the fetch status is unknown.
-func (s *DBService) GetFetchStatus(key []byte) (fetchStatus *FetchStatus, err error) {
-	fetchStatus = &FetchStatus{}
+func (s DBService) GetFetchStatus(key []byte) (fetchStatus FetchStatus, err error) {
+	fetchStatus = FetchStatus{}
 	k := CreateFetchStatusKey(key)
 
 	err = s.db.View(func(txn *badger.Txn) error {
@@ -53,13 +53,13 @@ func (s *DBService) GetFetchStatus(key []byte) (fetchStatus *FetchStatus, err er
 		return err
 	})
 	if err != nil {
-		return nil, err
+		return FetchStatus{}, err
 	}
 	return
 }
 
 // SetFetchStatus creates or updates the fetch status for key.
-func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
+func (s DBService) SetFetchStatus(key []byte, fetchStatus FetchStatus) error {
 	k := CreateFetchStatusKey(key)
 
 	return s.db.Update(func(txn *badger.Txn) error {
@@ -70,8 +70,8 @@ func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
 		}
 
 		newFetchStatus := FetchStatus{}
-		if previousFetchStatus != nil {
-			newFetchStatus = *previousFetchStatus
+		if newFetchStatus != previousFetchStatus {
+			newFetchStatus = previousFetchStatus
 		}
 
 		var emptyTime time.Time
@@ -95,7 +95,7 @@ func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
 }
 
 // DeleteStaleFetchStatuses deletes all FetchStatus items which were not updated for itemTTL.
-func (s *DBService) DeleteStaleFetchStatuses() error {
+func (s DBService) DeleteStaleFetchStatuses() error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		now := time.Now()
 
@@ -107,7 +107,7 @@ func (s *DBService) DeleteStaleFetchStatuses() error {
 			item := it.Item()
 			k := item.KeyCopy(nil)
 
-			fetchStatus := &FetchStatus{}
+			fetchStatus := FetchStatus{}
 			if err := item.Value(fetchStatus.Decode); err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
 				continue

@@ -11,7 +11,7 @@ import (
 )
 
 // FetchFeed fetches a feed from feedURL and saves it into the database if fetching was successful.
-func (fetcher *Fetcher) FetchFeed(feedURL string) error {
+func (fetcher Fetcher) FetchFeed(feedURL string) error {
 	err := func() error {
 		resp, err := fetcher.Client.Get(feedURL)
 		if err == nil {
@@ -34,13 +34,13 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 			return errors.Wrapf(err, "Feed has no items %v", feedURL)
 		}
 
-		for _, item := range items {
-			item.Updated = time.Now()
+		for i := range items {
+			items[i].Updated = time.Now()
 		}
 		return fetcher.DB.SaveFeeditems(items...)
 	}()
 
-	fetchStatus := &data.FetchStatus{}
+	fetchStatus := data.FetchStatus{}
 	if err != nil {
 		log.WithField("feed", feedURL).WithError(err).Error("Failed to get feed")
 		fetchStatus.LastFailure = time.Now()
@@ -48,7 +48,7 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 		fetchStatus.LastSuccess = time.Now()
 	}
 
-	fetchStatusKey := (&data.UserFeed{URL: feedURL}).CreateKey()
+	fetchStatusKey := (data.UserFeed{URL: feedURL}).CreateKey()
 	if err := fetcher.DB.SetFetchStatus(fetchStatusKey, fetchStatus); err != nil {
 		log.WithField("feed", feedURL).WithError(err).Error("Failed to save fetch status for feed")
 	}
@@ -56,8 +56,8 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 }
 
 // FetchAllFeeds calls FetchFeed for all feeds for all users.
-func (fetcher *Fetcher) FetchAllFeeds() error {
-	ch := make(chan *data.User)
+func (fetcher Fetcher) FetchAllFeeds() error {
+	ch := make(chan data.User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {

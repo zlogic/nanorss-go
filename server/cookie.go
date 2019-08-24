@@ -53,8 +53,8 @@ type UserCookie struct {
 }
 
 // NewCookie creates a new authentication cookie.
-func (handler *CookieHandler) NewCookie() *http.Cookie {
-	return &http.Cookie{
+func (handler CookieHandler) NewCookie() http.Cookie {
+	return http.Cookie{
 		Name:    AuthenticationCookie,
 		Value:   "",
 		Path:    "/",
@@ -66,7 +66,7 @@ func (handler *CookieHandler) NewCookie() *http.Cookie {
 }
 
 // SetCookieUsername encrypts and sets the cookie to contain the username.
-func (handler *CookieHandler) SetCookieUsername(cookie *http.Cookie, username string) error {
+func (handler CookieHandler) SetCookieUsername(cookie *http.Cookie, username string) error {
 	currentTime := time.Now()
 	if username != "" {
 		encryptCookie := UserCookie{
@@ -86,7 +86,7 @@ func (handler *CookieHandler) SetCookieUsername(cookie *http.Cookie, username st
 
 // GetUsername attempts to decrypt the username from the cookie.
 // If not possible to authenticate the user, returns an empty string.
-func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request) string {
+func (handler CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request) string {
 	cookie, err := r.Cookie(AuthenticationCookie)
 	if err == http.ErrNoCookie {
 		// Cookie not set
@@ -104,7 +104,7 @@ func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request
 	if value.Authorized.Add(handler.cookieExpires).Before(time.Now()) {
 		// Cookie is valid but has expired
 		c := handler.NewCookie()
-		http.SetCookie(w, c)
+		http.SetCookie(w, &c)
 		return ""
 	}
 	return value.Username

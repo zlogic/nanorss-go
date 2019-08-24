@@ -43,8 +43,8 @@ type UserFeed struct {
 }
 
 // NewUser creates an instance of User with the provided username.
-func NewUser(username string) *User {
-	return &User{username: username}
+func NewUser(username string) User {
+	return User{username: username}
 }
 
 // Decode deserializes a User.
@@ -53,7 +53,7 @@ func (user *User) Decode(val []byte) error {
 }
 
 // ReadAllUsers reads all users from database and sends them to the provided channel.
-func (s *DBService) ReadAllUsers(ch chan *User) error {
+func (s DBService) ReadAllUsers(ch chan User) error {
 	defer close(ch)
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -71,7 +71,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 				continue
 			}
 
-			user := &User{username: *username}
+			user := User{username: username}
 			if err := item.Value(user.Decode); err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
 				continue
@@ -88,28 +88,28 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 
 // GetUser returns the User by username.
 // If user doesn't exist, returns nil.
-func (s *DBService) GetUser(username string) (*User, error) {
-	user := &User{username: username}
+func (s DBService) GetUser(username string) (User, error) {
+	user := User{username: username}
 	err := s.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(user.CreateKey())
 		if err == badger.ErrKeyNotFound {
-			user = nil
+			user = User{}
 			return nil
 		}
 
 		if err := item.Value(user.Decode); err != nil {
-			user = nil
+			user = User{}
 		}
 		return err
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read User %v", username)
+		return User{}, errors.Wrapf(err, "Cannot read User %v", username)
 	}
 	return user, nil
 }
 
 // SaveUser saves the user in the database.
-func (s *DBService) SaveUser(user *User) (err error) {
+func (s DBService) SaveUser(user *User) (err error) {
 	if user.newUsername == "" {
 		user.newUsername = user.username
 	}
@@ -130,7 +130,7 @@ func (s *DBService) SaveUser(user *User) (err error) {
 			if err := txn.Delete(oldUserKey); err != nil {
 				return err
 			}
-			if err := s.renameReadStatus(user)(txn); err != nil {
+			if err := s.renameReadStatus(*user)(txn); err != nil {
 				return err
 			}
 		}
@@ -144,7 +144,7 @@ func (s *DBService) SaveUser(user *User) (err error) {
 }
 
 // GetUsername returns the user's current username.
-func (user *User) GetUsername() string {
+func (user User) GetUsername() string {
 	return user.username
 }
 
@@ -169,12 +169,12 @@ func (user *User) SetPassword(newPassword string) error {
 }
 
 // ValidatePassword checks if password matches the user's password.
-func (user *User) ValidatePassword(password string) error {
+func (user User) ValidatePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 }
 
 // GetPages parses user's configuration and returns all UserPagemonitor configuration items.
-func (user *User) GetPages() ([]UserPagemonitor, error) {
+func (user User) GetPages() ([]UserPagemonitor, error) {
 	type UserPages struct {
 		XMLName xml.Name          `xml:"pages"`
 		Pages   []UserPagemonitor `xml:"page"`
@@ -189,7 +189,7 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 }
 
 // GetFeeds parses user's configuration and returns all UserFeed configuration items.
-func (user *User) GetFeeds() ([]UserFeed, error) {
+func (user User) GetFeeds() ([]UserFeed, error) {
 	type UserOPMLOutline struct {
 		UserFeed
 		Children []UserOPMLOutline `xml:"outline"`

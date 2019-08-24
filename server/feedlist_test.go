@@ -21,18 +21,18 @@ const defaultPagemonitor = `<pages>` +
 	`<page url="http://site1/2">Site 2</page>` +
 	`</pages>`
 
-func (m *DBMock) configureMockForFeedList(feedItems []*data.Feeditem, pages []*data.PagemonitorPage) {
-	m.On("ReadAllFeedItems", mock.AnythingOfType("chan *data.Feeditem")).Return(nil).Once().
+func (m *DBMock) configureMockForFeedList(feedItems []data.Feeditem, pages []data.PagemonitorPage) {
+	m.On("ReadAllFeedItems", mock.AnythingOfType("chan data.Feeditem")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.Feeditem)
+			ch := args.Get(0).(chan data.Feeditem)
 			for _, feedItem := range feedItems {
 				ch <- feedItem
 			}
 			close(ch)
 		})
-	m.On("ReadAllPages", mock.AnythingOfType("chan *data.PagemonitorPage")).Return(nil).Once().
+	m.On("ReadAllPages", mock.AnythingOfType("chan data.PagemonitorPage")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.PagemonitorPage)
+			ch := args.Get(0).(chan data.PagemonitorPage)
 			for _, page := range pages {
 				ch <- page
 			}
@@ -43,13 +43,13 @@ func (m *DBMock) configureMockForFeedList(feedItems []*data.Feeditem, pages []*d
 func TestFeedListHelperEmptyList(t *testing.T) {
 	dbMock := new(DBMock)
 	feedListService := FeedListService{db: dbMock}
-	user := &data.User{
+	user := data.User{
 		Opml:        defaultOpml,
 		Pagemonitor: defaultPagemonitor,
 	}
 
-	dbMock.configureMockForFeedList([]*data.Feeditem{}, []*data.PagemonitorPage{})
-	dbMock.On("GetReadStatus", user).Return(nil, nil).Once()
+	dbMock.configureMockForFeedList([]data.Feeditem{}, []data.PagemonitorPage{})
+	dbMock.On("GetReadStatus", user).Return([][]byte{}, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)
@@ -61,40 +61,40 @@ func TestFeedListHelperEmptyList(t *testing.T) {
 func TestFeedListHelperOrdering(t *testing.T) {
 	dbMock := new(DBMock)
 	feedListService := FeedListService{db: dbMock}
-	user := &data.User{
+	user := data.User{
 		Opml:        defaultOpml,
 		Pagemonitor: defaultPagemonitor,
 	}
 
-	expectedItems := []*Item{
-		&Item{
+	expectedItems := []Item{
+		Item{
 			Origin:   "Site 2",
 			SortDate: time.Date(2019, time.February, 18, 23, 3, 0, 0, time.UTC),
 			FetchURL: "api/items/pagemonitor-aHR0cDovL3NpdGUxLzI--",
 			IsRead:   false,
 		},
-		&Item{
+		Item{
 			Title:    "t2",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
 			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzI",
 			IsRead:   false,
 		},
-		&Item{
+		Item{
 			Title:    "t1",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
 			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE",
 			IsRead:   false,
 		},
-		&Item{
+		Item{
 			Title:    "t21",
 			Origin:   "Feed 2",
 			SortDate: time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUyL3Jzcw-ZzE",
 			IsRead:   true,
 		},
-		&Item{
+		Item{
 			Origin:   "Site 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
 			FetchURL: "api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE",
@@ -102,34 +102,34 @@ func TestFeedListHelperOrdering(t *testing.T) {
 		},
 	}
 
-	feedItems := []*data.Feeditem{
-		&data.Feeditem{
+	feedItems := []data.Feeditem{
+		data.Feeditem{
 			Title:   "t1",
-			Key:     &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"},
+			Key:     data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"},
 			Date:    time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
 			Updated: time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC),
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:   "t21",
-			Key:     &data.FeeditemKey{FeedURL: "http://site2/rss", GUID: "g1"},
+			Key:     data.FeeditemKey{FeedURL: "http://site2/rss", GUID: "g1"},
 			Date:    time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 			Updated: time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 		},
-		&data.Feeditem{
+		data.Feeditem{
 			Title:   "t2",
-			Key:     &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g2"},
+			Key:     data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g2"},
 			Date:    time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
 			Updated: time.Date(2019, time.February, 18, 23, 2, 0, 0, time.UTC),
 		},
 	}
 
-	pages := []*data.PagemonitorPage{
-		&data.PagemonitorPage{
-			Config:  &data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"},
+	pages := []data.PagemonitorPage{
+		data.PagemonitorPage{
+			Config:  data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"},
 			Updated: time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
 		},
-		&data.PagemonitorPage{
-			Config:  &data.UserPagemonitor{URL: "http://site1/2"},
+		data.PagemonitorPage{
+			Config:  data.UserPagemonitor{URL: "http://site1/2"},
 			Updated: time.Date(2019, time.February, 18, 23, 3, 0, 0, time.UTC),
 		},
 	}
@@ -152,33 +152,33 @@ func TestFeedListHelperOrdering(t *testing.T) {
 func TestFeedListHelperIgnoreUnknownItems(t *testing.T) {
 	dbMock := new(DBMock)
 	feedListService := FeedListService{db: dbMock}
-	user := &data.User{
+	user := data.User{
 		Opml:        defaultOpml,
 		Pagemonitor: defaultPagemonitor,
 	}
 
-	feedItems := []*data.Feeditem{
-		&data.Feeditem{
+	feedItems := []data.Feeditem{
+		data.Feeditem{
 			Title:   "t1",
-			Key:     &data.FeeditemKey{FeedURL: "http://site3/rss", GUID: "g1"},
+			Key:     data.FeeditemKey{FeedURL: "http://site3/rss", GUID: "g1"},
 			Date:    time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 			Updated: time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 		},
 	}
 
-	pages := []*data.PagemonitorPage{
-		&data.PagemonitorPage{
-			Config:  &data.UserPagemonitor{URL: "http://site1/1"},
+	pages := []data.PagemonitorPage{
+		data.PagemonitorPage{
+			Config:  data.UserPagemonitor{URL: "http://site1/1"},
 			Updated: time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
 		},
-		&data.PagemonitorPage{
-			Config:  &data.UserPagemonitor{URL: "http://site1/3"},
+		data.PagemonitorPage{
+			Config:  data.UserPagemonitor{URL: "http://site1/3"},
 			Updated: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		},
 	}
 
 	dbMock.configureMockForFeedList(feedItems, pages)
-	dbMock.On("GetReadStatus", user).Return(nil, nil).Once()
+	dbMock.On("GetReadStatus", user).Return([][]byte{}, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)
