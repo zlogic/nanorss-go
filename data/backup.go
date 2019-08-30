@@ -17,23 +17,35 @@ type BackupUser struct {
 	ReadItems []string
 }
 
+// BackupFeeditem is a backup-friendly version of Feeditem and its FeeditemKey.
+type BackupFeeditem struct {
+	Feeditem
+	FeeditemKey
+}
+
+// BackupPagemonitor is a backup-friendly version of PagemonitorPage and its configuration UserPagemonitor.
+type BackupPagemonitor struct {
+	PagemonitorPage
+	UserPagemonitor
+}
+
 // BackupData is the toplevel structure exported in a backup.
 type BackupData struct {
-	Users        []BackupUser
-	Feeds        []Feeditem
-	Pagemonitor  []PagemonitorPage
+	Users        []*BackupUser
+	Feeds        []*BackupFeeditem
+	Pagemonitor  []*BackupPagemonitor
 	ServerConfig map[string]string
 }
 
 // Backup returns a serialized copy of all data.
-func (service DBService) Backup() (string, error) {
+func (service *DBService) Backup() (string, error) {
 	data := BackupData{}
 
 	done := make(chan bool)
-	userChan := make(chan User)
+	userChan := make(chan *User)
 	go func() {
 		for user := range userChan {
-			backupUser := BackupUser{User: user, Username: user.username}
+			backupUser := &BackupUser{User: *user, Username: user.username}
 			data.Users = append(data.Users, backupUser)
 		}
 		done <- true
@@ -43,22 +55,27 @@ func (service DBService) Backup() (string, error) {
 	}
 	<-done
 
-	for i, user := range data.Users {
-		readStatus, err := service.GetReadStatus(user.User)
+	for _, user := range data.Users {
+		readStatus, err := service.GetReadStatus(&user.User)
 		if err != nil {
 			return "", errors.Wrap(err, "Error backing up item read status for user")
 		}
-		readItems := make([]string, len(readStatus))
+		user.ReadItems = make([]string, len(readStatus))
 		for i, readItemKey := range readStatus {
-			readItems[i] = string(readItemKey)
+			user.ReadItems[i] = string(readItemKey)
 		}
-		data.Users[i].ReadItems = readItems
 	}
 
-	feedChan := make(chan Feeditem)
+	feedChan := make(chan *Feeditem)
 	go func() {
 		for feedItem := range feedChan {
-			data.Feeds = append(data.Feeds, feedItem)
+			// Flatten/reformat data
+			backupFeeditem := &BackupFeeditem{
+				Feeditem:    *feedItem,
+				FeeditemKey: *feedItem.Key,
+			}
+			backupFeeditem.Feeditem.Key = nil
+			data.Feeds = append(data.Feeds, backupFeeditem)
 		}
 		done <- true
 	}()
@@ -67,10 +84,16 @@ func (service DBService) Backup() (string, error) {
 	}
 	<-done
 
-	pageChan := make(chan PagemonitorPage)
+	pageChan := make(chan *PagemonitorPage)
 	go func() {
 		for page := range pageChan {
-			data.Pagemonitor = append(data.Pagemonitor, page)
+			// Flatten/reformat data
+			backupPagemonitor := &BackupPagemonitor{
+				PagemonitorPage: *page,
+				UserPagemonitor: *page.Config,
+			}
+			backupPagemonitor.PagemonitorPage.Config = nil
+			data.Pagemonitor = append(data.Pagemonitor, backupPagemonitor)
 		}
 		close(done)
 	}()
@@ -95,7 +118,7 @@ func (service DBService) Backup() (string, error) {
 }
 
 // Restore replaces database data with the provided serialized value.
-func (service DBService) Restore(value string) error {
+func (service *DBService) Restore(value string) error {
 	data := BackupData{}
 	failed := false
 	if err := json.Unmarshal([]byte(value), &data); err != nil {
@@ -109,18 +132,28 @@ func (service DBService) Restore(value string) error {
 			log.WithField("user", user).WithError(err).Printf("Error saving user")
 		}
 		for _, readStatus := range user.ReadItems {
-			if err := service.SetReadStatus(user.User, []byte(readStatus), true); err != nil {
+			if err := service.SetReadStatus(&user.User, []byte(readStatus), true); err != nil {
 				failed = true
 				log.WithField("user", user).WithField("item", readStatus).WithError(err).Printf("Error saving read status")
 			}
 		}
 	}
-	if err := service.SaveFeeditems(data.Feeds...); err != nil {
+	convertFeeditems := func() []*Feeditem {
+		convertedFeeditems := make([]*Feeditem, 0, len(data.Feeds))
+
+		for _, feedItem := range data.Feeds {
+			feedItem.Key = &feedItem.FeeditemKey
+			convertedFeeditems = append(convertedFeeditems, &feedItem.Feeditem)
+		}
+		return convertedFeeditems
+	}
+	if err := service.SaveFeeditems(convertFeeditems()...); err != nil {
 		failed = true
 		log.WithError(err).Error("Error saving feed items")
 	}
 	for _, page := range data.Pagemonitor {
-		if err := service.SavePage(page); err != nil {
+		page.Config = &page.UserPagemonitor
+		if err := service.SavePage(&page.PagemonitorPage); err != nil {
 			failed = true
 			log.WithField("page", page).WithError(err).Error("Error saving page")
 		}

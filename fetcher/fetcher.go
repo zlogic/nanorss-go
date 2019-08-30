@@ -11,12 +11,12 @@ import (
 
 // DB provides functions to read and write items in the database.
 type DB interface {
-	GetPage(data.UserPagemonitor) (data.PagemonitorPage, error)
-	SavePage(data.PagemonitorPage) error
-	SaveFeeditems(...data.Feeditem) (err error)
-	SetFetchStatus([]byte, data.FetchStatus) error
+	GetPage(*data.UserPagemonitor) (*data.PagemonitorPage, error)
+	SavePage(*data.PagemonitorPage) error
+	SaveFeeditems(...*data.Feeditem) (err error)
+	SetFetchStatus([]byte, *data.FetchStatus) error
 	SetReadStatusForAll(k []byte, read bool) error
-	ReadAllUsers(chan data.User) error
+	ReadAllUsers(chan *data.User) error
 }
 
 // Fetcher contains services needed to fetch items and save them into a database.
@@ -27,13 +27,13 @@ type Fetcher struct {
 }
 
 // NewFetcher creates a new Fetcher instance with db.
-func NewFetcher(db DB) Fetcher {
+func NewFetcher(db DB) *Fetcher {
 	policy := bluemonday.UGCPolicy()
-	return Fetcher{DB: db, TagsPolicy: policy}
+	return &Fetcher{DB: db, TagsPolicy: policy}
 }
 
 // Refresh performs a fetch of all monitored items.
-func (fetcher Fetcher) Refresh() {
+func (fetcher *Fetcher) Refresh() {
 	if fetcher.Client == nil {
 		fetcher.Client = &http.Client{}
 	}

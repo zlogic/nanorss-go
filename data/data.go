@@ -31,17 +31,17 @@ type DBService struct {
 }
 
 // Open opens the database with options and returns a DBService instance.
-func Open(options badger.Options) (DBService, error) {
+func Open(options badger.Options) (*DBService, error) {
 	log.WithField("dir", options.Dir).Info("Opening database")
 	db, err := badger.Open(options)
 	if err != nil {
-		return DBService{}, err
+		return nil, err
 	}
-	return DBService{db: db}, nil
+	return &DBService{db: db}, nil
 }
 
 // GC deletes expired items and attempts to perform a database cleanup.
-func (service DBService) GC() {
+func (service *DBService) GC() {
 	service.DeleteExpiredItems()
 	service.DeleteStaleFetchStatuses()
 	service.DeleteStaleReadStatuses()
@@ -58,13 +58,14 @@ func (service DBService) GC() {
 }
 
 // Close closes the underlying database.
-func (service DBService) Close() {
+func (service *DBService) Close() {
 	log.Info("Closing database")
-	if service.db != nil {
+	if service != nil && service.db != nil {
 		err := service.db.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
+		service.db = nil
 	}
 }
 

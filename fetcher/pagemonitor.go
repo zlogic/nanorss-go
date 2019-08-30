@@ -14,18 +14,20 @@ import (
 	"github.com/zlogic/nanorss-go/data"
 )
 
-func (fetcher Fetcher) getPreviousResult(config data.UserPagemonitor) data.PagemonitorPage {
+func (fetcher *Fetcher) getPreviousResult(config *data.UserPagemonitor) *data.PagemonitorPage {
 	page, err := fetcher.DB.GetPage(config)
 	if err != nil {
 		log.WithField("page", config).WithError(err).Error("Failed to fetch previous result")
-		return data.PagemonitorPage{}
+	}
+	if page == nil {
+		return &data.PagemonitorPage{}
 	}
 	return page
 }
 
 // FetchPage fetches a page and performs a diff based on config.
 // On success, it's saved into the database.
-func (fetcher Fetcher) FetchPage(config data.UserPagemonitor) error {
+func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	err := func() error {
 		page := fetcher.getPreviousResult(config)
 
@@ -87,7 +89,7 @@ func (fetcher Fetcher) FetchPage(config data.UserPagemonitor) error {
 		return fetcher.DB.SavePage(page)
 	}()
 
-	fetchStatus := data.FetchStatus{}
+	fetchStatus := &data.FetchStatus{}
 	if err != nil {
 		log.WithField("page", config).WithError(err).Error("Failed to get page")
 		fetchStatus.LastFailure = time.Now()
@@ -103,8 +105,8 @@ func (fetcher Fetcher) FetchPage(config data.UserPagemonitor) error {
 }
 
 // FetchAllPages calls FetchPage for all pages for all users.
-func (fetcher Fetcher) FetchAllPages() error {
-	ch := make(chan data.User)
+func (fetcher *Fetcher) FetchAllPages() error {
+	ch := make(chan *data.User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
@@ -117,7 +119,7 @@ func (fetcher Fetcher) FetchAllPages() error {
 			completed := make(chan int)
 			for i, page := range pages {
 				go func(config data.UserPagemonitor, index int) {
-					fetcher.FetchPage(config)
+					fetcher.FetchPage(&config)
 					completed <- index
 				}(page, i)
 			}

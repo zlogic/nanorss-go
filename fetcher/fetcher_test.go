@@ -13,12 +13,15 @@ type DBMock struct {
 	mock.Mock
 }
 
-func (m *DBMock) GetPage(pm data.UserPagemonitor) (data.PagemonitorPage, error) {
+func (m *DBMock) GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error) {
 	args := m.Called(pm)
-	return args.Get(0).(data.PagemonitorPage), args.Error(1)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*data.PagemonitorPage), args.Error(1)
 }
 
-func (m *DBMock) SavePage(page data.PagemonitorPage) error {
+func (m *DBMock) SavePage(page *data.PagemonitorPage) error {
 	args := m.Called(page)
 	return args.Error(0)
 }
@@ -28,17 +31,17 @@ func (m *DBMock) SetReadStatusForAll(k []byte, read bool) error {
 	return args.Error(0)
 }
 
-func (m *DBMock) ReadAllUsers(ch chan data.User) error {
+func (m *DBMock) ReadAllUsers(ch chan *data.User) error {
 	args := m.Called(ch)
 	return args.Error(0)
 }
 
-func (m *DBMock) SetFetchStatus(key []byte, fetchStatus data.FetchStatus) error {
+func (m *DBMock) SetFetchStatus(key []byte, fetchStatus *data.FetchStatus) error {
 	args := m.Called(key, fetchStatus)
 	return args.Error(0)
 }
 
-func (m *DBMock) SaveFeeditems(feedItems ...data.Feeditem) error {
+func (m *DBMock) SaveFeeditems(feedItems ...*data.Feeditem) error {
 	args := m.Called(feedItems)
 	return args.Error(0)
 }

@@ -22,16 +22,18 @@ var dateFormats = []string{
 	"Mon, _2 Jan 2006 15:04:05 +0300",
 }
 
-func (fetcher Fetcher) sanitizeHTML(item *data.Feeditem) {
+func (fetcher *Fetcher) sanitizeHTML(items []*data.Feeditem) {
 	if fetcher.TagsPolicy == nil {
 		return
 	}
 
-	item.Contents = fetcher.TagsPolicy.Sanitize(item.Contents)
+	for _, item := range items {
+		item.Contents = fetcher.TagsPolicy.Sanitize(item.Contents)
+	}
 }
 
 // ParseFeed parses a downloaded XML feed.
-func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feeditem, error) {
+func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Feeditem, error) {
 	// Atom
 	type AtomFeedEntry struct {
 		Title     string `xml:"http://www.w3.org/2005/Atom title"`
@@ -126,10 +128,10 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 	// Convert into a common format
 	if feedXML.XMLName.Local == "feed" {
 		//Atom
-		items := make([]data.Feeditem, len(feedXML.AtomFeed.AtomFeedEntries))
+		items := make([]*data.Feeditem, len(feedXML.AtomFeed.AtomFeedEntries))
 
 		for i, atomItem := range feedXML.AtomFeed.AtomFeedEntries {
-			item := data.Feeditem{
+			item := &data.Feeditem{
 				Title: atomItem.Title,
 			}
 
@@ -167,7 +169,7 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 				}
 			}
 
-			item.Key = data.FeeditemKey{
+			item.Key = &data.FeeditemKey{
 				FeedURL: feedURL,
 			}
 
@@ -179,14 +181,12 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 			items[i] = item
 		}
 
-		for i := range items {
-			fetcher.sanitizeHTML(&items[i])
-		}
+		fetcher.sanitizeHTML(items)
 
 		return items, nil
 	} else if feedXML.XMLName.Local == "rss" {
 		// RSS
-		items := make([]data.Feeditem, len(feedXML.RSSFeed.RSSFeedEntries))
+		items := make([]*data.Feeditem, len(feedXML.RSSFeed.RSSFeedEntries))
 
 		fallbackDate := currentTime
 		dateParsed, err := parseRssTime(feedXML.RSSFeed.Published)
@@ -197,7 +197,7 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 		}
 
 		for i, rssItem := range feedXML.RSSFeed.RSSFeedEntries {
-			item := data.Feeditem{
+			item := &data.Feeditem{
 				Title: rssItem.Title,
 			}
 
@@ -216,7 +216,7 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 
 			item.URL = rssItem.Link
 
-			item.Key = data.FeeditemKey{
+			item.Key = &data.FeeditemKey{
 				FeedURL: feedURL,
 			}
 
@@ -228,16 +228,14 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 			items[i] = item
 		}
 
-		for i := range items {
-			fetcher.sanitizeHTML(&items[i])
-		}
+		fetcher.sanitizeHTML(items)
 
 		return items, nil
 	} else if feedXML.XMLName.Local == "RDF" {
 		// RDF
-		items := make([]data.Feeditem, len(feedXML.RDFFeed.RDFFeedEntries))
+		items := make([]*data.Feeditem, len(feedXML.RDFFeed.RDFFeedEntries))
 		for i, rdfItem := range feedXML.RDFFeed.RDFFeedEntries {
-			item := data.Feeditem{
+			item := &data.Feeditem{
 				Title: rdfItem.Title,
 			}
 
@@ -253,7 +251,7 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 
 			item.URL = rdfItem.Link
 
-			item.Key = data.FeeditemKey{
+			item.Key = &data.FeeditemKey{
 				FeedURL: feedURL,
 			}
 
@@ -262,9 +260,7 @@ func (fetcher Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]data.Feedi
 			items[i] = item
 		}
 
-		for i := range items {
-			fetcher.sanitizeHTML(&items[i])
-		}
+		fetcher.sanitizeHTML(items)
 
 		return items, nil
 	}

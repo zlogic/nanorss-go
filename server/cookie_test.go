@@ -55,8 +55,7 @@ func TestGetInvalidCookie(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/api/", nil)
 	res := httptest.NewRecorder()
 
-	cookie := cookieHandler.NewCookie()
-	req.AddCookie(&cookie)
+	req.AddCookie(cookieHandler.NewCookie())
 
 	username := cookieHandler.GetUsername(res, req)
 	assert.Equal(t, "", username)
@@ -70,8 +69,8 @@ func TestGetValidCookie(t *testing.T) {
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(&cookie, "user01")
-	req.AddCookie(&cookie)
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
 
 	username := cookieHandler.GetUsername(res, req)
 	assert.Equal(t, "user01", username)
@@ -86,8 +85,8 @@ func TestGetExpiredCookie(t *testing.T) {
 
 	cookieHandler.cookieExpires = -1 * time.Hour
 	cookie := cookieHandler.NewCookie()
-	cookieHandler.SetCookieUsername(&cookie, "user01")
-	req.AddCookie(&cookie)
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
 
 	username := cookieHandler.GetUsername(res, req)
 	assert.Equal(t, "", username)

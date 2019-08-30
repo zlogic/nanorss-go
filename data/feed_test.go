@@ -12,9 +12,9 @@ func TestGetItemEmpty(t *testing.T) {
 	assert.NoError(t, err)
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
-	item, err := dbService.GetFeeditem(key)
+	item, err := dbService.GetFeeditem(&key)
 	assert.NoError(t, err)
-	assert.Equal(t, Feeditem{}, item)
+	assert.Nil(t, item)
 }
 
 func TestSaveReadItem(t *testing.T) {
@@ -28,9 +28,9 @@ func TestSaveReadItem(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      key1,
+		Key:      &key1,
 	}
-	err = dbService.SaveFeeditems(item1)
+	err = dbService.SaveFeeditems(&item1)
 	assert.NoError(t, err)
 
 	key2 := FeeditemKey{FeedURL: "http://feed2", GUID: "g1"}
@@ -40,18 +40,20 @@ func TestSaveReadItem(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
 		Contents: "c2",
 		Updated:  time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC),
-		Key:      key2,
+		Key:      &key2,
 	}
-	err = dbService.SaveFeeditems(item2)
+	err = dbService.SaveFeeditems(&item2)
 	assert.NoError(t, err)
 
-	dbItem, err := dbService.GetFeeditem(key1)
+	dbItem, err := dbService.GetFeeditem(&key1)
 	assert.NoError(t, err)
-	assert.Equal(t, item1, dbItem)
+	assert.NotNil(t, dbItem)
+	assert.Equal(t, &item1, dbItem)
 
-	dbItem, err = dbService.GetFeeditem(key2)
+	dbItem, err = dbService.GetFeeditem(&key2)
 	assert.NoError(t, err)
-	assert.Equal(t, item2, dbItem)
+	assert.NotNil(t, dbItem)
+	assert.Equal(t, &item2, dbItem)
 }
 
 func TestUpdateReadItem(t *testing.T) {
@@ -65,9 +67,9 @@ func TestUpdateReadItem(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      key,
+		Key:      &key,
 	}
-	err = dbService.SaveFeeditems(item)
+	err = dbService.SaveFeeditems(&item)
 	assert.NoError(t, err)
 
 	item.Title = "t2"
@@ -75,12 +77,13 @@ func TestUpdateReadItem(t *testing.T) {
 	item.Date = time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
 	item.Contents = "c2"
 	item.Updated = time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC)
-	err = dbService.SaveFeeditems(item)
+	err = dbService.SaveFeeditems(&item)
 	assert.NoError(t, err)
 
-	dbItem, err := dbService.GetFeeditem(key)
+	dbItem, err := dbService.GetFeeditem(&key)
 	assert.NoError(t, err)
-	assert.Equal(t, item, dbItem)
+	assert.NotNil(t, dbItem)
+	assert.Equal(t, &item, dbItem)
 }
 
 func TestUpdateReadItemUnchanged(t *testing.T) {
@@ -94,20 +97,21 @@ func TestUpdateReadItemUnchanged(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      key,
+		Key:      &key,
 	}
-	err = dbService.SaveFeeditems(item)
+	err = dbService.SaveFeeditems(&item)
 	assert.NoError(t, err)
 
 	item.Updated = time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC)
-	err = dbService.SaveFeeditems(item)
+	err = dbService.SaveFeeditems(&item)
 	assert.NoError(t, err)
 
-	dbItem, err := dbService.GetFeeditem(key)
+	dbItem, err := dbService.GetFeeditem(&key)
 	assert.NoError(t, err)
+	assert.NotNil(t, dbItem)
 	assert.Equal(t, time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC), dbItem.Updated)
 	item.Updated = time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC)
-	assert.Equal(t, item, dbItem)
+	assert.Equal(t, &item, dbItem)
 }
 
 func TestSaveReadItemTTLExpired(t *testing.T) {
@@ -117,13 +121,13 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
 
-	item := Feeditem{
+	item := &Feeditem{
 		Title:    "t1",
 		URL:      "http://item1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
@@ -133,20 +137,20 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
 	assert.NoError(t, err)
-	assert.Equal(t, Feeditem{}, dbItem)
+	assert.Nil(t, dbItem)
 }
 
 func TestSaveReadItemTTLNotExpired(t *testing.T) {
 	err := resetDb()
 	assert.NoError(t, err)
 
-	item := Feeditem{
+	item := &Feeditem{
 		Title:    "t1",
 		URL:      "http://item1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
@@ -169,7 +173,7 @@ func TestSaveReadAllItems(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		Key:      FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
 	item2 := Feeditem{
 		Title:    "t2",
@@ -177,7 +181,7 @@ func TestSaveReadAllItems(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
 		Contents: "c2",
 		Updated:  time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC),
-		Key:      FeeditemKey{FeedURL: "http://feed1", GUID: "g2"},
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g2"},
 	}
 	item3 := Feeditem{
 		Title:    "t3",
@@ -185,18 +189,18 @@ func TestSaveReadAllItems(t *testing.T) {
 		Date:     time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
 		Contents: "c3",
 		Updated:  time.Date(2019, time.February, 18, 23, 2, 0, 0, time.UTC),
-		Key:      FeeditemKey{FeedURL: "http://feed2", GUID: "g2"},
+		Key:      &FeeditemKey{FeedURL: "http://feed2", GUID: "g2"},
 	}
 	items := []Feeditem{item1, item2, item3}
-	err = dbService.SaveFeeditems(item1, item2, item3)
+	err = dbService.SaveFeeditems(&item1, &item2, &item3)
 	assert.NoError(t, err)
 
 	dbItems := []Feeditem{}
-	ch := make(chan Feeditem)
+	ch := make(chan *Feeditem)
 	done := make(chan bool)
 	go func() {
 		for item := range ch {
-			dbItems = append(dbItems, item)
+			dbItems = append(dbItems, *item)
 		}
 		close(done)
 	}()

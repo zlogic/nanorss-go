@@ -16,7 +16,7 @@ func NoCacheHeaderMiddlewareFunc(next http.Handler) http.Handler {
 }
 
 // CreateRouter returns a router and all handlers.
-func CreateRouter(s Services) (*mux.Router, error) {
+func CreateRouter(s *Services) (*mux.Router, error) {
 	r := mux.NewRouter()
 	r.HandleFunc("/", RootHandler(s)).Methods(http.MethodGet)
 	r.HandleFunc("/login", HTMLLoginHandler(s)).Methods(http.MethodGet)
