@@ -91,10 +91,6 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 			return errors.Wrap(err, "Cannot marshal page")
 		}
 
-		if err := s.SetLastSeen(key)(txn); err != nil {
-			return errors.Wrap(err, "Cannot set last seen time")
-		}
-
 		if previousPage != nil && *previousPage == *page {
 			// Avoid writing to the database if nothing has changed
 			return nil
