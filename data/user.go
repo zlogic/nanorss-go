@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -81,7 +80,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 		return nil
 	})
 	if err != nil {
-		return errors.Wrapf(err, "Cannot read users")
+		return fmt.Errorf("Cannot read users because of %w", err)
 	}
 	return nil
 }
@@ -103,7 +102,7 @@ func (s *DBService) GetUser(username string) (*User, error) {
 		return err
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read User %v", username)
+		return nil, fmt.Errorf("Cannot read User %v because of %w", username, err)
 	}
 	return user, nil
 }
@@ -117,7 +116,7 @@ func (s *DBService) SaveUser(user *User) (err error) {
 
 	var value bytes.Buffer
 	if err := gob.NewEncoder(&value).Encode(user); err != nil {
-		return errors.Wrap(err, "Cannot marshal user")
+		return fmt.Errorf("Cannot marshal user because of %w", err)
 	}
 	err = s.db.Update(func(txn *badger.Txn) error {
 		if user.newUsername != user.username {
@@ -182,7 +181,7 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 	items := &UserPages{}
 	err := xml.Unmarshal([]byte(user.Pagemonitor), items)
 	if err != nil {
-		err = errors.Wrap(err, "Cannot parse pagemonitor xml")
+		err = fmt.Errorf("Cannot parse pagemonitor xml because of %w", err)
 		return nil, err
 	}
 	return items.Pages, nil
@@ -201,7 +200,7 @@ func (user *User) GetFeeds() ([]UserFeed, error) {
 	items := &UserOPML{}
 	err := xml.Unmarshal([]byte(user.Opml), items)
 	if err != nil {
-		err = errors.Wrap(err, "Cannot parse opml xml")
+		err = fmt.Errorf("Cannot parse opml xml because of %w", err)
 		return nil, err
 	}
 	feeds := []UserFeed{}

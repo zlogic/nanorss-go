@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -51,14 +50,14 @@ func (service *DBService) Backup() (string, error) {
 		done <- true
 	}()
 	if err := service.ReadAllUsers(userChan); err != nil {
-		return "", errors.Wrap(err, "Error backing up users")
+		return "", fmt.Errorf("Error backing up users because of %w", err)
 	}
 	<-done
 
 	for _, user := range data.Users {
 		readStatus, err := service.GetReadStatus(&user.User)
 		if err != nil {
-			return "", errors.Wrap(err, "Error backing up item read status for user")
+			return "", fmt.Errorf("Error backing up item read status for user because of %w", err)
 		}
 		user.ReadItems = make([]string, len(readStatus))
 		for i, readItemKey := range readStatus {
@@ -80,7 +79,7 @@ func (service *DBService) Backup() (string, error) {
 		done <- true
 	}()
 	if err := service.ReadAllFeedItems(feedChan); err != nil {
-		return "", errors.Wrap(err, "Error backing up feed items")
+		return "", fmt.Errorf("Error backing up feed items because of %w", err)
 	}
 	<-done
 
@@ -99,19 +98,19 @@ func (service *DBService) Backup() (string, error) {
 	}()
 
 	if err := service.ReadAllPages(pageChan); err != nil {
-		return "", errors.Wrap(err, "Error backing up pagemonitor pages")
+		return "", fmt.Errorf("Error backing up pagemonitor pages because of %w", err)
 	}
 	<-done
 
 	serverConfig, err := service.GetAllConfigVariables()
 	if err != nil {
-		return "", errors.Wrap(err, "Error backing up server configuration")
+		return "", fmt.Errorf("Error backing up server configuration because of %w", err)
 	}
 	data.ServerConfig = serverConfig
 
 	value, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return "", errors.Wrap(err, "Error marshaling json")
+		return "", fmt.Errorf("Error marshaling json because of %w", err)
 	}
 
 	return string(value), nil
@@ -122,7 +121,7 @@ func (service *DBService) Restore(value string) error {
 	data := BackupData{}
 	failed := false
 	if err := json.Unmarshal([]byte(value), &data); err != nil {
-		return errors.Wrap(err, "Error unmarshaling json")
+		return fmt.Errorf("Error unmarshaling json because of %w", err)
 	}
 
 	for _, user := range data.Users {

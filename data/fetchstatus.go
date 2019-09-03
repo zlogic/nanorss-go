@@ -3,10 +3,10 @@ package data
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -84,11 +84,11 @@ func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
 
 		var value bytes.Buffer
 		if err := gob.NewEncoder(&value).Encode(newFetchStatus); err != nil {
-			return errors.Wrap(err, "Error encoding fetch status")
+			return fmt.Errorf("Error encoding fetch status because of %w", err)
 		}
 
 		if err := txn.Set(k, value.Bytes()); err != nil {
-			return errors.Wrap(err, "Error saving fetch status")
+			return fmt.Errorf("Error saving fetch status because of %w", err)
 		}
 		return nil
 	})

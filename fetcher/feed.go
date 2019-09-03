@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -22,16 +21,16 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 			err = fmt.Errorf("Cannot GET feed (status code %v)", resp.StatusCode)
 		}
 		if err != nil {
-			return errors.Wrapf(err, "Cannot GET feed %v", feedURL)
+			return fmt.Errorf("Cannot GET feed %v because of %w", feedURL, err)
 		}
 
 		items, err := fetcher.ParseFeed(feedURL, resp.Body)
 		if err != nil {
-			return errors.Wrapf(err, "Cannot parse feed %v", feedURL)
+			return fmt.Errorf("Cannot parse feed %v because of %w", feedURL, err)
 		}
 
 		if len(items) == 0 {
-			return errors.Wrapf(err, "Feed has no items %v", feedURL)
+			return fmt.Errorf("Feed has no items %v", feedURL)
 		}
 
 		for _, item := range items {

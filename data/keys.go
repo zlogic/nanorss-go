@@ -2,9 +2,8 @@ package data
 
 import (
 	"encoding/base64"
+	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 const separator = "/"
@@ -54,15 +53,15 @@ func (user *User) CreateKey() []byte {
 func DecodeUserKey(key []byte) (*string, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, UserKeyPrefix) {
-		return nil, errors.Errorf("Not a user key: %v", keyString)
+		return nil, fmt.Errorf("Not a user key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 2 {
-		return nil, errors.Errorf("Invalid format of user key: %v", keyString)
+		return nil, fmt.Errorf("Invalid format of user key: %v", keyString)
 	}
 	username, err := decodePart(parts[1])
 	if err != nil {
-		return nil, errors.Errorf("Failed to decode username: %v because of %v", keyString, err)
+		return nil, fmt.Errorf("Failed to decode username: %v because of %w", keyString, err)
 	}
 	return &username, nil
 }
@@ -82,25 +81,25 @@ func (pm *UserPagemonitor) CreateKey() []byte {
 func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, PagemonitorKeyPrefix) {
-		return nil, errors.Errorf("Not a Pagemonitor key: %v", keyString)
+		return nil, fmt.Errorf("Not a Pagemonitor key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 4 {
-		return nil, errors.Errorf("Invalid format of Pagemonitor key: %v", keyString)
+		return nil, fmt.Errorf("Invalid format of Pagemonitor key: %v", keyString)
 	}
 	res := &UserPagemonitor{}
 	var err error
 	res.URL, err = decodePart(parts[1])
 	if err != nil {
-		return nil, errors.Errorf("Failed to decode URL of Pagemonitor key: %v because of %v", keyString, err)
+		return nil, fmt.Errorf("Failed to decode URL of Pagemonitor key: %v because of %w", keyString, err)
 	}
 	res.Match, err = decodePart(parts[2])
 	if err != nil {
-		return nil, errors.Errorf("Failed to decode Match of Pagemonitor key: %v because of %v", keyString, err)
+		return nil, fmt.Errorf("Failed to decode Match of Pagemonitor key: %v because of %w", keyString, err)
 	}
 	res.Replace, err = decodePart(parts[3])
 	if err != nil {
-		return nil, errors.Errorf("Failed to decode Replace of Pagemonitor key: %v because of %v", keyString, err)
+		return nil, fmt.Errorf("Failed to decode Replace of Pagemonitor key: %v because of %w", keyString, err)
 	}
 	return res, nil
 }
@@ -128,21 +127,21 @@ func (key *FeeditemKey) CreateKey() []byte {
 func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, FeeditemKeyPrefix) {
-		return nil, errors.Errorf("Not a Feeditem key: %v", keyString)
+		return nil, fmt.Errorf("Not a Feeditem key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 3 {
-		return nil, errors.Errorf("Invalid format of Feeditem key: %v", keyString)
+		return nil, fmt.Errorf("Invalid format of Feeditem key: %v", keyString)
 	}
 	res := &FeeditemKey{}
 	var err error
 	res.FeedURL, err = decodePart(parts[1])
 	if err != nil {
-		return nil, errors.Errorf("Failed to decode Feed URL of Feeditem key: %v because of %v", keyString, err)
+		return nil, fmt.Errorf("Failed to decode Feed URL of Feeditem key: %v because of %w", keyString, err)
 	}
 	res.GUID, err = decodePart(parts[2])
 	if err != nil {
-		return nil, errors.Errorf("Failed to decode GUID of Feeditem key: %v because of %v", keyString, err)
+		return nil, fmt.Errorf("Failed to decode GUID of Feeditem key: %v because of %w", keyString, err)
 	}
 	return res, nil
 }
@@ -164,11 +163,11 @@ func (user *User) CreateReadStatusKey(itemKey []byte) []byte {
 func DecodeReadStatusKey(key []byte) ([]byte, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, ReadStatusPrefix) {
-		return nil, errors.Errorf("Not a read status key: %v", keyString)
+		return nil, fmt.Errorf("Not a read status key: %v", keyString)
 	}
 	parts := strings.SplitN(keyString, separator, 3)
 	if len(parts) != 3 {
-		return nil, errors.Errorf("Invalid format of read status key: %v", keyString)
+		return nil, fmt.Errorf("Invalid format of read status key: %v", keyString)
 	}
 	return []byte(parts[2]), nil
 }
@@ -185,15 +184,15 @@ func CreateServerConfigKey(varName string) []byte {
 func DecodeServerConfigKey(key []byte) (string, error) {
 	keyString := string(key)
 	if !strings.HasPrefix(keyString, ServerConfigKeyPrefix) {
-		return "", errors.Errorf("Not a config item key: %v", keyString)
+		return "", fmt.Errorf("Not a config item key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 2 {
-		return "", errors.Errorf("Invalid format of config item key: %v", keyString)
+		return "", fmt.Errorf("Invalid format of config item key: %v", keyString)
 	}
 	value, err := decodePart(parts[1])
 	if err != nil {
-		return "", errors.Errorf("Failed to decode config item value: %v because of %v", keyString, err)
+		return "", fmt.Errorf("Failed to decode config item value: %v because of %w", keyString, err)
 	}
 	return value, nil
 }

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/jaytaylor/html2text"
-	"github.com/pkg/errors"
 	"github.com/pmezard/go-difflib/difflib"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
@@ -40,12 +39,12 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			err = fmt.Errorf("Cannot GET page (status code %v)", resp.StatusCode)
 		}
 		if err != nil {
-			return errors.Wrapf(err, "Cannot GET page %v", config)
+			return fmt.Errorf("Cannot GET page %v because of %w", config, err)
 		}
 
 		respData, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return errors.Wrapf(err, "Cannot read response for page %v", config)
+			return fmt.Errorf("Cannot read response for page %v because of %w", config, err)
 		}
 		text, err := html2text.FromString(string(respData))
 
@@ -53,7 +52,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		if config.Match != "" {
 			regex, err := regexp.Compile(config.Match)
 			if err != nil {
-				return errors.Wrapf(err, "Cannot compile match regex %v", config)
+				return fmt.Errorf("Cannot compile match regex %v because of %w", config, err)
 			}
 			textFiltered = regex.ReplaceAllString(text, config.Replace)
 			previousTextFiltered = regex.ReplaceAllString(page.Contents, config.Replace)
@@ -73,7 +72,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			Context: 3,
 		})
 		if err != nil {
-			return errors.Wrapf(err, "Cannot create diff for page %v", config)
+			return fmt.Errorf("Cannot create diff for page %v because of %w", config, err)
 		}
 		page.Delta = diff
 		page.Contents = text
@@ -81,7 +80,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		page.Config = config
 		err = fetcher.DB.SetReadStatusForAll(config.CreateKey(), false)
 		if err != nil {
-			return errors.Wrapf(err, "Cannot mark page as unread %v", config)
+			return fmt.Errorf("Cannot mark page as unread %v because of %w", config, err)
 		}
 
 		log.WithField("value", page).WithField("page", config).WithField("delta", page.Delta).Debug("Page has changed")

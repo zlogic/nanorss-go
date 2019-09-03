@@ -3,10 +3,10 @@ package data
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -62,7 +62,7 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 		return nil
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read feed item %v", key)
+		return nil, fmt.Errorf("Cannot read feed item %v because of %w", key, err)
 	}
 	return feeditem, nil
 }
@@ -73,12 +73,12 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 		getPreviousItem := func(key []byte) (*Feeditem, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, errors.Wrapf(err, "Failed to get previous feed item %v", string(key))
+				return nil, fmt.Errorf("Failed to get previous feed item %v because of %w", string(key), err)
 			}
 			if err == nil {
 				existingFeedItem := &Feeditem{}
 				if err := item.Value(existingFeedItem.Decode); err != nil {
-					return nil, errors.Wrapf(err, "Failed to read previous value of feed item %v %v", string(key), err)
+					return nil, fmt.Errorf("Failed to read previous value of feed item %v because of %w", string(key), err)
 				}
 				return existingFeedItem, nil
 			}
@@ -100,11 +100,11 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 
 			value, err := feedItem.Encode()
 			if err != nil {
-				return errors.Wrap(err, "Cannot marshal feed item")
+				return fmt.Errorf("Cannot marshal feed item because of %w", err)
 			}
 
 			if err := s.SetLastSeen(key)(txn); err != nil {
-				return errors.Wrap(err, "Cannot set last seen time")
+				return fmt.Errorf("Cannot set last seen time because of %w", err)
 			}
 
 			if previousItem != nil && *feedItem == *previousItem {
@@ -115,7 +115,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			}
 
 			if err := txn.Set(key, value); err != nil {
-				return errors.Wrap(err, "Cannot save feed item")
+				return fmt.Errorf("Cannot save feed item because of %w", err)
 			}
 		}
 		return nil

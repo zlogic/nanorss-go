@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -37,10 +36,10 @@ func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 
 		value, err := currentTime.MarshalBinary()
 		if err != nil {
-			return errors.Wrap(err, "Error marshaling current time")
+			return fmt.Errorf("Error marshaling current time (%w)", err)
 		}
 		if err := txn.Set(lastSeenKey, value); err != nil {
-			return errors.Wrap(err, "Error saving last seen time")
+			return fmt.Errorf("Error saving last seen time (%w)", err)
 		}
 		return nil
 	}

@@ -2,11 +2,11 @@ package server
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/securecookie"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -34,11 +34,11 @@ const AuthenticationCookie = "nanorss"
 func NewCookieHandler(db DB) (*CookieHandler, error) {
 	hashKey, err := getOrCreateKey(db, "cookie-hash-key", 64)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot get the hash key")
+		return nil, fmt.Errorf("Cannot get the hash key because of %w", err)
 	}
 	blockKey, err := getOrCreateKey(db, "cookie-block-key", 32)
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot get the block key")
+		return nil, fmt.Errorf("Cannot get the block key because of %w", err)
 	}
 	handler := &CookieHandler{}
 	handler.secureCookie = securecookie.New(hashKey, blockKey)
@@ -75,7 +75,7 @@ func (handler *CookieHandler) SetCookieUsername(cookie *http.Cookie, username st
 		}
 		value, err := handler.secureCookie.Encode(AuthenticationCookie, &encryptCookie)
 		if err != nil {
-			return errors.Wrapf(err, "Failed to encrypt cookie %v", err)
+			return fmt.Errorf("Failed to encrypt cookie because of %w", err)
 		}
 		cookie.Expires = currentTime.Add(handler.cookieExpires)
 		cookie.MaxAge = int(handler.cookieExpires / time.Second)

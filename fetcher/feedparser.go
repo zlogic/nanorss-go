@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 	"golang.org/x/net/html/charset"
@@ -99,11 +98,11 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 		currentTime := time.Now()
 		currentTimeBin, err := currentTime.GobEncode()
 		if err != nil {
-			return time.Time{}, errors.Wrapf(err, "Error encoding time")
+			return time.Time{}, fmt.Errorf("Error encoding time (%w)", err)
 		}
 		err = currentTime.GobDecode(currentTimeBin)
 		if err != nil {
-			return time.Time{}, errors.Wrapf(err, "Error decoding time")
+			return time.Time{}, fmt.Errorf("Error decoding time (%w)", err)
 		}
 		return currentTime, nil
 	}

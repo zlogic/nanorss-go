@@ -2,7 +2,7 @@ package server
 
 import (
 	"bytes"
-	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -66,7 +66,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				return feed.Title, nil
 			}
 		}
-		return "", errors.New("Not found")
+		return "", fmt.Errorf("Not found")
 	}
 	isRead := func(itemKey []byte) bool {
 		for _, readItemKey := range readItems {
@@ -109,7 +109,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				return page.Title, nil
 			}
 		}
-		return "", errors.New("Not found")
+		return "", fmt.Errorf("Not found")
 	}
 	pagemonitorPageChan := make(chan *data.PagemonitorPage)
 	pagemonitorDone := make(chan bool)

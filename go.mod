@@ -1,6 +1,6 @@
 module github.com/zlogic/nanorss-go
 
-go 1.12
+go 1.13
 
 require (
 	github.com/AndreasBriese/bbloom v0.0.0-20190825152654-46b345b51c96 // indirect
@@ -15,7 +15,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.2
 	github.com/olekukonko/tablewriter v0.0.1 // indirect
-	github.com/pkg/errors v0.8.1
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/sirupsen/logrus v1.4.2
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
@@ -23,7 +22,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297
-	golang.org/x/sys v0.0.0-20190830142957-1e83adbbebd0 // indirect
+	golang.org/x/sys v0.0.0-20190902133755-9109b7679e13 // indirect
 	golang.org/x/text v0.3.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/h2non/gock.v1 v1.0.15

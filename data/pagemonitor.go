@@ -3,10 +3,10 @@ package data
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"time"
 
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -50,7 +50,7 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 		return item.Value(page.Decode)
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "Cannot read page %v", page)
+		return nil, fmt.Errorf("Cannot read page %v because of %w", page, err)
 	}
 	return page, nil
 }
@@ -60,18 +60,18 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
 	return s.db.Update(func(txn *badger.Txn) error {
 		if err := s.SetLastSeen(key)(txn); err != nil {
-			return errors.Wrap(err, "Cannot set last seen time")
+			return fmt.Errorf("Cannot set last seen time because of %w", err)
 		}
 
 		getPreviousPage := func(key []byte) (*PagemonitorPage, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, errors.Wrapf(err, "Failed to get previous page %v", string(key))
+				return nil, fmt.Errorf("Failed to get previous page %v because of %w", string(key), err)
 			}
 			if err == nil {
 				existingPage := &PagemonitorPage{}
 				if err := item.Value(existingPage.Decode); err != nil {
-					return nil, errors.Wrapf(err, "Failed to read previous value of page %v %v", string(key), err)
+					return nil, fmt.Errorf("Failed to read previous value of page %v because of %w", string(key), err)
 				}
 				return existingPage, nil
 			}
@@ -88,7 +88,7 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 
 		value, err := page.Encode()
 		if err != nil {
-			return errors.Wrap(err, "Cannot marshal page")
+			return fmt.Errorf("Cannot marshal page because of %w", err)
 		}
 
 		if previousPage != nil && *previousPage == *page {

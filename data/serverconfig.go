@@ -1,8 +1,9 @@
 package data
 
 import (
+	"fmt"
+
 	"github.com/dgraph-io/badger"
-	"github.com/pkg/errors"
 )
 
 // GetOrCreateConfigVariable returns the value for the varName ServerConfig variable, or if there's no entry, uses generator to create and save a value.
@@ -33,7 +34,7 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 		return nil
 	})
 	if err != nil {
-		return "", errors.Wrapf(err, "Cannot read config key %v", varName)
+		return "", fmt.Errorf("Cannot read config key %v because of %w", varName, err)
 	}
 	return varValue, nil
 }
@@ -45,7 +46,7 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 		return txn.Set(varKey, []byte(varValue))
 	})
 	if err != nil {
-		return errors.Wrapf(err, "Cannot write config key %v", varName)
+		return fmt.Errorf("Cannot write config key %v because of %w", varName, err)
 	}
 	return nil
 }
@@ -64,7 +65,7 @@ func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 
 			key, err := DecodeServerConfigKey(k)
 			if err != nil {
-				return errors.Wrapf(err, "Error reading config key %v", k)
+				return fmt.Errorf("Error reading config key %v because of %w", k, err)
 			}
 
 			err = item.Value(func(val []byte) error {
@@ -72,7 +73,7 @@ func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 				return nil
 			})
 			if err != nil {
-				return errors.Wrapf(err, "Error reading config value %v", k)
+				return fmt.Errorf("Error reading config value %v because of %w", k, err)
 			}
 		}
 		return nil
