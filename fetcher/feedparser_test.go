@@ -193,11 +193,13 @@ func TestParseAtom(t *testing.T) {
 
 func TestParseRss(t *testing.T) {
 	fetcher := Fetcher{}
-	gmt, err := time.LoadLocation("GMT")
-	assert.NoError(t, err)
 
 	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(parseRssFeed)))
 	assert.NoError(t, err)
+
+	for i := range items {
+		items[i].Date = items[i].Date.In(gmt)
+	}
 
 	assert.Equal(t, []*data.Feeditem{
 		&data.Feeditem{

@@ -79,6 +79,9 @@ func TestFetchFeed(t *testing.T) {
 			for _, savedItem := range savedItems {
 				assertTimeBetween(t, beforeUpdate, currentTime, savedItem.Updated)
 				savedItem.Updated = time.Time{}
+				if savedItem.Date != (time.Time{}) {
+					savedItem.Date = savedItem.Date.In(gmt)
+				}
 			}
 			assert.Equal(t, expectedRssFeedItems, savedItems)
 		})
@@ -181,6 +184,9 @@ func TestFetchAllFeeds(t *testing.T) {
 			for _, savedItem := range savedItems {
 				assertTimeBetween(t, beforeUpdate, currentTime, savedItem.Updated)
 				savedItem.Updated = time.Time{}
+				if savedItem.Date != (time.Time{}) {
+					savedItem.Date = savedItem.Date.In(gmt)
+				}
 			}
 			dbSavedItems = append(dbSavedItems, savedItems)
 		})
