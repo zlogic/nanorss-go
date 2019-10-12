@@ -310,3 +310,42 @@ func TestParseInvalid(t *testing.T) {
 	assert.Error(t, err)
 	assert.Empty(t, items)
 }
+
+func TestParseAtomEmpty(t *testing.T) {
+	emptyAtom := `<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+</feed>`
+
+	fetcher := Fetcher{}
+
+	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(emptyAtom)))
+	assert.NoError(t, err)
+
+	assert.Equal(t, []*data.Feeditem{}, items)
+}
+
+func TestParseRssEmpty(t *testing.T) {
+	emptyRss := `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+</rss>`
+
+	fetcher := Fetcher{}
+
+	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(emptyRss)))
+	assert.NoError(t, err)
+
+	assert.Equal(t, []*data.Feeditem{}, items)
+}
+
+func TestParseRdfEmpty(t *testing.T) {
+	emptyRdf := `<?xml version="1.0" encoding="utf-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">
+</rdf:RDF>`
+
+	fetcher := Fetcher{}
+
+	items, err := fetcher.ParseFeed("http://sites-site1.com", bytes.NewBuffer([]byte(emptyRdf)))
+	assert.NoError(t, err)
+
+	assert.Equal(t, []*data.Feeditem{}, items)
+}
