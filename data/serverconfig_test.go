@@ -3,7 +3,7 @@ package data
 import (
 	"testing"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 	"github.com/stretchr/testify/assert"
 )
 
