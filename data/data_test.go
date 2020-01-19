@@ -1,18 +1,24 @@
 package data
 
 import (
-	"github.com/dgraph-io/badger/v2"
-	log "github.com/sirupsen/logrus"
+	"os"
+
+	"github.com/akrylysov/pogreb"
+	"github.com/akrylysov/pogreb/fs"
 )
 
 var dbService *DBService
 
 func resetDb() (err error) {
-	var opts = badger.DefaultOptions("")
-	opts.Logger = log.New()
-	opts.ValueLogFileSize = 1 << 20
-	opts.InMemory = true
-
-	dbService, err = Open(opts)
+	if dbService != nil {
+		dbService.Close()
+		err = fs.Mem.Remove("nanorss")
+		err = fs.Mem.Remove("nanorss.index")
+		err = fs.Mem.Remove("nanorss.lock")
+	}
+	os.Setenv("DATABASE_DIR", "nanorss")
+	dbService, err = Open(pogreb.Options{
+		FileSystem: fs.Mem,
+	})
 	return
 }

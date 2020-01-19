@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -40,17 +40,17 @@ func (page *PagemonitorPage) Decode(val []byte) error {
 // If page doesn't exist, returns nil.
 func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 	page := &PagemonitorPage{Config: pm}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(pm.CreateKey())
-		if err == badger.ErrKeyNotFound {
-			page = nil
-			return nil
-		}
-
-		return item.Value(page.Decode)
-	})
+	item, err := s.db.Get(pm.CreateKey())
 	if err != nil {
 		return nil, fmt.Errorf("Cannot read page %v because of %w", page, err)
+	}
+	if item == nil {
+		return nil, nil
+	}
+
+	err = page.Decode(item)
+	if err != nil {
+		return nil, fmt.Errorf("Cannot decode page %v because of %w", page, err)
 	}
 	return page, nil
 }
@@ -58,74 +58,74 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 // SavePage saves a PagemonitorPage.
 func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
-	return s.db.Update(func(txn *badger.Txn) error {
-		if err := s.SetLastSeen(key)(txn); err != nil {
-			return fmt.Errorf("Cannot set last seen time because of %w", err)
-		}
+	if err := s.SetLastSeen(key); err != nil {
+		return fmt.Errorf("Cannot set last seen time because of %w", err)
+	}
 
-		getPreviousPage := func(key []byte) (*PagemonitorPage, error) {
-			item, err := txn.Get(key)
-			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, fmt.Errorf("Failed to get previous page %v because of %w", string(key), err)
-			}
-			if err == nil {
-				existingPage := &PagemonitorPage{}
-				if err := item.Value(existingPage.Decode); err != nil {
-					return nil, fmt.Errorf("Failed to read previous value of page %v because of %w", string(key), err)
-				}
-				return existingPage, nil
-			}
-			// Page doesn't exist
+	getPreviousPage := func(key []byte) (*PagemonitorPage, error) {
+		item, err := s.db.Get(key)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get previous page %v because of %w", string(key), err)
+		}
+		if item == nil {
 			return nil, nil
 		}
-
-		previousPage, err := getPreviousPage(key)
-		if err != nil {
-			log.WithField("key", key).WithError(err).Error("Failed to read previous page")
-		} else if previousPage != nil {
-			previousPage.Config = page.Config
+		existingPage := &PagemonitorPage{}
+		if err := existingPage.Decode(item); err != nil {
+			return nil, fmt.Errorf("Failed to read previous value of page %v because of %w", string(key), err)
 		}
+		return existingPage, nil
+	}
 
-		value, err := page.Encode()
-		if err != nil {
-			return fmt.Errorf("Cannot marshal page because of %w", err)
-		}
+	previousPage, err := getPreviousPage(key)
+	if err != nil {
+		log.WithField("key", key).WithError(err).Error("Failed to read previous page")
+	} else if previousPage != nil {
+		previousPage.Config = page.Config
+	}
 
-		if previousPage != nil && *previousPage == *page {
-			// Avoid writing to the database if nothing has changed
-			return nil
-		}
+	value, err := page.Encode()
+	if err != nil {
+		return fmt.Errorf("Cannot marshal page because of %w", err)
+	}
 
-		return txn.Set(key, value)
-	})
+	if previousPage != nil && *previousPage == *page {
+		// Avoid writing to the database if nothing has changed
+		return nil
+	}
+
+	return s.db.Put(key, value)
 }
 
 // ReadAllPages reads all PagemonitorPage items from database and sends them to the provided channel.
-func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
+func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) error {
 	defer close(ch)
-	err = s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(PagemonitorKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			k := item.Key()
-			pm, err := DecodePagemonitorKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of page")
-				continue
+	prefix := []byte(PagemonitorKeyPrefix)
+	it := s.db.Items()
+	for {
+		k, v, err := it.Next()
+		if err != nil {
+			if err != pogreb.ErrIterationDone {
+				return fmt.Errorf("Cannot read pages because of %w", err)
 			}
-
-			page := &PagemonitorPage{Config: pm}
-			if err := item.Value(page.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of page")
-				continue
-			}
-			ch <- page
+			break
 		}
-		return nil
-	})
-	return err
+		if !validForPrefix(prefix, k) {
+			continue
+		}
+
+		pm, err := DecodePagemonitorKey(k)
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to decode key of page")
+			continue
+		}
+
+		page := &PagemonitorPage{Config: pm}
+		if err := page.Decode(v); err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to read value of page")
+			continue
+		}
+		ch <- page
+	}
+	return nil
 }

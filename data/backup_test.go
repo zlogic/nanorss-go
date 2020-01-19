@@ -190,11 +190,11 @@ func TestRestore(t *testing.T) {
 	err = dbService.ReadAllUsers(userChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, backupUsers, dbUsers)
+	assert.ElementsMatch(t, backupUsers, dbUsers)
 
 	user1ReadStatus, err := dbService.GetReadStatus(backupUsers[0])
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{
+	assert.ElementsMatch(t, [][]byte{
 		backupFeeditems[0].Key.CreateKey(),
 		backupFeeditems[1].Key.CreateKey(),
 		backupPagemonitor[0].Config.CreateKey(),
@@ -202,7 +202,7 @@ func TestRestore(t *testing.T) {
 
 	user2ReadStatus, err := dbService.GetReadStatus(backupUsers[1])
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{
+	assert.ElementsMatch(t, [][]byte{
 		backupFeeditems[0].Key.CreateKey(),
 		backupFeeditems[2].Key.CreateKey(),
 		backupPagemonitor[1].Config.CreateKey(),
@@ -219,7 +219,7 @@ func TestRestore(t *testing.T) {
 	err = dbService.ReadAllFeedItems(feedChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, backupFeeditems, dbFeeditems)
+	assert.ElementsMatch(t, backupFeeditems, dbFeeditems)
 
 	pageChan := make(chan *PagemonitorPage)
 	dbPages := make([]*PagemonitorPage, 0)

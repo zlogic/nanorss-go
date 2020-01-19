@@ -1,44 +1,51 @@
 package data
 
 import (
+	golog "log"
 	"os"
 	"path"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/akrylysov/pogreb"
+	"github.com/akrylysov/pogreb/fs"
 	log "github.com/sirupsen/logrus"
+	"github.com/zlogic/rst"
 )
 
+func init() {
+	pogrebLog := golog.New(log.New().Writer(), "", 0)
+	pogreb.SetLogger(pogrebLog)
+}
+
 // DefaultOptions returns default options for the database, customized based on environment variables.
-func DefaultOptions() badger.Options {
-	dbPath, ok := os.LookupEnv("DATABASE_DIR")
-	if !ok {
-		dbPath = path.Join(os.TempDir(), "nanorss")
+func DefaultOptions() pogreb.Options {
+	return pogreb.Options{
+		FileSystem: fs.OS,
 	}
-	opts := badger.DefaultOptions(dbPath)
-	// Add a logger
-	opts.Logger = log.New()
-	// Optimize options for low memory usage
-	opts.MaxTableSize = 1 << 20
-	opts.MaxCacheSize = 1 << 22
-	// Allow GC of value log
-	opts.ValueLogFileSize = 4 << 20
-	opts.ValueLogMaxEntries = 10000
-	return opts
 }
 
 // DBService provides services for reading and writing structs in the database.
 type DBService struct {
-	db *badger.DB
+	db *pogreb.DB
+	tx *rst.KeyLocker
 }
 
 // Open opens the database with options and returns a DBService instance.
-func Open(options badger.Options) (*DBService, error) {
-	log.WithField("dir", options.Dir).Info("Opening database")
-	db, err := badger.Open(options)
+func Open(options pogreb.Options) (*DBService, error) {
+	dbPath, ok := os.LookupEnv("DATABASE_DIR")
+	if !ok {
+		dbPath = path.Join(os.TempDir(), "nanorss")
+	}
+	log.WithField("dir", dbPath).Info("Opening database")
+	db, err := pogreb.Open(dbPath, &options)
 	if err != nil {
 		return nil, err
 	}
-	return &DBService{db: db}, nil
+	s := DBService{db: db, tx: rst.New()}
+	err = s.CompleteTransactions()
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 // GC deletes expired items and attempts to perform a database cleanup.
@@ -46,13 +53,6 @@ func (service *DBService) GC() {
 	service.DeleteExpiredItems()
 	service.DeleteStaleFetchStatuses()
 	service.DeleteStaleReadStatuses()
-	for {
-		if err := service.db.RunValueLogGC(0.5); err != nil {
-			log.WithField("result", err).Info("Cleanup completed")
-			break
-		}
-		log.Info("Cleanup reclaimed space")
-	}
 }
 
 // Close closes the underlying database.
@@ -65,11 +65,4 @@ func (service *DBService) Close() {
 		}
 		service.db = nil
 	}
-}
-
-// IteratorDoNotPrefetchOptions returns Badger iterator options with PrefetchValues = false.
-func IteratorDoNotPrefetchOptions() badger.IteratorOptions {
-	options := badger.DefaultIteratorOptions
-	options.PrefetchValues = false
-	return options
 }

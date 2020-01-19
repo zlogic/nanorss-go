@@ -240,5 +240,5 @@ func TestSetReadStatusForAll(t *testing.T) {
 
 	readStatuses, err = dbService.GetReadStatus(&user2)
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{key1, key2}, readStatuses)
+	assert.ElementsMatch(t, [][]byte{key1, key2}, readStatuses)
 }

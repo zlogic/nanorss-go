@@ -3,6 +3,8 @@ package data
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -107,6 +109,20 @@ func (service *DBService) Backup() (string, error) {
 		return "", fmt.Errorf("Error backing up server configuration because of %w", err)
 	}
 	data.ServerConfig = serverConfig
+
+	// Sort data to make tests reproducible
+	sort.Slice(data.Users, func(i, j int) bool { return strings.Compare(data.Users[i].username, data.Users[j].username) < 0 })
+	for i := range data.Users {
+		sort.Slice(data.Users[i].ReadItems, func(j, k int) bool {
+			return strings.Compare(data.Users[i].ReadItems[j], data.Users[i].ReadItems[k]) < 0
+		})
+	}
+	sort.Slice(data.Feeds, func(i, j int) bool {
+		return strings.Compare(string(data.Feeds[i].CreateKey()), string(data.Feeds[j].CreateKey())) < 0
+	})
+	sort.Slice(data.Pagemonitor, func(i, j int) bool {
+		return strings.Compare(string(data.Pagemonitor[i].CreateKey()), string(data.Pagemonitor[j].CreateKey())) < 0
+	})
 
 	value, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {

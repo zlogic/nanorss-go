@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/base64"
 	"fmt"
 	"strings"
@@ -18,6 +19,34 @@ func decodePart(part string) (string, error) {
 		return "", err
 	}
 	return string(res), nil
+}
+
+func validForPrefix(prefix []byte, key []byte) bool {
+	if len(prefix) > len(key) {
+		return false
+	}
+	return bytes.Compare(prefix, key[:len(prefix)]) == 0
+}
+
+// TxKeyPrefix is the key prefix for Tx entries.
+const TxKeyPrefix = "tx" + separator
+
+// CreateTxKey creates a key for Tx.
+func CreateTxKey(txName []byte) []byte {
+	return append([]byte(TxKeyPrefix), txName...)
+}
+
+// DecodeTxKey decodes the tx name key from the read status key.
+func DecodeTxKey(key []byte) ([]byte, error) {
+	keyString := string(key)
+	if !strings.HasPrefix(keyString, TxKeyPrefix) {
+		return nil, fmt.Errorf("Not a tx key: %v", keyString)
+	}
+	parts := strings.SplitN(keyString, separator, 2)
+	if len(parts) != 2 {
+		return nil, fmt.Errorf("Invalid format of tx key: %v", keyString)
+	}
+	return []byte(parts[1]), nil
 }
 
 // LastSeenKeyPrefix is the key prefix for LastSeen entries.
