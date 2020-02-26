@@ -1,4 +1,4 @@
-FROM golang:1.13-alpine as builder
+FROM golang:1.14-alpine as builder
 
 # Create app directory
 RUN mkdir -p /usr/src/nanorss
