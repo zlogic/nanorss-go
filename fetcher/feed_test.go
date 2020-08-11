@@ -24,27 +24,27 @@ const rssFeed = `<?xml version="1.0" encoding="utf-8"?>
 var gmt, _ = time.LoadLocation("GMT")
 
 var expectedRssFeedItems = []*data.Feeditem{
-	&data.Feeditem{
+	{
 		Title:    "Title 1",
 		URL:      "http://site1/link1",
 		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
 		Contents: "Text 1",
 		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@1"},
 	},
-	&data.Feeditem{
+	{
 		Title:    "Title 2",
 		URL:      "http://site1/link2",
 		Contents: "Text 2",
 		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "Item@2"},
 	},
-	&data.Feeditem{
+	{
 		Title:    "Title 3",
 		URL:      "http://site1/link3",
 		Date:     time.Date(2016, time.June, 7, 13, 19, 0, 0, gmt),
 		Contents: "Text 3",
 		Key:      &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "http://site1/link3"},
 	},
-	&data.Feeditem{
+	{
 		Title:    "Title 4",
 		URL:      "http://site1/link4",
 		Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
@@ -136,7 +136,7 @@ func TestFetchAllFeeds(t *testing.T) {
 		`</rss>`
 
 	expectedSecondRssFeedItems := []*data.Feeditem{
-		&data.Feeditem{
+		{
 			Title:    "Title 21",
 			URL:      "http://site2/link1",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),

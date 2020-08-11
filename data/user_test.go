@@ -272,8 +272,8 @@ func TestParsePagemonitor(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, items)
 	assert.Equal(t, []UserPagemonitor{
-		UserPagemonitor{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1"},
-		UserPagemonitor{URL: "http://site2.com", Title: "Page 2"},
+		{URL: "https://site1.com", Title: "Page 1", Match: "m1", Replace: "r1"},
+		{URL: "http://site2.com", Title: "Page 2"},
 	}, items)
 }
 
@@ -293,8 +293,8 @@ func TestParseOPML(t *testing.T) {
 	assert.NotNil(t, items)
 
 	assert.Equal(t, []UserFeed{
-		UserFeed{URL: "http://sites-site1.com", Title: "Site 1"},
-		UserFeed{URL: "http://updates-site2.com", Title: "Site 2"},
-		UserFeed{URL: "http://updates-site3.com", Title: "Site 3"},
+		{URL: "http://sites-site1.com", Title: "Site 1"},
+		{URL: "http://updates-site2.com", Title: "Site 2"},
+		{URL: "http://updates-site3.com", Title: "Site 3"},
 	}, items)
 }

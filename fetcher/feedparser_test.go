@@ -159,7 +159,7 @@ func TestParseAtom(t *testing.T) {
 	items[2].Date = time.Time{}
 
 	assert.Equal(t, []*data.Feeditem{
-		&data.Feeditem{
+		{
 			Title:    "Title 1",
 			URL:      "http://site1/link1-good",
 			Date:     time.Date(2003, time.December, 13, 18, 30, 2, 0, time.UTC),
@@ -169,7 +169,7 @@ func TestParseAtom(t *testing.T) {
 				GUID:    "Item@1",
 			},
 		},
-		&data.Feeditem{
+		{
 			Title:    "Title 2",
 			URL:      "http://site1/link2-good",
 			Date:     time.Date(2003, time.December, 14, 18, 30, 2, 0, time.UTC),
@@ -179,7 +179,7 @@ func TestParseAtom(t *testing.T) {
 				GUID:    "http://site1/link2-good",
 			},
 		},
-		&data.Feeditem{
+		{
 			Title:    "Title 3",
 			URL:      "http://site1/link3-good",
 			Contents: "<div xmlns=\"http://www.w3.org/1999/xhtml\">\n<p>Content 3</p>\n</div>",
@@ -202,7 +202,7 @@ func TestParseRss(t *testing.T) {
 	}
 
 	assert.Equal(t, []*data.Feeditem{
-		&data.Feeditem{
+		{
 			Title:    "Title 1",
 			URL:      "http://site1/link1",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
@@ -212,7 +212,7 @@ func TestParseRss(t *testing.T) {
 				GUID:    "Item@1",
 			},
 		},
-		&data.Feeditem{
+		{
 			Title:    "Title 2",
 			URL:      "http://site1/link2",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
@@ -222,7 +222,7 @@ func TestParseRss(t *testing.T) {
 				GUID:    "Item@2",
 			},
 		},
-		&data.Feeditem{
+		{
 			Title:    "Title 3",
 			URL:      "http://site1/link3",
 			Date:     time.Date(2016, time.June, 7, 13, 19, 0, 0, gmt),
@@ -232,7 +232,7 @@ func TestParseRss(t *testing.T) {
 				GUID:    "http://site1/link3",
 			},
 		},
-		&data.Feeditem{
+		{
 			Title:    "Title 4",
 			URL:      "http://site1/link4",
 			Date:     time.Date(2016, time.June, 8, 10, 34, 0, 0, gmt),
@@ -256,7 +256,7 @@ func TestParseRdf(t *testing.T) {
 	items[0].Date = time.Time{}
 
 	assert.Equal(t, []*data.Feeditem{
-		&data.Feeditem{
+		{
 			Title:    "Title 1",
 			URL:      "http://site1/link1",
 			Contents: "Description 1",

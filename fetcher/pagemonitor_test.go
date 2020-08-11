@@ -254,12 +254,12 @@ func TestFetchTwoPages(t *testing.T) {
 	dbMock.On("GetPage", &pageConfig2).Return(&existingResult2, nil)
 	dbSavedItems := make([]*data.PagemonitorPage, 0, 2)
 	expectedSavedItems := []*data.PagemonitorPage{
-		&data.PagemonitorPage{
+		{
 			Contents: "Hello World\nUpdated page 1",
 			Delta:    "@@ -1,2 +1,2 @@\n Hello World\n-First page 1\n+Updated page 1\n",
 			Config:   &pageConfig1,
 		},
-		&data.PagemonitorPage{
+		{
 			Contents: "Hello World\nUpdated page 2",
 			Delta:    "@@ -1,2 +1,2 @@\n Hello World\n-First page 2\n+Updated page 2\n",
 			Config:   &pageConfig2,

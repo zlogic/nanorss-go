@@ -127,13 +127,13 @@ func TestFeedHandlerAuthorized(t *testing.T) {
 	dbMock.On("GetUser", "user01").Return(user, nil).Once()
 
 	feedListHelper.On("GetAllItems", user).Return([]*Item{
-		&Item{
+		{
 			Origin:   "Site 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 			FetchURL: "fetchurl1",
 			IsRead:   true,
 		},
-		&Item{
+		{
 			Title:    "t2",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),

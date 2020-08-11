@@ -8,13 +8,13 @@ import (
 )
 
 var backupUsers = []*User{
-	&User{
+	{
 		Password:    "pass1",
 		Opml:        "opml1",
 		Pagemonitor: "pagemonitor1",
 		username:    "user01",
 	},
-	&User{
+	{
 		Password:    "pass2",
 		Opml:        "opml2",
 		Pagemonitor: "pagemonitor2",
@@ -23,7 +23,7 @@ var backupUsers = []*User{
 }
 
 var backupFeeditems = []*Feeditem{
-	&Feeditem{
+	{
 		Title:    "t1",
 		URL:      "http://item1/1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
@@ -31,7 +31,7 @@ var backupFeeditems = []*Feeditem{
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	},
-	&Feeditem{
+	{
 		Title:    "t2",
 		URL:      "http://item1/2",
 		Date:     time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
@@ -39,7 +39,7 @@ var backupFeeditems = []*Feeditem{
 		Updated:  time.Date(2019, time.February, 18, 23, 1, 0, 0, time.UTC),
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g2"},
 	},
-	&Feeditem{
+	{
 		Title:    "t3",
 		URL:      "http://item2/1",
 		Date:     time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
@@ -50,13 +50,13 @@ var backupFeeditems = []*Feeditem{
 }
 
 var backupPagemonitor = []*PagemonitorPage{
-	&PagemonitorPage{
+	{
 		Contents: "p1",
 		Delta:    "d1",
 		Updated:  time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
 		Config:   &UserPagemonitor{URL: "http://site1", Match: "m1", Replace: "r1"},
 	},
-	&PagemonitorPage{
+	{
 		Contents: "p2",
 		Delta:    "d2",
 		Updated:  time.Date(2019, time.February, 16, 23, 4, 0, 0, time.UTC),
