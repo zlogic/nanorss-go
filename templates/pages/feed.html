@@ -10,139 +10,239 @@
   <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>
 </div>
 <script>
-$(document).ready(function() {
-  // Load items
-  var feedTarget = $("#feed");
-  var loadItems = function() {
-    $.getJSON("api/feed").done(function(items) {
-      feedTarget.empty();
-      var placeholderElement = $('<div></div>');
-      placeholderElement.hide();
-      for (i in items) {
-        var item = items[i];
-        var titleText = $('<span></span> ').text(item.Title !== "" ? [item.Title, item.Origin].join(" / ") : item.Origin);
-        var titleElement = $('<a href="#item-' + i + '" data-toggle="collapse" aria-expanded="false" aria-controls="item-' + i +  '"></a>').append(titleText);
-        var expandElement = $('<div id="item-' + i + '" class="collapse" data-fetchurl="' + item.FetchURL +'"></div>');
-        var itemElement = $('<div></div>');
-        itemHeaderElement = $('<h3></h3>').append(titleElement);
-        if (item.IsRead === false) {
-          $('<span><span class="badge badge-secondary">New</span> </span>').prependTo(itemHeaderElement);
-        }
-        itemElement.append(itemHeaderElement);
-        itemElement.append(expandElement);
-        placeholderElement.append(itemElement);
-      }
-      feedTarget.append(placeholderElement);
-      placeholderElement.slideDown();
-    }).fail(function() {
-      var alertDiv = $('<div class="alert alert-danger" role="alert">Failed to fetch feed items.<br>Check to see if the XML configuration in Settings is correct.</div>');
-      feedTarget.empty().append(alertDiv);
-      alertDiv.hide();
-      alertDiv.slideDown();
-    });
-  }
-  loadItems();
-  // Add handlers for loading items
-  // Expand item
-  $(document).on('show.bs.collapse', 'div[id^="item"].collapse', function() {
-    var collapse = jQuery(this);
-    var progressElement = $('<div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>');
+var empty = function(el) {
+  while(el.firstChild) el.removeChild(el.firstChild);
+}
+var showLoadItemsError = function() {
+  var feedTarget = document.getElementById("feed");
 
-    collapse.empty().append(progressElement);
-  });
-  $(document).on('shown.bs.collapse', 'div[id^="item"].collapse', function() {
-    var collapse = jQuery(this);
+  empty(feedTarget);
+  feedTarget.insertAdjacentHTML("afterbegin", '<div class="alert alert-danger animate__animated animate__flipInX" role="alert">Failed to fetch feed items.<br>Check to see if the XML configuration in Settings is correct.</div>');
+};
+var createExpandElement = function(item, linkElement) {
+  var expandElement = document.createElement("div");
+  expandElement.hidden = true;
 
-    $.getJSON(collapse.attr('data-fetchurl'), function(item) {
-      collapse.empty();
-      var placeholderElement = $('<div class="card"></div>');
-      var itemContentsElement = $('<div class="item-content"></div>');
-      if (item.Plaintext) {
-        item.Contents = $('<pre></pre>').text(item.Contents);
-      }
-      itemContentsElement.append(item.Contents);
+  var markUnread = function(button, markUnreadURL) {
+    var alertTarget = expandElement.querySelector('.mark-unread-result');
+    alertTarget.hidden = true;
+    empty(alertTarget);
 
-      var dateElement = $('<div class="py-2"><em>Date: ' + new Date(item.Date).toLocaleString() + '</em></div>');
-      var bodyElement = $('<div class="card-body"></div>');
-      var siteLink = $('<a class="btn btn-primary">Go to site</a>').prop('href', item.URL);
-      var markUnreadLink = $('<button type="button" class="btn btn-outline-primary"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span> Mark as unread</button>')
-        .attr('data-markunread', item.MarkUnreadURL);
-      var footerElement = $('<div class="py-1"></div>').append(siteLink).append(" ").append(markUnreadLink);
-      var markUnreadResult = $('<div class="py-1 mark-unread-result" hidden></div>');
-
-      bodyElement.append(itemContentsElement).append(dateElement).append(footerElement).append(markUnreadResult);
-      placeholderElement.hide().append(bodyElement);
-      collapse.append(placeholderElement);
-      placeholderElement.slideDown();
-    }).fail(function() {
-      var alertDiv = $('<div class="alert alert-danger" role="alert">Failed to fetch item.</div>');
-      collapse.empty().append(alertDiv);
-      alertDiv.hide();
-      alertDiv.slideDown();
-    });
-  });
-  // Collapse item
-  $(document).on('hidden.bs.collapse', 'div[id^="item"].collapse', function() {
-    var collapse = jQuery(this);
-    collapse.empty();
-  });
-  // Mark read/unread
-  $(document).on('click', 'button[data-markunread]', function() {
-    var button = jQuery(this);
-    var spinner = button.children('span[role="status"]');
-    spinner.prop("hidden", false);
-
-    var alertTarget = button.parent().parent().find('.mark-unread-result').empty().prop("hidden", true);
-    var markUnreadURL = button.attr('data-markunread');
+    var spinner = button.querySelector('span[role="status"]');
+    spinner.hidden = false;
 
     var showMarkUnreadResult = function(alertClass, message) {
-      var alertDiv = $('<div class="alert" role="alert"></div>');
-      alertTarget.empty().prop("hidden", false).append(alertDiv);
-      alertDiv.addClass(alertClass);
-      alertDiv.text(message);
-      alertDiv.hide();
-      alertDiv.slideDown();
-    }
+      var alertDiv = document.createElement("div")
+      alertDiv.setAttribute("class", "alert animate__animated animate__flipInX");
+      alertDiv.setAttribute("role", "alert");
+      empty(alertTarget);
+      alertTarget.hidden = false;
+      alertTarget.append(alertDiv);
+      alertDiv.classList.add(alertClass);
+      alertDiv.textContent = message;
+    };
 
-    $.post(markUnreadURL, "Read=false")
-    .done(function(){
-      showMarkUnreadResult("alert-success", "Marked as unread");
-    })
-    .fail(function(){
+    var request = new XMLHttpRequest();
+    request.open("POST", markUnreadURL, true);
+    request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    request.onload = function() {
+      if (this.status >= 200 && this.status < 400) {
+        showMarkUnreadResult("alert-success", "Marked as unread");
+      } else {
+        showMarkUnreadResult("alert-danger", "Failed to mark as unread");
+      }
+      spinner.hidden = true;
+    };
+    request.onerror = function() {
       showMarkUnreadResult("alert-danger", "Failed to mark as unread");
-    })
-    .always(function() {
-      spinner.prop("hidden", true);
-    });
-    
-  });
-  // Refresh button
-  var refreshResult = $("#refreshResult");
-  $('#refreshButton').click(function() {
-    var button = jQuery(this);
-    var spinner = button.children('span[role="status"]');
-    var showResultAlert = function(alertClass, message){
-      var alertDiv = $('<div class="alert" role="alert"></div>');
-      refreshResult.empty().append(alertDiv);
-      alertDiv.addClass(alertClass);
-      alertDiv.text(message);
-      alertDiv.hide();
-      alertDiv.slideDown();
+      spinner.hidden = true;
+    };
+    request.send("Read=false");
+  };
+  var showLoadedItem = function(item, progressBar) {
+    progressBar.remove();
+
+    var placeholderElement = document.createElement("div");
+    placeholderElement.setAttribute("class", "card");
+    var itemContentsElement = document.createElement("div");
+    itemContentsElement.setAttribute("class", "item-content");
+    if (item.Plaintext) {
+      var plaintextContents = document.createElement("pre");
+      plaintextContents.textContent = item.Contents;
+      item.Contents = innerHTML;
     }
-    button.prop("disabled", true)
-    spinner.prop("hidden", false);
-    $.get("api/refresh")
-    .done(function() {
-      showResultAlert("alert-success", "Refresh succeeded, reload page to view updated items");
-    })
-    .fail(function() {
-      showResultAlert("alert-danger", "Refresh failed");
-    })
-    .always(function() {
-      button.prop("disabled", false);
-      spinner.prop("hidden", true);
+    itemContentsElement.insertAdjacentHTML("afterbegin", item.Contents);
+
+    var dateElement = document.createElement("div");
+    dateElement.setAttribute("class", "py-2");
+    dateElement.insertAdjacentHTML("afterbegin", "<em>Date: " + new Date(item.Date).toLocaleString() + "</em>");
+    var bodyElement = document.createElement("div");
+    bodyElement.setAttribute("class", "card-body");
+    var siteLink = document.createElement("a");
+    siteLink.setAttribute("class", "btn btn-primary");
+    siteLink.setAttribute("href", item.URL);
+    siteLink.textContent = "Go to site";
+    var markUnreadLink = document.createElement("button");
+    markUnreadLink.setAttribute("class", "btn btn-outline-primary");
+    markUnreadLink.insertAdjacentHTML("afterbegin", '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span> Mark as unread');
+    markUnreadLink.addEventListener("click", () => {
+      markUnread(markUnreadLink, item.MarkUnreadURL);
     });
-  })
+    var footerElement = document.createElement("div");
+    footerElement.setAttribute("class", "py-1");
+    footerElement.append(siteLink);
+    footerElement.insertAdjacentText("beforeend", " ");
+    footerElement.append(markUnreadLink);
+    var markUnreadResult = document.createElement("div");
+    markUnreadResult.setAttribute("class", "py-1 mark-unread-result")
+    markUnreadResult.hidden = true;
+
+    bodyElement.append(itemContentsElement);
+    bodyElement.append(dateElement);
+    bodyElement.append(footerElement);
+    bodyElement.append(markUnreadResult);
+    placeholderElement.append(bodyElement);
+
+    expandElement.append(placeholderElement);
+  };
+
+  var showLoadItemError = function() {
+    var alertDiv = document.createElement("div");
+    alertDiv.setAttribute("class", "alert alert-danger animate__animated animate__flipInX")
+    alertDiv.setAttribute("role", "alert")
+    alertDiv.textContent = "Failed to fetch item.";
+    
+    empty(expandElement);
+
+    expandElement.append(alertDiv);
+  };
+
+  var loadExpandElementContent = function() {
+    var progressBar = document.createElement("div");
+    progressBar.setAttribute("class", "progress animate__animated animate__zoomIn");
+    progressBar.insertAdjacentHTML("afterbegin", '<div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>');
+
+    expandElement.append(progressBar);
+
+    var request = new XMLHttpRequest();
+    request.open("GET", item.FetchURL, true);
+    request.onload = function() {
+      if (this.status >= 200 && this.status < 400) {
+        var item = JSON.parse(this.response);
+        showLoadedItem(item, progressBar);
+      } else {
+        showLoadItemError();
+      }
+    };
+    request.onerror = showLoadItemError;
+    request.send();
+  };
+  
+  linkElement.addEventListener("click", function(){
+    // Add handlers for loading items
+    if (linkElement.getAttribute("aria-expanded") === "true") {
+      // Collapse item
+      linkElement.setAttribute("aria-expanded", "false");
+
+      expandElement.hidden = true;
+      empty(expandElement);
+    } else if (linkElement.getAttribute("aria-expanded") === "false") {
+      // Expand item
+      linkElement.setAttribute("aria-expanded", "true");
+      
+      empty(expandElement);
+
+      expandElement.hidden = false;
+      loadExpandElementContent();
+    }
+  });
+  return expandElement;
+};
+var showLoadedItems = function(items) {
+  var feedTarget = document.getElementById("feed");
+
+  while(feedTarget.firstChild) feedTarget.removeChild(feedTarget.firstChild);
+  placeholderElement = document.createElement("div");
+
+  for (i in items) {
+    var item = items[i];
+    var titleText = document.createElement("span");
+    titleText.textContent = item.Title !== "" ? [item.Title, item.Origin].join(" / ") : item.Origin;
+    var titleElement = document.createElement("a");
+    titleElement.setAttribute("href", "javascript:void(0);");
+    titleElement.setAttribute("aria-expanded", "false");
+    titleElement.setAttribute("aria-controls", "item-" + i);
+    titleElement.append(titleText);
+    titleElement.append(document.createTextNode(" "));
+    var expandElement = createExpandElement(item, titleElement);
+    var itemElement = document.createElement("div");
+    itemElement.setAttribute("class", "animate__animated animate__fadeIn");
+    var itemHeaderElement = document.createElement("h3");
+    itemHeaderElement.append(titleElement);
+    if (item.IsRead === false) {
+      itemHeaderElement.insertAdjacentHTML("afterbegin", '<span><span class="badge badge-secondary">New</span> </span>');
+    }
+    itemElement.append(itemHeaderElement);
+    itemElement.append(expandElement);
+    placeholderElement.append(itemElement);
+  }
+
+  feedTarget.append(placeholderElement);
+};
+document.addEventListener("DOMContentLoaded", () => {
+  // Load items
+  var loadItems = function() {
+    var request = new XMLHttpRequest();
+    request.open("GET", "api/feed", true);
+    request.onload = function() {
+      if (this.status >= 200 && this.status < 400) {
+        var items = JSON.parse(this.response);
+        showLoadedItems(items);
+      } else {
+        showLoadItemsError();
+      }
+    };
+    request.onerror = showLoadItemsError;
+    request.send();
+  }
+  loadItems();
+
+  // Refresh button
+  var refreshResult = document.getElementById("refreshResult")
+  var refreshButton = document.getElementById("refreshButton")
+  refreshButton.addEventListener("click", () => {
+    var spinner = refreshButton.querySelector('span[role="status"]');
+    refreshButton.disabled = true;
+    spinner.hidden = false;
+
+    var showRefreshResult = function(alertClass, message) {
+      var alertDiv = document.createElement("div")
+      alertDiv.setAttribute("class", "alert animate__animated animate__flipInX");
+      alertDiv.setAttribute("role", "alert");
+      empty(refreshResult);
+      refreshResult.append(alertDiv);
+      alertDiv.classList.add(alertClass);
+      alertDiv.textContent = message;
+    };
+
+    var request = new XMLHttpRequest();
+    request.open("GET", "api/refresh", true);
+    request.onload = function() {
+      if (this.status >= 200 && this.status < 400) {
+        showRefreshResult("alert-success", "Refresh succeeded, reload page to view updated items");
+      } else {
+        showRefreshResult("alert-danger", "Refresh failed");
+      }
+      refreshButton.disabled = false;
+      spinner.hidden = true;
+    };
+    request.onerror = function() {
+      showRefreshResult("alert-danger", "Refresh failed");
+      refreshButton.disabled = false;
+      spinner.hidden = true;
+    };
+    request.send();
+  });
 });
 </script>
 {{ end }}
