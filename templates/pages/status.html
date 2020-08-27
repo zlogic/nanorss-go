@@ -3,31 +3,63 @@
   <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>
 </div>
 <script>
-$(document).ready(function() {
-  var statusTarget = $("#status");
-  // Load current field items
-  var loadStatus = function() {
-    $.getJSON("api/status").done(function(items) {
-      statusTarget.empty();
-      var itemsCard = $('<div class="card"></div>').appendTo(statusTarget);
-      var itemsList = $('<ul class="list-group list-group-flush"></ul>').appendTo(itemsCard);
-      var createDateNode = function(label, date) {
-        var dateNode = $('<em></em>').text(new Date(date).toLocaleString());
-        var label = $('<span></span>').text(label);
-        return $('<div></div>').append($('<small></small>').append(label).append(dateNode));
-      }
-      for (i in items) {
+document.addEventListener("DOMContentLoaded", () => {
+  var statusTarget = document.getElementById("status");
+  var emptyStatusTarget = function() {
+    while(statusTarget.firstChild) statusTarget.removeChild(statusTarget.firstChild);
+  };
+
+  var showError = function(){
+    var alertDiv = document.createElement("div");
+    alertDiv.setAttribute("class", "alert alert-danger animate__animated animate__flipInX")
+    alertDiv.setAttribute("role", "alert")
+    alertDiv.textContent = "Failed to fetch feed status.";
+    
+    emptyStatusTarget();
+
+    statusTarget.append(alertDiv);
+  };
+
+  var showItems = function(items) {
+    emptyStatusTarget();
+
+    var itemsCard = document.createElement("div");
+    itemsCard.setAttribute("class", "card");
+    statusTarget.append(itemsCard);
+    var itemsList = document.createElement("ul");
+    itemsList.setAttribute("class", "list-group list-group-flush");
+    itemsCard.append(itemsList)
+
+    var createDateNode = function(label, date) {
+      var dateNode = document.createElement("em");
+      dateNode.textContent = new Date(date).toLocaleString();
+      var labelNode = document.createElement("span");
+      labelNode.textContent = label;
+      var smallNode = document.createElement("small");
+      smallNode.append(labelNode);
+      smallNode.append(dateNode);
+      var dateNodeDiv = document.createElement("div");
+      dateNodeDiv.append(smallNode);
+      return dateNodeDiv;
+    };
+
+    for (i in items) {
         var item = items[i];
-        var itemListItem = $('<li class="list-group-item"></li>').appendTo(itemsList);
-        var itemEntry = $('<div></div>').appendTo(itemListItem);
+        var itemListItem = document.createElement("li");
+        itemListItem.setAttribute("class", "list-group-item");
+        itemsList.append(itemListItem);
+        var itemEntry = document.createElement("div");
+        itemListItem.append(itemEntry);
         if (item.Success) {
-          itemListItem.addClass("list-group-item-success");
+          itemListItem.classList.add("list-group-item-success");
         } else if (item.LastFailure !== undefined) {
-          itemListItem.addClass("list-group-item-danger");
+          itemListItem.classList.add("list-group-item-danger");
         } else {
-          itemListItem.addClass("list-group-item-warning");
+          itemListItem.classList.add("list-group-item-warning");
         }
-        itemEntry.append($('<h5></h5>').text(item.Name));
+        var itemHeader = document.createElement("h5");
+        itemHeader.textContent = item.Name;
+        itemEntry.append(itemHeader);
         if (item.LastFailure !== undefined) {
           itemEntry.append(createDateNode("Last failure: ", item.LastFailure));
         }
@@ -35,14 +67,20 @@ $(document).ready(function() {
           itemEntry.append(createDateNode("Last success: ", item.LastSuccess));
         }
       }
-    }).fail(function() {
-      var alertDiv = $('<div class="alert alert-danger" role="alert">Failed to fetch feed status.</div>');
-      statusTarget.empty().append(alertDiv);
-      alertDiv.hide();
-      alertDiv.slideDown();
-    });
-  }
-  loadStatus();
+  };
+
+  var request = new XMLHttpRequest();
+  request.open("GET", "api/status", true);
+  request.onload = function() {
+    if (this.status >= 200 && this.status < 400) {
+      var items = JSON.parse(this.response);
+      showItems(items);
+    } else {
+      showError();
+    }
+  };
+  request.onerror = showError;
+  request.send();
 });
 </script>
 {{ end }}

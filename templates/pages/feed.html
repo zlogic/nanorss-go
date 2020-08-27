@@ -69,7 +69,7 @@ var createExpandElement = function(item, linkElement) {
     if (item.Plaintext) {
       var plaintextContents = document.createElement("pre");
       plaintextContents.textContent = item.Contents;
-      item.Contents = innerHTML;
+      item.Contents = plaintextContents.outerHTML;
     }
     itemContentsElement.insertAdjacentHTML("afterbegin", item.Contents);
 

@@ -40,73 +40,100 @@
     </div>
   </div>
 </form>
-<script>
-$(document).ready(function() {
-  var opml = $('textarea[name="opml"]');
-  var pagemonitor = $('textarea[name="pagemonitor"]');
-  var username = $('input[id="editUsername"]');
-  var password = $('input[id="editPassword"]');
-  var submit = $('button[type="submit"]');
-  var spinner = $('button[type="submit"] span[role="status"]');
+<script>  
+document.addEventListener("DOMContentLoaded", () => {
+  var opml = document.querySelector('textarea[name="opml"]');
+  var pagemonitor = document.querySelector('textarea[name="pagemonitor"]');
+  var username = document.querySelector('input[id="editUsername"]');
+  var password = document.querySelector('input[id="editPassword"]');
+  var submit = document.querySelector('button[type="submit"]');
+  var spinner = submit.querySelector('span[role="status"]');
   var lockConfiguration = function(processing){
     [opml, pagemonitor, username, password, submit, spinner].forEach(function(control){
-      control.attr("disabled", processing);
+      control.disabled = processing;
     });
-    spinner.prop("hidden", !processing);
-  }
+    spinner.hidden = !processing;
+  };
   var showResultAlert = function(alertDiv){
-    alertDiv.hide();
-    alertDiv.prop("hidden", false);
-    alertDiv.slideDown();
-  }
+    alertDiv.hidden = false;
+    alertDiv.classList.add("animate__animated");
+    alertDiv.classList.add("animate__flipInX");
+  };
 
   var updateFormValues = function(settings) {
-    username.val(settings.Username);
-    password.val("");
-    opml.text(settings.Opml);
-    pagemonitor.text(settings.Pagemonitor);
-  }
+    username.value = settings.Username;
+    password.value = "";
+    opml.value = settings.Opml;
+    pagemonitor.value = settings.Pagemonitor;
+  };
 
   // Load current field items
+  var form = document.getElementById("configurationForm");
   var loadItems = function() {
     lockConfiguration(true);
-    spinner.prop("hidden", true);
-    $.getJSON("api/configuration").done(function(settings) {
-      lockConfiguration(false);
-      updateFormValues(settings);
-    }).fail(function() {
-      var alertDiv = $('<div class="alert alert-danger" role="alert">Failed to fetch current configuration.</div>');
-      var form = $("#configurationForm");
-      form.empty().append(alertDiv);
-      alertDiv.hide();
-      alertDiv.slideDown();
-    });
-  }
+    spinner.hidden = true;
+
+    var showError = function() {
+      var alertDiv = document.createElement("div");
+      alertDiv.setAttribute("class", "alert alert-danger animate__animated animate__flipInX");
+      alertDiv.setAttribute("role", "alert");
+      alertDiv.textContent = "Failed to fetch current configuration.";
+      while(form.firstChild) form.removeChild(form.firstChild);
+      form.append(alertDiv);
+    };
+
+    var request = new XMLHttpRequest();
+    request.open("GET", "api/configuration", true);
+    request.onload = function() {
+      if (this.status >= 200 && this.status < 400) {
+        var settings = JSON.parse(this.response);
+        lockConfiguration(false);
+        updateFormValues(settings);
+      } else {
+        showError();
+      }
+    };
+    request.onerror = showError;
+    request.send();
+  };
   loadItems();
 
   // Submit configuration handler
-  $("#configurationForm").submit(function(event) {
+  form.addEventListener("submit", function(event){
     event.preventDefault();
     lockConfiguration(true);
     // Prepare request
-    var $form = $(this);
-    $form.find("#saveFailed").prop("hidden", true);
-    $form.find("#saveSuccessful").prop("hidden", true);
-    var postData = {Username: username.val(), Password: password.val(), Opml: opml.val(), Pagemonitor: pagemonitor.val()};
-    if(postData.Password === null || postData.Password === undefined || postData.Password === '')
-      delete postData.Password;
-    // Send data
-    $.post("api/configuration", postData)
-    .done(function(data) {
-      showResultAlert($form.find("#saveSuccessful"));
-      updateFormValues(JSON.parse(data));
-    })
-    .fail(function() {
-      showResultAlert($form.find("#saveFailed"));
-    })
-    .always(function() {
+    var saveSuccessful = form.querySelector("#saveSuccessful");
+    var saveFailed = form.querySelector("#saveFailed");
+    saveSuccessful.hidden = true;
+    saveFailed.hidden = true;
+
+    var postData = "Username=" + encodeURIComponent(username.value) + "&" +
+      "Opml=" + encodeURIComponent(opml.value) + "&" +
+      "Pagemonitor=" + encodeURIComponent(pagemonitor.value);
+    if (password.value !== null && password.value !== undefined && password.value !== "") {
+      postData += "&" + "Password=" + encodeURIComponent(password.value)
+    }
+
+    var showError = function(){
+      showResultAlert(saveFailed);
       lockConfiguration(false);
-    });
+    };
+    // Send data
+    var request = new XMLHttpRequest();
+    request.open("POST", "api/configuration", true);
+    request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    request.onload = function() {
+      if (this.status >= 200 && this.status < 400) {
+        showResultAlert(saveSuccessful);
+        updateFormValues(JSON.parse(this.response));
+        lockConfiguration(false);
+      } else {
+        showError();
+      }
+    };
+    request.onerror = showError;
+    request.send(postData);
   });
 });
 </script>
