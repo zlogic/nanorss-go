@@ -14,7 +14,7 @@ RUN apk add --no-cache --update build-base git ca-certificates tzdata
 RUN go test ./...
 
 # Build app
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" && \
+RUN CGO_ENABLED=0 go build -tags timetzdata -ldflags="-s -w"  && \
   mkdir /usr/src/nanorss/dist && \
   cp -r nanorss-go static templates /usr/src/nanorss/dist
 
@@ -26,7 +26,6 @@ FROM scratch
 
 COPY --from=builder /usr/src/nanorss/dist /usr/local/nanorss
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /etc/passwd /etc/passwd
 
 WORKDIR /usr/local/nanorss

@@ -28,7 +28,7 @@ jobs:
       run: go test -cover ./...
 
     - name: Build
-      run: CGO_ENABLED=0 go build -v -ldflags="-s -w" .
+      run: CGO_ENABLED=0 go build -v -tags timetzdata -ldflags="-s -w" .
 
     - name: Create image
       run: docker build . --file .github/Dockerfile -t ghcr.io/zlogic/nanorss-go:latest
