@@ -1,34 +1,42 @@
 {{ define "content" }}
-<h2>Login</h2>
-<form id="loginForm" autocomplete="off">
-  <div class="form-row">
-    <div class="form-group col-md-6">
-      <label for="inputUsername">Username</label>
-      <input type="text" class="form-control" id="inputUsername" placeholder="Username" required>
-    </div>
-    <div class="form-group col-md-6">
-      <label for="inputPassword">Password</label>
-      <input type="password" class="form-control" id="inputPassword" placeholder="Password" required>
-    </div>
-  </div>
-  <div class="form-row">
-    <div class="form-group col-md-6">
-      <div class="custom-control custom-checkbox">
-        <input class="custom-control-input" type="checkbox" id="rememberMe">
-        <label class="custom-control-label" for="rememberMe">Remember me</label>
+<div class="columns">
+  <div class="column is-6 is-offset-3">
+    <div class="card">
+      <header class="card-header">
+        <p class="card-header-title">Login</p>
+      </header>
+      <div class="card-content">
+        <form id="loginForm" autocomplete="off">
+          <div class="field">
+            <label class="label" for="inputUsername">Username</label>
+            <div class="control">
+              <input type="text" class="input" id="inputUsername" placeholder="Username" required>
+            </div>
+          </div>
+          <div class="field">
+            <label class="label" for="inputPassword">Password</label>
+            <div class="control">
+              <input type="password" class="input" id="inputPassword" placeholder="Password" required>
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <label class="checkbox" for="rememberMe">
+                <input type="checkbox" id="rememberMe"> Remember me
+              </label>
+            </div>
+          </div>
+          <div class="field is-grouped">
+            <div class="control">
+              <button type="submit" class="button is-primary">Sign in</button>
+            </div>
+          </div>
+          <div id="loginFailed" class="notification is-danger animate__animated animate__flipInX" role="alert" hidden>Login failed</div>
+        </form>
       </div>
     </div>
   </div>
-  <div class="form-row">
-    <div class="form-group col-md-12">
-      <button type="submit" class="btn btn-primary">
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
-        Sign in
-      </button>
-    </div>
-  </div>
-  <div id="loginFailed" class="alert alert-danger animate__animated animate__flipInX" role="alert" hidden>Login failed</div>
-</form>
+</div>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   var loginForm = document.getElementById("loginForm");
@@ -37,13 +45,13 @@ document.addEventListener("DOMContentLoaded", () => {
   var password = loginForm.querySelector("input[id='inputPassword']");
   var rememberMe = loginForm.querySelector("input[id='rememberMe']");
   var submit = loginForm.querySelector("button[type='submit']");
-  var spinner = loginForm.querySelector("button[type='submit'] span[role='status']");
 
   var lockForm = function(processing) {
     [username, password, rememberMe, submit].forEach(function(control){
       control.disabled = processing;
     })
-    spinner.hidden = !processing;
+    if(processing) submit.classList.add("is-loading");
+    else submit.classList.remove("is-loading");
   };
 
   var showError = function() {

@@ -1,13 +1,10 @@
 {{ define "content" }}
-<div class="py-1">
-  <button id="refreshButton" class="btn btn-primary" type="button">
-    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
-    Fetch items
-  </button>
+<div class="content">
+  <button id="refreshButton" class="button is-primary" type="button">Fetch items</button>
 </div>
-<div class="py-1" id="refreshResult"></div>
-<div id="feed">
-  <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>
+<div id="refreshResult" class="content"></div>
+<div id="feed" class="content">
+  <progress class="progress is-primary" max="100"></progress>
 </div>
 <script>
 var empty = function(el) {
@@ -17,10 +14,11 @@ var showLoadItemsError = function() {
   var feedTarget = document.getElementById("feed");
 
   empty(feedTarget);
-  feedTarget.insertAdjacentHTML("afterbegin", '<div class="alert alert-danger animate__animated animate__flipInX" role="alert">Failed to fetch feed items.<br>Check to see if the XML configuration in Settings is correct.</div>');
+  feedTarget.insertAdjacentHTML("afterbegin", '<div class="notification is-danger animate__animated animate__flipInX" role="alert">Failed to fetch feed items.<br>Check to see if the XML configuration in Settings is correct.</div>');
 };
 var createExpandElement = function(item, linkElement) {
   var expandElement = document.createElement("div");
+  expandElement.setAttribute("class", "my-2")
   expandElement.hidden = true;
 
   var markUnread = function(button, markUnreadURL) {
@@ -28,12 +26,11 @@ var createExpandElement = function(item, linkElement) {
     alertTarget.hidden = true;
     empty(alertTarget);
 
-    var spinner = button.querySelector('span[role="status"]');
-    spinner.hidden = false;
+    button.classList.add("is-loading");
 
     var showMarkUnreadResult = function(alertClass, message) {
       var alertDiv = document.createElement("div")
-      alertDiv.setAttribute("class", "alert animate__animated animate__flipInX");
+      alertDiv.setAttribute("class", "notification animate__animated animate__flipInX");
       alertDiv.setAttribute("role", "alert");
       empty(alertTarget);
       alertTarget.hidden = false;
@@ -47,25 +44,26 @@ var createExpandElement = function(item, linkElement) {
     request.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
     request.onload = function() {
       if (this.status >= 200 && this.status < 400) {
-        showMarkUnreadResult("alert-success", "Marked as unread");
+        showMarkUnreadResult("is-success", "Marked as unread");
       } else {
-        showMarkUnreadResult("alert-danger", "Failed to mark as unread");
+        showMarkUnreadResult("is-danger", "Failed to mark as unread");
       }
-      spinner.hidden = true;
+      button.classList.remove("is-loading");
     };
     request.onerror = function() {
-      showMarkUnreadResult("alert-danger", "Failed to mark as unread");
-      spinner.hidden = true;
+      showMarkUnreadResult("is-danger", "Failed to mark as unread");
+      button.classList.remove("is-loading");
     };
     request.send("Read=false");
   };
   var showLoadedItem = function(item, progressBar) {
     progressBar.remove();
 
-    var placeholderElement = document.createElement("div");
-    placeholderElement.setAttribute("class", "card");
+    var itemPlaceholderElement = document.createElement("article")
+    itemPlaceholderElement.setAttribute("class", "box");
     var itemContentsElement = document.createElement("div");
-    itemContentsElement.setAttribute("class", "item-content");
+    itemContentsElement.setAttribute("class", "content is-clipped");
+    itemPlaceholderElement.append(itemContentsElement);
     if (item.Plaintext) {
       var plaintextContents = document.createElement("pre");
       plaintextContents.textContent = item.Contents;
@@ -73,42 +71,39 @@ var createExpandElement = function(item, linkElement) {
     }
     itemContentsElement.insertAdjacentHTML("afterbegin", item.Contents);
 
-    var dateElement = document.createElement("div");
-    dateElement.setAttribute("class", "py-2");
+    var dateElement = document.createElement("p");
+    dateElement.setAttribute("class", "content");
     dateElement.insertAdjacentHTML("afterbegin", "<em>Date: " + new Date(item.Date).toLocaleString() + "</em>");
-    var bodyElement = document.createElement("div");
-    bodyElement.setAttribute("class", "card-body");
     var siteLink = document.createElement("a");
-    siteLink.setAttribute("class", "btn btn-primary");
+    siteLink.setAttribute("class", "button is-link");
     siteLink.setAttribute("href", item.URL);
     siteLink.textContent = "Go to site";
     var markUnreadLink = document.createElement("button");
-    markUnreadLink.setAttribute("class", "btn btn-outline-primary");
-    markUnreadLink.insertAdjacentHTML("afterbegin", '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span> Mark as unread');
+    markUnreadLink.setAttribute("class", "button is-light");
+    markUnreadLink.textContent = "Mark as unread";
     markUnreadLink.addEventListener("click", () => {
       markUnread(markUnreadLink, item.MarkUnreadURL);
     });
-    var footerElement = document.createElement("div");
-    footerElement.setAttribute("class", "py-1");
+    var footerElement = document.createElement("p");
+    footerElement.setAttribute("class", "content");
     footerElement.append(siteLink);
     footerElement.insertAdjacentText("beforeend", " ");
     footerElement.append(markUnreadLink);
     var markUnreadResult = document.createElement("div");
-    markUnreadResult.setAttribute("class", "py-1 mark-unread-result")
+    markUnreadResult.setAttribute("class", "content mark-unread-result")
     markUnreadResult.hidden = true;
 
-    bodyElement.append(itemContentsElement);
-    bodyElement.append(dateElement);
-    bodyElement.append(footerElement);
-    bodyElement.append(markUnreadResult);
-    placeholderElement.append(bodyElement);
+    itemPlaceholderElement.append(itemContentsElement);
+    itemPlaceholderElement.append(dateElement);
+    itemPlaceholderElement.append(footerElement);
+    itemPlaceholderElement.append(markUnreadResult);
 
-    expandElement.append(placeholderElement);
+    expandElement.append(itemPlaceholderElement);
   };
 
   var showLoadItemError = function() {
     var alertDiv = document.createElement("div");
-    alertDiv.setAttribute("class", "alert alert-danger animate__animated animate__flipInX")
+    alertDiv.setAttribute("class", "notification is-danger animate__animated animate__flipInX")
     alertDiv.setAttribute("role", "alert")
     alertDiv.textContent = "Failed to fetch item.";
     
@@ -120,7 +115,7 @@ var createExpandElement = function(item, linkElement) {
   var loadExpandElementContent = function() {
     var progressBar = document.createElement("div");
     progressBar.setAttribute("class", "progress animate__animated animate__zoomIn");
-    progressBar.insertAdjacentHTML("afterbegin", '<div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>');
+    progressBar.insertAdjacentHTML("afterbegin", '<progress class="progress is-primary" max="100"></progress>');
 
     expandElement.append(progressBar);
 
@@ -161,11 +156,13 @@ var createExpandElement = function(item, linkElement) {
 var showLoadedItems = function(items) {
   var feedTarget = document.getElementById("feed");
 
-  while(feedTarget.firstChild) feedTarget.removeChild(feedTarget.firstChild);
+  empty(feedTarget);
   placeholderElement = document.createElement("div");
 
   for (i in items) {
     var item = items[i];
+    var itemElement = document.createElement("div");
+    itemElement.setAttribute("class", "animate__animated animate__fadeIn");
     var titleText = document.createElement("span");
     titleText.textContent = item.Title !== "" ? [item.Title, item.Origin].join(" / ") : item.Origin;
     var titleElement = document.createElement("a");
@@ -173,16 +170,11 @@ var showLoadedItems = function(items) {
     titleElement.setAttribute("aria-expanded", "false");
     titleElement.setAttribute("aria-controls", "item-" + i);
     titleElement.append(titleText);
-    titleElement.append(document.createTextNode(" "));
     var expandElement = createExpandElement(item, titleElement);
-    var itemElement = document.createElement("div");
-    itemElement.setAttribute("class", "animate__animated animate__fadeIn");
-    var itemHeaderElement = document.createElement("h3");
-    itemHeaderElement.append(titleElement);
     if (item.IsRead === false) {
-      itemHeaderElement.insertAdjacentHTML("afterbegin", '<span><span class="badge badge-secondary">New</span> </span>');
+      titleElement.insertAdjacentHTML("beforeend", ' <span class="tag">New</span>');
     }
-    itemElement.append(itemHeaderElement);
+    itemElement.append(titleElement);
     itemElement.append(expandElement);
     placeholderElement.append(itemElement);
   }
@@ -211,13 +203,12 @@ document.addEventListener("DOMContentLoaded", () => {
   var refreshResult = document.getElementById("refreshResult")
   var refreshButton = document.getElementById("refreshButton")
   refreshButton.addEventListener("click", () => {
-    var spinner = refreshButton.querySelector('span[role="status"]');
     refreshButton.disabled = true;
-    spinner.hidden = false;
+    refreshButton.classList.add("is-loading");
 
     var showRefreshResult = function(alertClass, message) {
       var alertDiv = document.createElement("div")
-      alertDiv.setAttribute("class", "alert animate__animated animate__flipInX");
+      alertDiv.setAttribute("class", "notification animate__animated animate__flipInX");
       alertDiv.setAttribute("role", "alert");
       empty(refreshResult);
       refreshResult.append(alertDiv);
@@ -229,17 +220,17 @@ document.addEventListener("DOMContentLoaded", () => {
     request.open("GET", "api/refresh", true);
     request.onload = function() {
       if (this.status >= 200 && this.status < 400) {
-        showRefreshResult("alert-success", "Refresh succeeded, reload page to view updated items");
+        showRefreshResult("is-success", "Refresh succeeded, reload page to view updated items");
       } else {
-        showRefreshResult("alert-danger", "Refresh failed");
+        showRefreshResult("is-danger", "Refresh failed");
       }
       refreshButton.disabled = false;
-      spinner.hidden = true;
+      refreshButton.classList.remove("is-loading");
     };
     request.onerror = function() {
-      showRefreshResult("alert-danger", "Refresh failed");
+      showRefreshResult("is-danger", "Refresh failed");
       refreshButton.disabled = false;
-      spinner.hidden = true;
+      refreshButton.classList.remove("is-loading");
     };
     request.send();
   });

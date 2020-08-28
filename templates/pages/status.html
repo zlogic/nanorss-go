@@ -1,6 +1,6 @@
 {{ define "content" }}
-<div id="status">
-  <div class="progress"><div class="progress-bar progress-bar-striped progress-bar-animated w-100" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div></div>
+<div id="status" class="content">
+  <progress class="progress is-primary" max="100"></progress>
 </div>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -11,7 +11,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   var showError = function(){
     var alertDiv = document.createElement("div");
-    alertDiv.setAttribute("class", "alert alert-danger animate__animated animate__flipInX")
+    alertDiv.setAttribute("class", "notification is-danger animate__animated animate__flipInX")
     alertDiv.setAttribute("role", "alert")
     alertDiv.textContent = "Failed to fetch feed status.";
     
@@ -23,43 +23,36 @@ document.addEventListener("DOMContentLoaded", () => {
   var showItems = function(items) {
     emptyStatusTarget();
 
-    var itemsCard = document.createElement("div");
-    itemsCard.setAttribute("class", "card");
-    statusTarget.append(itemsCard);
-    var itemsList = document.createElement("ul");
-    itemsList.setAttribute("class", "list-group list-group-flush");
-    itemsCard.append(itemsList)
-
     var createDateNode = function(label, date) {
       var dateNode = document.createElement("em");
       dateNode.textContent = new Date(date).toLocaleString();
       var labelNode = document.createElement("span");
       labelNode.textContent = label;
-      var smallNode = document.createElement("small");
-      smallNode.append(labelNode);
-      smallNode.append(dateNode);
       var dateNodeDiv = document.createElement("div");
-      dateNodeDiv.append(smallNode);
+      dateNodeDiv.append(labelNode);
+      dateNodeDiv.append(dateNode);
       return dateNodeDiv;
     };
 
     for (i in items) {
         var item = items[i];
-        var itemListItem = document.createElement("li");
-        itemListItem.setAttribute("class", "list-group-item");
-        itemsList.append(itemListItem);
-        var itemEntry = document.createElement("div");
-        itemListItem.append(itemEntry);
+        var itemArticle = document.createElement("article");
+        itemArticle.setAttribute("class", "message is-success");
+        statusTarget.append(itemArticle);
         if (item.Success) {
-          itemListItem.classList.add("list-group-item-success");
+          itemArticle.classList.add("is-success");
         } else if (item.LastFailure !== undefined) {
-          itemListItem.classList.add("list-group-item-danger");
+          itemArticle.classList.add("is-danger");
         } else {
-          itemListItem.classList.add("list-group-item-warning");
+          itemArticle.classList.add("is-warning");
         }
-        var itemHeader = document.createElement("h5");
+        var itemHeader = document.createElement("div");
+        itemHeader.setAttribute("class", "message-header");
         itemHeader.textContent = item.Name;
-        itemEntry.append(itemHeader);
+        itemArticle.append(itemHeader);
+        var itemEntry = document.createElement("div");
+        itemEntry.setAttribute("class", "message-body")
+        itemArticle.append(itemEntry);
         if (item.LastFailure !== undefined) {
           itemEntry.append(createDateNode("Last failure: ", item.LastFailure));
         }

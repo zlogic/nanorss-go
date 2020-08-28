@@ -1,45 +1,70 @@
 {{ define "content" }}
-<form id="configurationForm" accept-charset="utf-8" autocomplete="off">
-  <div class="form-group row">
-    <label for="editUsername" class="col-sm-2 col-form-label">Username</label>
-    <div class="col-sm-10">
-      <input type="text" class="form-control" id="editUsername" placeholder="Username" required>
+<div class="container is-widescreen">
+  <form id="configurationForm" accept-charset="utf-8" autocomplete="off">
+    <div class="field is-horizontal">
+      <div class="field-label is-normal">
+        <label for="editUsername" class="label">Username</label>
+      </div>
+      <div class="field-body">
+        <div class="field">
+          <p class="control">
+            <input type="text" class="input" id="editUsername" placeholder="Username" required>
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="form-group row">
-    <label for="editPassword" class="col-sm-2 col-form-label">Password</label>
-    <div class="col-sm-10">
-      <input type="password" class="form-control" id="editPassword" placeholder="Password">
+    <div class="field is-horizontal">
+      <div class="field-label is-normal">
+        <label for="editPassword" class="label">Password</label>
+      </div>
+      <div class="field-body">
+        <div class="field">
+          <p class="control">
+            <input type="password" class="input" id="editPassword" placeholder="Password">
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="form-group row">
-    <label for="editOPML" class="col-sm-2 col-form-label">OPML</label>
-    <div class="col-sm-10">
-      <textarea name="opml" id="editOPML" class="form-control" rows="20" required></textarea>
+    <div class="field is-horizontal">
+      <div class="field-label is-normal">
+        <label for="editOPML" class="label">OPML</label>
+      </div>
+      <div class="field-body">
+        <div class="field">
+          <p class="control">
+            <textarea name="opml" id="editOPML" class="textarea" rows="20" required></textarea>
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="form-group row">
-    <label for="editPageMonitor" class="col-sm-2 col-form-label">Page Monitor</label>
-    <div class="col-sm-10">
-      <textarea name="pagemonitor" id="editPageMonitor" class="form-control" rows="20" required></textarea>
+    <div class="field is-horizontal">
+      <div class="field-label is-normal">
+        <label for="editPageMonitor" class="label">Page Monitor</label>
+      </div>
+      <div class="field-body">
+        <div class="field">
+          <p class="control">
+            <textarea name="pagemonitor" id="editPageMonitor" class="textarea" rows="20" required></textarea>
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="form-group row">
-    <div class="col-sm-2"></div>
-    <div class="col-sm-10">
-      <button type="submit" class="btn btn-primary">
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true" hidden></span>
-        Save</button>
+    <div class="field is-horizontal">
+      <div class="field-label is-normal"></div>
+      <div class="field-body">
+        <div class="field">
+          <p class="control">
+            <button type="submit" class="button is-primary">Save</button>
+          </p>
+          <p class="content">
+            <div id="saveSuccessful" class="notification is-success animate__animated animate__flipInX" role="alert" hidden>Saved successfully</div>
+            <div id="saveFailed" class="notification is-danger animate__animated animate__flipInX" role="alert" hidden>Save failed</div>
+          </p>
+        </div>
+      </div>
     </div>
-  </div>
-  <div class="row">
-    <div class="col-sm-2"></div>
-    <div class="col-sm-10">
-      <div id="saveSuccessful" class="alert alert-success" role="alert" hidden>Saved successfully</div>
-      <div id="saveFailed" class="alert alert-danger" role="alert" hidden>Save failed</div>
-    </div>
-  </div>
-</form>
+  </form>
+</div>
 <script>  
 document.addEventListener("DOMContentLoaded", () => {
   var opml = document.querySelector('textarea[name="opml"]');
@@ -47,17 +72,15 @@ document.addEventListener("DOMContentLoaded", () => {
   var username = document.querySelector('input[id="editUsername"]');
   var password = document.querySelector('input[id="editPassword"]');
   var submit = document.querySelector('button[type="submit"]');
-  var spinner = submit.querySelector('span[role="status"]');
   var lockConfiguration = function(processing){
-    [opml, pagemonitor, username, password, submit, spinner].forEach(function(control){
+    [opml, pagemonitor, username, password, submit].forEach(function(control){
       control.disabled = processing;
     });
-    spinner.hidden = !processing;
+    if(processing) submit.classList.add("is-loading");
+    else submit.classList.remove("is-loading");
   };
   var showResultAlert = function(alertDiv){
     alertDiv.hidden = false;
-    alertDiv.classList.add("animate__animated");
-    alertDiv.classList.add("animate__flipInX");
   };
 
   var updateFormValues = function(settings) {
@@ -71,7 +94,7 @@ document.addEventListener("DOMContentLoaded", () => {
   var form = document.getElementById("configurationForm");
   var loadItems = function() {
     lockConfiguration(true);
-    spinner.hidden = true;
+    submit.classList.remove("is-loading");
 
     var showError = function() {
       var alertDiv = document.createElement("div");
