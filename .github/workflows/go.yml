@@ -31,12 +31,12 @@ jobs:
       run: CGO_ENABLED=0 go build -v -ldflags="-s -w" .
 
     - name: Create image
-      run: docker build . --file .github/Dockerfile -t docker.pkg.github.com/zlogic/nanorss-go/nanorss:latest
+      run: docker build . --file .github/Dockerfile -t ghcr.io/zlogic/nanorss-go:latest
 
     - name: Push image
       run: |
-        docker login docker.pkg.github.com --username $DOCKER_USERNAME --password $DOCKER_PASSWORD
-        docker push docker.pkg.github.com/zlogic/nanorss-go/nanorss:latest
+        echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $DOCKER_USERNAME --password-stdin
+        docker push ghcr.io/zlogic/nanorss-go:latest
       env:
         DOCKER_USERNAME: zlogic
-        DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        DOCKER_PASSWORD: ${{ secrets.CR_PAT }}
