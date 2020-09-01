@@ -37,11 +37,10 @@
         {{ end }}
       </div>
     </nav>
-    <section class="section">
-      <div class="container">
-        {{ template "content" . }}
-      </div>
-    </section>
+    <main class="container">
+      <div class="content"><!-- empty content for spacing --></div>
+      {{ template "content" . }}
+    </main>
   </body>
 </html>
 <script>

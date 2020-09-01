@@ -1,69 +1,72 @@
 {{ define "content" }}
-<div class="container is-widescreen">
-  <form id="configurationForm" accept-charset="utf-8" autocomplete="off">
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <label for="editUsername" class="label">Username</label>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <p class="control">
-            <input type="text" class="input" id="editUsername" placeholder="Username" required>
-          </p>
+<p class="title">Settings</p>
+<div class="content">
+  <div class="container is-widescreen">
+    <form id="configurationForm" accept-charset="utf-8" autocomplete="off">
+      <div class="field is-horizontal">
+        <div class="field-label is-normal">
+          <label for="editUsername" class="label">Username</label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <input type="text" class="input" id="editUsername" placeholder="Username" required>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <label for="editPassword" class="label">Password</label>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <p class="control">
-            <input type="password" class="input" id="editPassword" placeholder="Password">
-          </p>
+      <div class="field is-horizontal">
+        <div class="field-label is-normal">
+          <label for="editPassword" class="label">Password</label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <input type="password" class="input" id="editPassword" placeholder="Password">
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <label for="editOPML" class="label">OPML</label>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <p class="control">
-            <textarea name="opml" id="editOPML" class="textarea" rows="20" required></textarea>
-          </p>
+      <div class="field is-horizontal">
+        <div class="field-label is-normal">
+          <label for="editOPML" class="label">OPML</label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <textarea name="opml" id="editOPML" class="textarea" rows="20" required></textarea>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="field is-horizontal">
-      <div class="field-label is-normal">
-        <label for="editPageMonitor" class="label">Page Monitor</label>
-      </div>
-      <div class="field-body">
-        <div class="field">
-          <p class="control">
-            <textarea name="pagemonitor" id="editPageMonitor" class="textarea" rows="20" required></textarea>
-          </p>
+      <div class="field is-horizontal">
+        <div class="field-label is-normal">
+          <label for="editPageMonitor" class="label">Page Monitor</label>
+        </div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <textarea name="pagemonitor" id="editPageMonitor" class="textarea" rows="20" required></textarea>
+            </p>
+          </div>
         </div>
       </div>
-    </div>
-    <div class="field is-horizontal">
-      <div class="field-label is-normal"></div>
-      <div class="field-body">
-        <div class="field">
-          <p class="control">
-            <button type="submit" class="button is-primary">Save</button>
-          </p>
-          <p class="content">
-            <div id="saveSuccessful" class="notification is-success animate__animated animate__flipInX" role="alert" hidden>Saved successfully</div>
-            <div id="saveFailed" class="notification is-danger animate__animated animate__flipInX" role="alert" hidden>Save failed</div>
-          </p>
+      <div class="field is-horizontal">
+        <div class="field-label is-normal"></div>
+        <div class="field-body">
+          <div class="field">
+            <p class="control">
+              <button type="submit" class="button is-primary">Save</button>
+            </p>
+            <div class="content">
+              <div id="saveSuccessful" class="notification is-success animate__animated animate__flipInX" role="alert" hidden>Saved successfully</div>
+              <div id="saveFailed" class="notification is-danger animate__animated animate__flipInX" role="alert" hidden>Save failed</div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>
 <script>  
 document.addEventListener("DOMContentLoaded", () => {

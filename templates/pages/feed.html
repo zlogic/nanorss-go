@@ -1,10 +1,13 @@
 {{ define "content" }}
-<div class="content">
-  <button id="refreshButton" class="button is-primary" type="button">Fetch items</button>
-</div>
-<div id="refreshResult" class="content"></div>
-<div id="feed" class="content">
-  <progress class="progress is-primary" max="100"></progress>
+<p class="title">Feed</p>
+<div class="container is-widescreen">
+  <div class="content">
+    <button id="refreshButton" class="button is-primary" type="button">Fetch items</button>
+  </div>
+  <div id="refreshResult" class="content"></div>
+  <div id="feed" class="content">
+    <progress class="progress is-primary" max="100"></progress>
+  </div>
 </div>
 <script>
 var empty = function(el) {
