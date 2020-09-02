@@ -1,14 +1,17 @@
 package fetcher
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
+	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 )
 
@@ -21,14 +24,67 @@ var dateFormats = []string{
 	"Mon, _2 Jan 2006 15:04:05 +0300",
 }
 
-func (fetcher *Fetcher) sanitizeHTML(items []*data.Feeditem) {
+func (fetcher *Fetcher) sanitizeHTML(baseURL string, items []*data.Feeditem) {
 	if fetcher.TagsPolicy == nil {
 		return
 	}
 
 	for _, item := range items {
 		item.Contents = fetcher.TagsPolicy.Sanitize(item.Contents)
+		fixedURLs, err := fixURLs(baseURL, item.Contents)
+		if err != nil {
+			log.WithError(err).WithField("itemURL", item.URL).Error("failed to process URLs")
+			continue
+		}
+		item.Contents = fixedURLs
 	}
+}
+
+func fixURLs(baseURL, itemHTML string) (string, error) {
+	tokenizer := html.NewTokenizer(strings.NewReader(itemHTML))
+	buff := bytes.Buffer{}
+
+	itemBaseURL, err := url.Parse(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("Failed to parse item base URL %w", err)
+	}
+
+	for {
+		if tokenizer.Next() == html.ErrorToken {
+			err := tokenizer.Err()
+			if err == io.EOF {
+				return buff.String(), nil
+			}
+			return "", err
+		}
+		token := tokenizer.Token()
+		if token.Type == html.StartTagToken || token.Type == html.SelfClosingTagToken {
+			err := fixURLAttributes(&token, itemBaseURL)
+			if err != nil {
+				return "", err
+			}
+		}
+		buff.WriteString(token.String())
+	}
+}
+
+func fixURLAttributes(token *html.Token, baseURL *url.URL) error {
+	for i := range token.Attr {
+		a := &token.Attr[i]
+		isImgSrc := token.Data == "img" && a.Key == "src"
+		isAHref := token.Data == "a" && a.Key == "href"
+		if isImgSrc || isAHref {
+			itemURL, err := url.Parse(a.Val)
+			if itemURL.IsAbs() {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("Failed to parse %v %v URL %w", token.Data, a.Key, err)
+			}
+			a.Val = baseURL.ResolveReference(itemURL).String()
+		}
+	}
+	return nil
 }
 
 // ParseFeed parses a downloaded XML feed.
@@ -180,7 +236,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 			items[i] = item
 		}
 
-		fetcher.sanitizeHTML(items)
+		fetcher.sanitizeHTML(feedURL, items)
 
 		return items, nil
 	} else if feedXML.XMLName.Local == "rss" {
@@ -227,7 +283,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 			items[i] = item
 		}
 
-		fetcher.sanitizeHTML(items)
+		fetcher.sanitizeHTML(feedURL, items)
 
 		return items, nil
 	} else if feedXML.XMLName.Local == "RDF" {
@@ -259,7 +315,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 			items[i] = item
 		}
 
-		fetcher.sanitizeHTML(items)
+		fetcher.sanitizeHTML(feedURL, items)
 
 		return items, nil
 	}

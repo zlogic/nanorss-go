@@ -147,6 +147,30 @@ const sanitizeRdfFeed = `<?xml version="1.0" encoding="utf-8"?>
 </item>
 </rdf:RDF>`
 
+const sanitizeRssFeedURLs = `<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0">
+<channel>
+<pubDate>Wed, 08 Jun 2016 10:34:00 GMT</pubDate>
+<item>
+<title>Title 1</title>
+<link>http://site1/link1</link>
+<description>&lt;a href="/relative"&gt;Relative link 1&lt;/a&gt;
+&lt;a href="relative2"&gt;Relative link 2&lt;/a&gt;
+&lt;a href="https://domain1.example.com/absolute"&gt;Absolute link 1&lt;/a&gt;
+&lt;img src="/img/avatar1.png" width="16" height="16"&gt;
+&lt;img src="/img/avatar2.png" width="16" height="16" /&gt;</description>
+<pubDate>Wed, 08 Jun 2016 10:34:00 GMT</pubDate>
+<guid>Item@1</guid>
+</item>
+</channel>
+</rss>`
+
+const sanitizedRSSFeedURLs = `<a href="https://www.example.com/relative" rel="nofollow">Relative link 1</a>
+<a href="https://www.example.com/relative2" rel="nofollow">Relative link 2</a>
+<a href="https://domain1.example.com/absolute" rel="nofollow">Absolute link 1</a>
+<img src="https://www.example.com/img/avatar1.png" width="16" height="16">
+<img src="https://www.example.com/img/avatar2.png" width="16" height="16"/>`
+
 func TestParseAtom(t *testing.T) {
 	fetcher := Fetcher{}
 	beforeParse := time.Now()
@@ -301,6 +325,17 @@ func TestSanitizeRdf(t *testing.T) {
 	assert.Len(t, items, 1)
 
 	assert.Equal(t, "<p>Content</p>\n\n<p>More content</p>", items[0].Contents)
+}
+
+func TestSanitizeRssURLs(t *testing.T) {
+	fetcher := Fetcher{TagsPolicy: bluemonday.UGCPolicy()}
+
+	items, err := fetcher.ParseFeed("https://www.example.com/feed", bytes.NewBuffer([]byte(sanitizeRssFeedURLs)))
+	assert.NoError(t, err)
+
+	assert.Len(t, items, 1)
+
+	assert.Equal(t, sanitizedRSSFeedURLs, items[0].Contents)
 }
 
 func TestParseInvalid(t *testing.T) {
