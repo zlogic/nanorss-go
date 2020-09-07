@@ -110,7 +110,11 @@ func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
 	err = prepareTestFile(path.Join(tempDir, "templates", "pages"), "login.html", []byte(loginTemplate))
 	assert.NoError(t, err)
 
-	router, err := CreateRouter(&Services{})
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/login", nil)

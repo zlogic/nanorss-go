@@ -6,7 +6,6 @@ import (
 	"os"
 	"path"
 
-	"github.com/gorilla/securecookie"
 	"github.com/stretchr/testify/mock"
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -96,12 +95,10 @@ func (m *DBMock) GetFetchStatus(key []byte) (*data.FetchStatus, error) {
 }
 
 func createTestCookieHandler() (*CookieHandler, error) {
-	hashKey := base64.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(64))
-	blockKey := base64.StdEncoding.EncodeToString(securecookie.GenerateRandomKey(32))
+	signKey := base64.StdEncoding.EncodeToString(generateRandomKey(64))
 	dbMock := new(DBMock)
 
-	dbMock.On("GetOrCreateConfigVariable", "cookie-hash-key", mock.AnythingOfType("func() (string, error)")).Return(hashKey, nil).Once()
-	dbMock.On("GetOrCreateConfigVariable", "cookie-block-key", mock.AnythingOfType("func() (string, error)")).Return(blockKey, nil).Once()
+	dbMock.On("GetOrCreateConfigVariable", "cookie-sign-key", mock.AnythingOfType("func() (string, error)")).Return(signKey, nil).Once()
 	return NewCookieHandler(dbMock)
 }
 

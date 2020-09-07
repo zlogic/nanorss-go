@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -180,8 +180,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			return nil
 		}
 
-		vars := mux.Vars(r)
-		key := strings.Replace(vars["key"], "-", "/", -1)
+		key := strings.Replace(chi.URLParam(r, "key"), "-", "/", -1)
 
 		if r.Method == http.MethodGet {
 			item := getItem(key)

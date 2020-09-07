@@ -5,7 +5,6 @@ import (
 	"path"
 	"text/template"
 
-	"github.com/gorilla/mux"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -92,8 +91,9 @@ func HTMLFeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		t, err := loadTemplate("feed")
-		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
+		const templateName = "feed"
+		t, err := loadTemplate(templateName)
+		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: templateName})
 	}
 }
 
@@ -110,12 +110,13 @@ func HTMLSettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		t, err := loadTemplate("settings")
+		const templateName = "settings"
+		t, err := loadTemplate(templateName)
 		if err != nil {
 			handleError(w, r, err)
 			return
 		}
-		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
+		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: templateName})
 	}
 }
 
@@ -132,11 +133,12 @@ func HTMLStatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request)
 			return
 		}
 
-		t, err := loadTemplate("status")
+		const templateName = "status"
+		t, err := loadTemplate(templateName)
 		if err != nil {
 			handleError(w, r, err)
 			return
 		}
-		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: mux.CurrentRoute(r).GetName()})
+		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: username, Name: templateName})
 	}
 }

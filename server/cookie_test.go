@@ -13,22 +13,14 @@ import (
 func TestNewCookieHandlerGenerateNewKey(t *testing.T) {
 	dbMock := new(DBMock)
 
-	var hashKey, blockKey string
-	dbMock.On("GetOrCreateConfigVariable", "cookie-hash-key", mock.AnythingOfType("func() (string, error)")).Return(hashKey, nil).Once().
+	var signKey string
+	dbMock.On("GetOrCreateConfigVariable", "cookie-sign-key", mock.AnythingOfType("func() (string, error)")).Return(signKey, nil).Once().
 		Run(func(args mock.Arguments) {
 			generator := args.Get(1).(func() (string, error))
 			key, err := generator()
 			assert.NoError(t, err)
 			assert.NotEmpty(t, key)
-			hashKey = key
-		})
-	dbMock.On("GetOrCreateConfigVariable", "cookie-block-key", mock.AnythingOfType("func() (string, error)")).Return(blockKey, nil).Once().
-		Run(func(args mock.Arguments) {
-			generator := args.Get(1).(func() (string, error))
-			key, err := generator()
-			assert.NoError(t, err)
-			assert.NotEmpty(t, key)
-			blockKey = key
+			signKey = key
 		})
 	handler, err := NewCookieHandler(dbMock)
 	assert.NoError(t, err)

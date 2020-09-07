@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
 	"github.com/zlogic/nanorss-go/data"
 
 	"github.com/stretchr/testify/assert"
@@ -54,10 +55,15 @@ func TestLoginHandlerSuccessful(t *testing.T) {
 	cookies := res.Result().Cookies()
 	assert.Equal(t, 1, len(cookies))
 	if len(cookies) > 0 {
-		decodedCookie := UserCookie{}
-		err := cookieHandler.secureCookie.Decode(AuthenticationCookie, cookies[0].Value, &decodedCookie)
+		token, err := cookieHandler.jwtAuth.Decode(cookies[0].Value)
 		assert.NoError(t, err)
-		assert.Equal(t, "user01", decodedCookie.Username)
+		assert.True(t, token.Valid)
+		assert.IsType(t, jwt.MapClaims{}, token.Claims)
+		claims := token.Claims.(jwt.MapClaims)
+		_, ok := claims["exp"]
+		assert.True(t, ok)
+		delete(claims, "exp")
+		assert.Equal(t, jwt.MapClaims{"username": "user01"}, claims)
 	}
 
 	dbMock.AssertExpectations(t)
