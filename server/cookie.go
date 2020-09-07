@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
 	log "github.com/sirupsen/logrus"
 )
@@ -99,7 +100,7 @@ func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request
 		return ""
 	}
 	if err != nil {
-		log.WithError(err).Error("Authentication failed")
+		log.WithField("requestID", middleware.GetReqID(r.Context())).WithError(err).Error("Authentication failed")
 		return ""
 	}
 	mapClaims, ok := token.Claims.(jwt.MapClaims)

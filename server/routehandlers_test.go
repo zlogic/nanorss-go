@@ -126,6 +126,19 @@ func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
 }
 
 func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
+	loginTemplate := []byte(`{{ define "content" }}loginpage{{ end }}`)
+	tempDir, recover, err := prepareTempDir()
+	defer func() {
+		if recover != nil {
+			recover()
+		}
+	}()
+	assert.NoError(t, err)
+	err = prepareLayoutTemplateTestFile(tempDir)
+	assert.NoError(t, err)
+	err = prepareTestFile(path.Join(tempDir, "templates", "pages"), "login.html", []byte(loginTemplate))
+	assert.NoError(t, err)
+
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
 
@@ -141,8 +154,8 @@ func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
 	req.AddCookie(cookie)
 
 	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusSeeOther, res.Code)
-	assert.Equal(t, "/feed", res.Header().Get("Location"))
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "User <nil>\nName \nContent loginpage", string(res.Body.Bytes()))
 }
 
 func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
