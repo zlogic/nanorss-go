@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"os"
+	"strconv"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -16,13 +18,30 @@ func NoCacheHeaderMiddlewareFunc(next http.Handler) http.Handler {
 	})
 }
 
+func parseBoolEnv(varName string, defaultValue bool) bool {
+	valueStr, _ := os.LookupEnv(varName)
+	if valueStr == "" {
+		return defaultValue
+	}
+	value, err := strconv.ParseBool(valueStr)
+	if err != nil {
+		log.WithField("variable", varName).WithField("value", value).WithError(err).Error("Cannot parse environment value")
+		return defaultValue
+	}
+	return value
+}
+
 // CreateRouter returns a router and all handlers.
 func CreateRouter(s *Services) (*chi.Mux, error) {
+	logRequests := parseBoolEnv("LOG_REQUESTS", true)
+
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: log.New(), NoColor: true}))
+	if logRequests {
+		r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: log.New(), NoColor: true}))
+	}
 	r.Use(middleware.Recoverer)
 
 	r.Get("/", RootHandler(s))
