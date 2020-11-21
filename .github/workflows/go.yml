@@ -1,5 +1,8 @@
 name: Build image
-on: [push]
+on:
+  push:
+    branches:
+      - master
 jobs:
 
   build:
