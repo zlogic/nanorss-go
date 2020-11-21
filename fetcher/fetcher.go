@@ -41,12 +41,12 @@ func (fetcher *Fetcher) Refresh() {
 	if errPagemonitor != nil {
 		log.Error("Failed to fetch at least one page")
 	} else {
-		log.Info("Pages fetched successfully")
+		log.Debug("Pages fetched successfully")
 	}
 	errFeed := fetcher.FetchAllFeeds()
 	if errFeed != nil {
 		log.Error("Failed to fetch at least one feed")
 	} else {
-		log.Info("Feeds fetched successfully")
+		log.Debug("Feeds fetched successfully")
 	}
 }

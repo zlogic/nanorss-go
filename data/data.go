@@ -48,8 +48,13 @@ func (service *DBService) GC() {
 	service.DeleteStaleFetchStatuses()
 	service.DeleteStaleReadStatuses()
 	for {
-		if err := service.db.RunValueLogGC(0.5); err != nil {
+		err := service.db.RunValueLogGC(0.5)
+		if err == badger.ErrNoRewrite {
+			log.WithField("result", err).Debug("Cleanup didn't cause a log file rewrite")
+		} else if err != nil {
 			log.WithField("result", err).Info("Cleanup completed")
+		}
+		if err != nil {
 			break
 		}
 		log.Info("Cleanup reclaimed space")

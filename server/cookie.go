@@ -100,7 +100,9 @@ func (handler *CookieHandler) GetUsername(w http.ResponseWriter, r *http.Request
 		return ""
 	}
 	if err != nil {
-		log.WithField("requestID", middleware.GetReqID(r.Context())).WithError(err).Error("Authentication failed")
+		log.WithField("requestID", middleware.GetReqID(r.Context())).
+			WithField("remoteAddr", r.RemoteAddr).
+			WithError(err).Error("Authentication failed")
 		return ""
 	}
 	mapClaims, ok := token.Claims.(jwt.MapClaims)
