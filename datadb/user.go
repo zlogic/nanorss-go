@@ -85,11 +85,20 @@ func (s *DBService) SaveUser(user *User) (err error) {
 		if user.id != nil {
 			id = *user.id
 			_, err := tx.Exec("UPDATE users SET username=$1, password=$2, opml=$3, pagemonitor=$4 WHERE id=$5", user.username, user.Password, user.Opml, user.Pagemonitor, id)
-			return err
+			if err != nil {
+				return err
+			}
+		} else {
+			err := tx.QueryRow("INSERT INTO users(username, password, opml, pagemonitor) VALUES($1, $2, $3, $4) RETURNING id", user.username, user.Password, user.Opml, user.Pagemonitor).Scan(&id)
+			if err != nil {
+				return err
+			}
 		}
 
-		err := tx.QueryRow("INSERT INTO users(username, password, opml, pagemonitor) VALUES($1, $2, $3, $4) RETURNING id", user.username, user.Password, user.Opml, user.Pagemonitor).Scan(&id)
-		return err
+		if user.id == nil {
+			user.id = &id
+		}
+		return linkUserPages(user, tx)
 	})
 	if err != nil && user.id != nil {
 		revertErr := s.db.QueryRow("SELECT username, password, opml, pagemonitor FROM users WHERE id=$1", id).
@@ -97,9 +106,6 @@ func (s *DBService) SaveUser(user *User) (err error) {
 		if revertErr != nil {
 			return fmt.Errorf("failed to reload user details (%v) on a failed SaveUser: %w", revertErr, err)
 		}
-	}
-	if err == nil && user.id == nil {
-		user.id = &id
 	}
 	return err
 }
@@ -136,6 +142,11 @@ func (user *User) ValidatePassword(password string) error {
 
 // GetPages parses user's configuration and returns all UserPagemonitor configuration items.
 func (user *User) GetPages() ([]UserPagemonitor, error) {
+	if user.Pagemonitor == "" {
+		// Empty pagemonitor config - treat as empty XML.
+		return []UserPagemonitor{}, nil
+	}
+
 	type UserPages struct {
 		XMLName xml.Name          `xml:"pages"`
 		Pages   []UserPagemonitor `xml:"page"`
@@ -151,6 +162,11 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 
 // GetFeeds parses user's configuration and returns all UserFeed configuration items.
 func (user *User) GetFeeds() ([]UserFeed, error) {
+	if user.Opml == "" {
+		// Empty opml - treat as empty XML.
+		return []UserFeed{}, nil
+	}
+
 	type UserOPMLOutline struct {
 		UserFeed
 		Children []UserOPMLOutline `xml:"outline"`

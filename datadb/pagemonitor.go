@@ -60,6 +60,39 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 	})
 }
 
+func linkUserPages(user *User, tx *sql.Tx) error {
+	if user.id == nil {
+		return fmt.Errorf("user hasn't been created yet")
+	}
+	pages, err := user.GetPages()
+	if err != nil {
+		return err
+	}
+
+	for _, page := range pages {
+		var id int
+		err := tx.QueryRow("SELECT id FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3", page.URL, page.Match, page.Replace).
+			Scan(&id)
+		if err == sql.ErrNoRows {
+			err := tx.QueryRow(
+				"INSERT INTO pagemonitors(url, match, replace, contents, delta, updated) VALUES($1, $2, $3, '', '', $4) RETURNING id",
+				page.URL, page.Match, page.Replace, time.Time{},
+			).Scan(&id)
+			if err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
+
+		_, err = tx.Exec("INSERT INTO user_pagemonitors(user_id, pagemonitor_id) VALUES($1,$2)", *user.id, id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // GetPages reads all PagemonitorPage items from database for a specific user.
 func (s *DBService) GetPages(user *User) ([]*PagemonitorPage, error) {
 	if user == nil {
@@ -70,7 +103,7 @@ func (s *DBService) GetPages(user *User) ([]*PagemonitorPage, error) {
 	}
 
 	rows, err := s.db.Query(
-		"SELECT pm.url, pm.match, pm.replace, pm.contents, pm.delta, pm.updated, pm.last_success, pm.last_failure, pm.last_failure_error FROM pagemonitors pm, user_pagemonitors WHERE pagemonitors.id = user_pagemonitors.id AND user.id=$1",
+		"SELECT pm.url, pm.match, pm.replace, pm.contents, pm.delta, pm.updated, pm.last_success, pm.last_failure, pm.last_failure_error FROM pagemonitors pm, user_pagemonitors upm WHERE pm.id = upm.pagemonitor_id AND upm.user_id = $1",
 		*user.id)
 	if err != nil {
 		return nil, err
@@ -85,7 +118,7 @@ func (s *DBService) GetPages(user *User) ([]*PagemonitorPage, error) {
 			return nil, fmt.Errorf("failed to read pagemonitor: %w", err)
 		}
 
-		pages = append(pages)
+		pages = append(pages, page)
 	}
 	return pages, nil
 }
