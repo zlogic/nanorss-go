@@ -1,7 +1,6 @@
 package datadb
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 )
@@ -51,7 +50,7 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 	vars := make(map[string]string)
 
-	rows, err := s.db.QueryContext(context.TODO(), "SELECT key, value FROM serverconfig")
+	rows, err := s.db.Query("SELECT key, value FROM serverconfig")
 	if err != nil {
 		return nil, fmt.Errorf("error reading config keys because of %w", err)
 	}

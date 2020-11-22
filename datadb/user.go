@@ -1,7 +1,6 @@
 package datadb
 
 import (
-	"context"
 	"database/sql"
 	"encoding/xml"
 	"fmt"
@@ -42,7 +41,7 @@ func NewUser(username string) *User {
 // ReadAllUsers reads all users from database and sends them to the provided channel.
 func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
-	rows, err := s.db.QueryContext(context.TODO(), "SELECT id, username, password, opml, pagemonitor FROM users")
+	rows, err := s.db.Query("SELECT id, username, password, opml, pagemonitor FROM users")
 	if err != nil {
 		return fmt.Errorf("failed to read users: %w", err)
 	}
@@ -67,7 +66,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 func (s *DBService) GetUser(username string) (*User, error) {
 	var id int
 	user := User{id: &id}
-	err := s.db.QueryRowContext(context.TODO(), "SELECT id, username, password, opml, pagemonitor FROM users WHERE username=$1", username).
+	err := s.db.QueryRow("SELECT id, username, password, opml, pagemonitor FROM users WHERE username=$1", username).
 		Scan(&user.id, &user.username, &user.Password, &user.Opml, &user.Pagemonitor)
 
 	if err == sql.ErrNoRows {
@@ -93,7 +92,7 @@ func (s *DBService) SaveUser(user *User) (err error) {
 		return err
 	})
 	if err != nil && user.id != nil {
-		revertErr := s.db.QueryRowContext(context.TODO(), "SELECT username, password, opml, pagemonitor FROM users WHERE id=$1", id).
+		revertErr := s.db.QueryRow("SELECT username, password, opml, pagemonitor FROM users WHERE id=$1", id).
 			Scan(&user.username, &user.Password, &user.Opml, &user.Pagemonitor)
 		if revertErr != nil {
 			return fmt.Errorf("failed to reload user details (%v) on a failed SaveUser: %w", revertErr, err)
@@ -114,7 +113,7 @@ func (user *User) GetUsername() string {
 func (user *User) SetUsername(newUsername string) error {
 	newUsername = strings.TrimSpace(newUsername)
 	if newUsername == "" {
-		return fmt.Errorf("Cannot set username to an empty string")
+		return fmt.Errorf("cannot set username to an empty string")
 	}
 	user.username = newUsername
 	return nil
@@ -144,7 +143,7 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 	items := &UserPages{}
 	err := xml.Unmarshal([]byte(user.Pagemonitor), items)
 	if err != nil {
-		err = fmt.Errorf("Cannot parse pagemonitor xml because of %w", err)
+		err = fmt.Errorf("cannot parse pagemonitor xml: %w", err)
 		return nil, err
 	}
 	return items.Pages, nil
@@ -163,7 +162,7 @@ func (user *User) GetFeeds() ([]UserFeed, error) {
 	items := &UserOPML{}
 	err := xml.Unmarshal([]byte(user.Opml), items)
 	if err != nil {
-		err = fmt.Errorf("Cannot parse opml xml because of %w", err)
+		err = fmt.Errorf("cannot parse opml xml: %w", err)
 		return nil, err
 	}
 	feeds := []UserFeed{}

@@ -18,8 +18,8 @@ CREATE TABLE feeds (
 	id  SERIAL NOT NULL PRIMARY KEY,
 	url TEXT NOT NULL UNIQUE,
 
-	last_success       DATE,
-	last_failure       DATE,
+	last_success       TIMESTAMP,
+	last_failure       TIMESTAMP,
 	last_failure_error TEXT
 );
 
@@ -27,11 +27,13 @@ CREATE TABLE feeds (
 CREATE TABLE feeditems (
 	feed_id  INT NOT NULL,
 	guid     TEXT NOT NULL,
-	title    TEXT,
-	url      TEXT,
-	date     DATE,
-	contents TEXT,
-	updated  DATE,
+	title    TEXT NOT NULL,
+	url      TEXT NOT NULL,
+	date     TIMESTAMP NOT NULL,
+	contents TEXT NOT NULL,
+	updated  TIMESTAMP NOT NULL,
+
+	last_seen TIMESTAMP,
 
 	PRIMARY KEY(feed_id, guid),
 	FOREIGN KEY(feed_id) REFERENCES feeds(id) ON DELETE CASCADE
@@ -44,12 +46,12 @@ CREATE TABLE pagemonitors (
 	match   TEXT NOT NULL,
 	replace TEXT NOT NULL,
 
-	contents TEXT,
-	delta    TEXT,
-	updated  DATE,
+	contents TEXT NOT NULL,
+	delta    TEXT NOT NULL,
+	updated  TIMESTAMP NOT NULL,
 
-	last_success       DATE,
-	last_failure       DATE,
+	last_success       TIMESTAMP,
+	last_failure       TIMESTAMP,
 	last_failure_error TEXT,
 
 	UNIQUE(url, match, replace)
