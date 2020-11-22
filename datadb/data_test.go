@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/jackc/pgx/v4/stdlib"
 
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -106,4 +107,17 @@ func cleanRealDatabase() error {
 	}
 
 	return nil
+}
+
+// openMock returns a mock DBService.
+func openMock(exactMatch bool) (*DBService, sqlmock.Sqlmock, error) {
+	queryMatcher := sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp)
+	if exactMatch {
+		queryMatcher = sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual)
+	}
+	db, mock, err := sqlmock.New(queryMatcher)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &DBService{db: db}, mock, nil
 }
