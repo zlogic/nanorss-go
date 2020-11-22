@@ -12,6 +12,7 @@ require (
 	github.com/go-chi/jwtauth v4.0.4+incompatible
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/golang/snappy v0.0.2 // indirect
+	github.com/jackc/pgx/v4 v4.9.2
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.4

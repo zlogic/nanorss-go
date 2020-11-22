@@ -8,6 +8,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	_ "github.com/jackc/pgx/v4/stdlib"
+
 	"github.com/zlogic/nanorss-go/data"
 	"github.com/zlogic/nanorss-go/fetcher"
 	"github.com/zlogic/nanorss-go/server"
