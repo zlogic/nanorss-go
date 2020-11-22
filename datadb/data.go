@@ -45,9 +45,7 @@ func Open() (*DBService, error) {
 
 // GC deletes expired items and attempts to perform a database cleanup.
 func (s *DBService) GC() {
-	//service.DeleteExpiredItems()
-	//service.DeleteStaleFetchStatuses()
-	//service.DeleteStaleReadStatuses()
+	s.deleteExpiredItems()
 }
 
 // Close closes the underlying database.

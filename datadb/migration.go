@@ -102,6 +102,12 @@ CREATE TABLE user_read_pagemonitors (
 	PRIMARY KEY(user_id, pagemonitor_id)
 );
 
+-- Server configuration
+CREATE TABLE serverconfig (
+	key   TEXT NOT NULL PRIMARY KEY,
+	value TEXT NOT NULL
+);
+
 -- Populate tables with initial data
 INSERT INTO schema_version(version) VALUES (1);
 `
