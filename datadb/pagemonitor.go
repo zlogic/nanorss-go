@@ -12,10 +12,6 @@ type PagemonitorPage struct {
 	Delta    string
 	Updated  time.Time
 
-	LastSuccess *time.Time
-	LastFailure *time.Time
-	LastError   *string
-
 	Config *UserPagemonitor `json:",omitempty"`
 }
 
@@ -36,9 +32,9 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 
 func getPage(pm *UserPagemonitor, tx *sql.Tx) (*PagemonitorPage, error) {
 	page := PagemonitorPage{Config: pm}
-	err := tx.QueryRow("SELECT contents, delta, updated, last_success, last_failure, last_failure_error FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3",
+	err := tx.QueryRow("SELECT contents, delta, updated FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3",
 		pm.URL, pm.Match, pm.Replace,
-	).Scan(&page.Contents, &page.Delta, &page.Updated, &page.LastSuccess, &page.LastFailure, &page.LastError)
+	).Scan(&page.Contents, &page.Delta, &page.Updated)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -57,17 +53,17 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 
 		if previousPage != nil {
 			_, err := tx.Exec(
-				"UPDATE pagemonitors SET contents=$1, delta=$2, updated=$3, last_success=$4, last_failure=$5, last_failure_error=$6 WHERE url=$7 AND match=$8 AND replace=$9",
-				page.Contents, page.Delta, page.Updated, page.LastSuccess, page.LastFailure, page.LastError,
+				"UPDATE pagemonitors SET contents=$1, delta=$2, updated=$3 WHERE url=$4 AND match=$5 AND replace=$6",
+				page.Contents, page.Delta, page.Updated,
 				page.Config.URL, page.Config.Match, page.Config.Replace,
 			)
 			return err
 		}
 
 		_, err = tx.Exec(
-			"INSERT INTO pagemonitors(url, match, replace, contents, delta, updated, last_success, last_failure, last_failure_error) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+			"INSERT INTO pagemonitors(url, match, replace, contents, delta, updated) VALUES($1, $2, $3, $4, $5, $6)",
 			page.Config.URL, page.Config.Match, page.Config.Replace,
-			page.Contents, page.Delta, page.Updated, page.LastSuccess, page.LastFailure, page.LastError,
+			page.Contents, page.Delta, page.Updated,
 		)
 		return err
 	})
@@ -116,7 +112,7 @@ func (s *DBService) GetPages(user *User) ([]*PagemonitorPage, error) {
 	}
 
 	rows, err := s.db.Query(
-		"SELECT pm.url, pm.match, pm.replace, pm.contents, pm.delta, pm.updated, pm.last_success, pm.last_failure, pm.last_failure_error FROM pagemonitors pm, user_pagemonitors upm WHERE pm.id = upm.pagemonitor_id AND upm.user_id = $1",
+		"SELECT pm.url, pm.match, pm.replace, pm.contents, pm.delta, pm.updated FROM pagemonitors pm, user_pagemonitors upm WHERE pm.id = upm.pagemonitor_id AND upm.user_id = $1",
 		*user.id)
 	if err != nil {
 		return nil, err
@@ -126,7 +122,7 @@ func (s *DBService) GetPages(user *User) ([]*PagemonitorPage, error) {
 	pages := make([]*PagemonitorPage, 0)
 	for rows.Next() {
 		page := &PagemonitorPage{Config: &UserPagemonitor{}}
-		err := rows.Scan(&page.Config.URL, &page.Config.Match, &page.Config.Replace, &page.Contents, &page.Delta, &page.Updated, &page.LastSuccess, &page.LastError, &page.LastError)
+		err := rows.Scan(&page.Config.URL, &page.Config.Match, &page.Config.Replace, &page.Contents, &page.Delta, &page.Updated)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read pagemonitor: %w", err)
 		}

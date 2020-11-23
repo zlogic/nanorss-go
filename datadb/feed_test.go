@@ -132,17 +132,19 @@ func TestSaveReadItemTTLExpiredItem(t *testing.T) {
 	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
 
-	expiredTime := time.Now().Add(-time.Minute * 15).UTC().Truncate(time.Millisecond)
 	item := &Feeditem{
 		Title:    "t1",
 		URL:      "http://item1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		LastSeen: &expiredTime,
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
 	err = dbService.SaveFeeditems(item)
+	assert.NoError(t, err)
+
+	expiredTime := time.Now().Add(-time.Minute * 15).UTC().Truncate(time.Millisecond)
+	_, err = dbService.db.Exec("UPDATE feeditems SET last_seen=$1 WHERE url='http://item1'", expiredTime)
 	assert.NoError(t, err)
 
 	err = dbService.deleteExpiredItems()
@@ -161,14 +163,12 @@ func TestSaveReadItemTTLExpiredFeed(t *testing.T) {
 	_, err = dbService.db.Exec("UPDATE feeds SET last_success = NULL")
 	assert.NoError(t, err)
 
-	lastSeen := time.Now().UTC().Truncate(time.Millisecond)
 	item := &Feeditem{
 		Title:    "t1",
 		URL:      "http://item1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		LastSeen: &lastSeen,
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
 	err = dbService.SaveFeeditems(item)
@@ -188,14 +188,12 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 
 	prepareFeeds(dbService, "http://feed1")
 
-	lastSeen := time.Now().UTC().Truncate(time.Millisecond)
 	item := &Feeditem{
 		Title:    "t1",
 		URL:      "http://item1",
 		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
 		Contents: "c1",
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-		LastSeen: &lastSeen,
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
 	err = dbService.SaveFeeditems(item)

@@ -250,7 +250,7 @@ func TestSetUnreadStatusForAll(t *testing.T) {
 }
 
 func prepareReadstatusTests() error {
-	cleanDatabases := []string{"users", "pagemonitors"}
+	cleanDatabases := []string{"users", "pagemonitors", "feeds"}
 	for _, table := range cleanDatabases {
 		_, err := dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
 		if err != nil {

@@ -80,6 +80,7 @@ func cleanRealDatabase() error {
 		if err != nil {
 			return err
 		}
+		defer tableRows.Close()
 		for tableRows.Next() {
 			var name string
 			if err := tableRows.Scan(&name); err != nil {

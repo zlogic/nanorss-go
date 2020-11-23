@@ -20,8 +20,6 @@ type Feeditem struct {
 	Contents string
 	Updated  time.Time
 
-	LastSeen *time.Time
-
 	Key *FeeditemKey `json:",omitempty"`
 }
 
@@ -43,9 +41,9 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 func getFeeditem(key *FeeditemKey, tx *sql.Tx) (*Feeditem, error) {
 	feeditem := Feeditem{Key: key}
 	err := tx.QueryRow(
-		"SELECT fi.title, fi.url, fi.date, fi.contents, fi.updated, fi.last_seen FROM feeditems fi, feeds f WHERE fi.feed_id = f.id AND f.url=$1 AND fi.guid=$2",
+		"SELECT fi.title, fi.url, fi.date, fi.contents, fi.updated FROM feeditems fi, feeds f WHERE fi.feed_id = f.id AND f.url=$1 AND fi.guid=$2",
 		key.FeedURL, key.GUID,
-	).Scan(&feeditem.Title, &feeditem.URL, &feeditem.Date, &feeditem.Contents, &feeditem.Updated, &feeditem.LastSeen)
+	).Scan(&feeditem.Title, &feeditem.URL, &feeditem.Date, &feeditem.Contents, &feeditem.Updated)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
@@ -77,8 +75,8 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 
 			if previousItem != nil {
 				_, err := tx.Exec(
-					"UPDATE feeditems fi SET title=$1, url=$2, date=$3, contents=$4, updated=$5, last_seen=$6 FROM feeds f WHERE fi.feed_id = f.id AND f.url = $7 AND fi.guid = $8",
-					feedItem.Title, feedItem.URL, feedItem.Date, feedItem.Contents, feedItem.Updated, feedItem.LastSeen,
+					"UPDATE feeditems fi SET title=$1, url=$2, date=$3, contents=$4, updated=$5, last_seen=NOW() FROM feeds f WHERE fi.feed_id = f.id AND f.url = $6 AND fi.guid = $7",
+					feedItem.Title, feedItem.URL, feedItem.Date, feedItem.Contents, feedItem.Updated,
 					feedItem.Key.FeedURL, feedItem.Key.GUID,
 				)
 				if err != nil {
@@ -86,9 +84,9 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				}
 			} else {
 				_, err = tx.Exec(
-					"INSERT INTO feeditems(feed_id, guid, title, url, date, contents, updated, last_seen) VALUES((SELECT id FROM feeds WHERE url = $1), $2, $3, $4, $5, $6, $7, $8)",
+					"INSERT INTO feeditems(feed_id, guid, title, url, date, contents, updated, last_seen) VALUES((SELECT id FROM feeds WHERE url = $1), $2, $3, $4, $5, $6, $7, NOW())",
 					feedItem.Key.FeedURL, feedItem.Key.GUID,
-					feedItem.Title, feedItem.URL, feedItem.Date, feedItem.Contents, feedItem.Updated, feedItem.LastSeen,
+					feedItem.Title, feedItem.URL, feedItem.Date, feedItem.Contents, feedItem.Updated,
 				)
 				if err != nil {
 					return err
@@ -139,7 +137,7 @@ func (s *DBService) GetFeeditems(user *User) ([]*Feeditem, error) {
 	}
 
 	rows, err := s.db.Query(
-		"SELECT f.url, fi.guid, fi.title, fi.url, fi.date, fi.contents, fi.updated, fi.last_seen FROM feeditems fi, feeds f, user_feeds uf WHERE fi.feed_id = f.id AND f.id = uf.feed_id AND uf.user_id = $1",
+		"SELECT f.url, fi.guid, fi.title, fi.url, fi.date, fi.contents, fi.updated FROM feeditems fi, feeds f, user_feeds uf WHERE fi.feed_id = f.id AND f.id = uf.feed_id AND uf.user_id = $1",
 		*user.id)
 	if err != nil {
 		return nil, err
@@ -149,7 +147,7 @@ func (s *DBService) GetFeeditems(user *User) ([]*Feeditem, error) {
 	feeditems := make([]*Feeditem, 0)
 	for rows.Next() {
 		feeditem := &Feeditem{Key: &FeeditemKey{}}
-		err := rows.Scan(&feeditem.Key.FeedURL, &feeditem.Key.GUID, &feeditem.Title, &feeditem.URL, &feeditem.Date, &feeditem.Contents, &feeditem.Updated, &feeditem.LastSeen)
+		err := rows.Scan(&feeditem.Key.FeedURL, &feeditem.Key.GUID, &feeditem.Title, &feeditem.URL, &feeditem.Date, &feeditem.Contents, &feeditem.Updated)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read feed item: %w", err)
 		}

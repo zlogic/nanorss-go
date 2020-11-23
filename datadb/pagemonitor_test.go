@@ -13,6 +13,7 @@ func checkPages(t *testing.T, dbService *DBService, pages *[]PagemonitorPage) {
 
 	rows, err := dbService.db.Query("SELECT url, match, replace, contents, delta, updated FROM pagemonitors")
 	assert.NoError(t, err)
+	defer rows.Close()
 	for rows.Next() {
 		page := PagemonitorPage{Config: &UserPagemonitor{}}
 		err = rows.Scan(&page.Config.URL, &page.Config.Match, &page.Config.Replace, &page.Contents, &page.Delta, &page.Updated)
@@ -163,14 +164,16 @@ func TestSaveReadPageTTLExpired(t *testing.T) {
 		Match:   "m1",
 		Replace: "r1",
 	}
-	expiredTime := time.Now().Add(-time.Minute * 15).UTC().Truncate(time.Millisecond)
 	page := PagemonitorPage{
 		Contents: "c1", Delta: "d1",
-		Updated:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
-		LastSuccess: &expiredTime,
-		Config:      &userPage,
+		Updated: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
+		Config:  &userPage,
 	}
 	err = dbService.SavePage(&page)
+	assert.NoError(t, err)
+
+	expiredTime := time.Now().Add(-time.Minute * 15).UTC().Truncate(time.Millisecond)
+	_, err = dbService.db.Exec("UPDATE pagemonitors SET last_success=$1 WHERE url='http://site1.com'", expiredTime)
 	assert.NoError(t, err)
 
 	itemTTL = time.Hour * 1
@@ -199,14 +202,15 @@ func TestSaveReadPageTTLNotExpired(t *testing.T) {
 		Match:   "m1",
 		Replace: "r1",
 	}
-	lastSuccess := time.Now().UTC().Truncate(time.Millisecond)
 	page := PagemonitorPage{
 		Contents: "c1", Delta: "d1",
-		Updated:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
-		LastSuccess: &lastSuccess,
-		Config:      &userPage,
+		Updated: time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
+		Config:  &userPage,
 	}
 	err = dbService.SavePage(&page)
+	assert.NoError(t, err)
+
+	_, err = dbService.db.Exec("UPDATE pagemonitors SET last_success=NOW() WHERE url='http://site1.com'")
 	assert.NoError(t, err)
 
 	err = dbService.deleteExpiredItems()
