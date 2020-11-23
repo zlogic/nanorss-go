@@ -1,8 +1,8 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -34,9 +34,9 @@ const (
 func escapeKeyForURL(attributes ...string) string {
 	safeAttributes := make([]string, len(attributes))
 	for i := range attributes {
-		safeAttributes[i] = url.PathEscape(attributes[i])
+		safeAttributes[i] = base64.RawStdEncoding.EncodeToString([]byte(attributes[i]))
 	}
-	return url.PathEscape(strings.Join(safeAttributes, "/"))
+	return strings.Join(safeAttributes, ".")
 }
 
 func escapeFeeditemKeyForURL(key *data.FeeditemKey) string {
@@ -48,17 +48,13 @@ func escapePagemonitorKeyForURL(key *data.UserPagemonitor) string {
 }
 
 func decodeKeyFromURL(key string) ([]string, error) {
-	key, err := url.PathUnescape(key)
-	if err != nil {
-		return nil, err
-	}
-	parts := strings.Split(key, "/")
+	parts := strings.Split(key, ".")
 	for i := range parts {
-		part, err := url.PathUnescape(parts[i])
+		part, err := base64.RawStdEncoding.DecodeString(parts[i])
 		if err != nil {
 			return nil, err
 		}
-		parts[i] = part
+		parts[i] = string(part)
 	}
 	return parts, nil
 }
