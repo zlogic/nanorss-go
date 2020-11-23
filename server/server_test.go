@@ -49,9 +49,14 @@ func (m *DBMock) GetFeeditem(key *data.FeeditemKey) (*data.Feeditem, error) {
 	return returnFeeditem, args.Error(1)
 }
 
-func (m *DBMock) ReadAllFeedItems(ch chan *data.Feeditem) error {
-	args := m.Called(ch)
-	return args.Error(0)
+func (m *DBMock) GetFeeditems(user *data.User) ([]*data.Feeditem, error) {
+	args := m.Called(user)
+	feedItems := args.Get(0)
+	var returnFeeditems []*data.Feeditem
+	if feedItems != nil {
+		returnFeeditems = feedItems.([]*data.Feeditem)
+	}
+	return returnFeeditems, args.Error(1)
 }
 
 func (m *DBMock) GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error) {
@@ -64,27 +69,62 @@ func (m *DBMock) GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error
 	return returnPage, args.Error(1)
 }
 
+func (m *DBMock) GetPages(user *data.User) ([]*data.PagemonitorPage, error) {
+	args := m.Called(user)
+	pages := args.Get(0)
+	var returnPages []*data.PagemonitorPage
+	if pages != nil {
+		returnPages = pages.([]*data.PagemonitorPage)
+	}
+	return returnPages, args.Error(1)
+}
+
 func (m *DBMock) ReadAllPages(ch chan *data.PagemonitorPage) error {
 	args := m.Called(ch)
 	return args.Error(0)
 }
 
-func (m *DBMock) GetReadStatus(user *data.User) ([][]byte, error) {
+func (m *DBMock) GetFeeditemsReadStatus(user *data.User) ([]*data.FeeditemKey, error) {
 	args := m.Called(user)
 	readItems := args.Get(0)
-	var returnReadItems [][]byte
+	var returnReadItems []*data.FeeditemKey
 	if readItems != nil {
-		returnReadItems = readItems.([][]byte)
+		returnReadItems = readItems.([]*data.FeeditemKey)
 	}
 	return returnReadItems, args.Error(1)
 }
 
-func (m *DBMock) SetReadStatus(user *data.User, itemKey []byte, read bool) error {
-	args := m.Called(user, itemKey, read)
+func (m *DBMock) GetPagesReadStatus(user *data.User) ([]*data.UserPagemonitor, error) {
+	args := m.Called(user)
+	readItems := args.Get(0)
+	var returnReadItems []*data.UserPagemonitor
+	if readItems != nil {
+		returnReadItems = readItems.([]*data.UserPagemonitor)
+	}
+	return returnReadItems, args.Error(1)
+}
+
+func (m *DBMock) SetFeeditemReadStatus(user *data.User, k *data.FeeditemKey, read bool) error {
+	args := m.Called(user, k, read)
 	return args.Error(0)
 }
 
-func (m *DBMock) GetFetchStatus(key []byte) (*data.FetchStatus, error) {
+func (m *DBMock) SetPageReadStatus(user *data.User, k *data.UserPagemonitor, read bool) error {
+	args := m.Called(user, k, read)
+	return args.Error(0)
+}
+
+func (m *DBMock) GetFeedFetchStatus(feedURL string) (*data.FetchStatus, error) {
+	args := m.Called(feedURL)
+	fetchStatus := args.Get(0)
+	var returnFetchStatus *data.FetchStatus
+	if fetchStatus != nil {
+		returnFetchStatus = fetchStatus.(*data.FetchStatus)
+	}
+	return returnFetchStatus, args.Error(1)
+}
+
+func (m *DBMock) GetPageFetchStatus(key *data.UserPagemonitor) (*data.FetchStatus, error) {
 	args := m.Called(key)
 	fetchStatus := args.Get(0)
 	var returnFetchStatus *data.FetchStatus

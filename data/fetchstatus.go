@@ -1,134 +1,101 @@
 package data
 
 import (
-	"bytes"
-	"encoding/gob"
+	"database/sql"
 	"fmt"
 	"time"
-
-	"github.com/dgraph-io/badger/v2"
-	log "github.com/sirupsen/logrus"
 )
 
 // FetchStatus keeps track of successful and failed fetches.
 type FetchStatus struct {
-	LastSuccess time.Time
-	LastFailure time.Time
+	LastSuccess      time.Time
+	LastFailure      time.Time
+	LastFailureError string
 }
 
-// Decode deserializes a FetchStatus.
-func (fetchStatus *FetchStatus) Decode(val []byte) error {
-	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(fetchStatus)
-}
+// GetFeedFetchStatus returns the fetch status for a feed, or nil if the fetch status is unknown.
+func (s *DBService) GetFeedFetchStatus(feedURL string) (*FetchStatus, error) {
+	var lastSuccess, lastFailure *time.Time
+	var lastFailureError *string
 
-func getFetchStatus(k []byte) func(*badger.Txn) (*FetchStatus, error) {
-	return func(txn *badger.Txn) (*FetchStatus, error) {
-		item, err := txn.Get(k)
-		if err == badger.ErrKeyNotFound {
-			return nil, nil
-		}
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read fetch status")
-			return nil, err
-		}
-
-		fetchStatus := &FetchStatus{}
-		if err := item.Value(fetchStatus.Decode); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read value of fetch status")
-			return nil, err
-		}
-
-		return fetchStatus, nil
+	err := s.db.QueryRow("SELECT last_success, last_failure, last_failure_error FROM feeds WHERE url=$1", feedURL).
+		Scan(&lastSuccess, &lastFailure, &lastFailureError)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get fetch staths: %w", err)
 	}
+
+	fetchStatus := FetchStatus{}
+	if lastSuccess != nil {
+		fetchStatus.LastSuccess = *lastSuccess
+	}
+	if lastFailure != nil {
+		fetchStatus.LastFailure = *lastFailure
+	}
+	if lastFailureError != nil {
+		fetchStatus.LastFailureError = *lastFailureError
+	}
+
+	return &fetchStatus, nil
 }
 
-// GetFetchStatus returns the fetch status for key, or nil if the fetch status is unknown.
-func (s *DBService) GetFetchStatus(key []byte) (fetchStatus *FetchStatus, err error) {
-	fetchStatus = &FetchStatus{}
-	k := CreateFetchStatusKey(key)
+// GetPageFetchStatus returns the fetch status for a page, or nil if the fetch status is unknown.
+func (s *DBService) GetPageFetchStatus(key *UserPagemonitor) (*FetchStatus, error) {
+	var lastSuccess, lastFailure *time.Time
+	var lastFailureError *string
+	err := s.db.QueryRow(
+		"SELECT last_success, last_failure, last_failure_error FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3",
+		key.URL, key.Match, key.Replace).
+		Scan(&lastSuccess, &lastFailure, &lastFailureError)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to get fetch staths: %w", err)
+	}
 
-	err = s.db.View(func(txn *badger.Txn) error {
-		var err error
-		fetchStatus, err = getFetchStatus(k)(txn)
+	fetchStatus := FetchStatus{}
+	if lastSuccess != nil {
+		fetchStatus.LastSuccess = *lastSuccess
+	}
+	if lastFailure != nil {
+		fetchStatus.LastFailure = *lastFailure
+	}
+	if lastFailureError != nil {
+		fetchStatus.LastFailureError = *lastFailureError
+	}
+
+	return &fetchStatus, nil
+}
+
+// SetFeedFetchStatus creates or updates the fetch status for a feed.
+func (s *DBService) SetFeedFetchStatus(feedURL string, fetchStatus *FetchStatus) error {
+	if fetchStatus.LastSuccess != (time.Time{}) {
+		_, err := s.db.Exec("UPDATE feeds SET last_success=$1 WHERE url = $2", fetchStatus.LastSuccess, feedURL)
 		return err
-	})
-	if err != nil {
-		return nil, err
 	}
-	return
+	if fetchStatus.LastFailure != (time.Time{}) {
+		_, err := s.db.Exec("UPDATE feeds SET last_failure=$1, last_failure_error=$2 WHERE url = $3", fetchStatus.LastFailure, fetchStatus.LastFailureError, feedURL)
+		return err
+	}
+	return nil
 }
 
-// SetFetchStatus creates or updates the fetch status for key.
-func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
-	k := CreateFetchStatusKey(key)
-
-	return s.db.Update(func(txn *badger.Txn) error {
-		previousFetchStatus, err := getFetchStatus(k)(txn)
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read existing fetch status")
-			return err
-		}
-
-		newFetchStatus := FetchStatus{}
-		if previousFetchStatus != nil {
-			newFetchStatus = *previousFetchStatus
-		}
-
-		var emptyTime time.Time
-		if fetchStatus.LastSuccess != emptyTime {
-			newFetchStatus.LastSuccess = fetchStatus.LastSuccess
-		}
-		if fetchStatus.LastFailure != emptyTime {
-			newFetchStatus.LastFailure = fetchStatus.LastFailure
-		}
-
-		var value bytes.Buffer
-		if err := gob.NewEncoder(&value).Encode(newFetchStatus); err != nil {
-			return fmt.Errorf("Error encoding fetch status because of %w", err)
-		}
-
-		if err := txn.Set(k, value.Bytes()); err != nil {
-			return fmt.Errorf("Error saving fetch status because of %w", err)
-		}
-		return nil
-	})
-}
-
-// DeleteStaleFetchStatuses deletes all FetchStatus items which were not updated for itemTTL.
-func (s *DBService) DeleteStaleFetchStatuses() error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		now := time.Now()
-
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(FetchStatusKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.KeyCopy(nil)
-
-			fetchStatus := &FetchStatus{}
-			if err := item.Value(fetchStatus.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
-				continue
-			}
-
-			var lastUpdated time.Time
-			if fetchStatus.LastFailure.After(lastUpdated) {
-				lastUpdated = fetchStatus.LastFailure
-			}
-			if fetchStatus.LastSuccess.After(lastUpdated) {
-				lastUpdated = fetchStatus.LastSuccess
-			}
-
-			expires := lastUpdated.Add(itemTTL)
-			if now.After(expires) {
-				log.Debug("Deleting expired fetch status")
-				if err := txn.Delete(k); err != nil {
-					log.WithField("key", k).WithError(err).Error("Failed to delete fetch status")
-				}
-			}
-		}
-		return nil
-	})
+// SetPageFetchStatus creates or updates the fetch status for a page.
+func (s *DBService) SetPageFetchStatus(key *UserPagemonitor, fetchStatus *FetchStatus) error {
+	if fetchStatus.LastSuccess != (time.Time{}) {
+		_, err := s.db.Exec(
+			"UPDATE pagemonitors SET last_success=$1 WHERE url = $2 AND match = $3 AND replace=$4",
+			fetchStatus.LastSuccess, key.URL, key.Match, key.Replace,
+		)
+		return err
+	}
+	if fetchStatus.LastFailure != (time.Time{}) {
+		_, err := s.db.Exec(
+			"UPDATE pagemonitors SET last_failure=$1, last_failure_error=$2 WHERE url = $3 AND match = $4 AND replace=$5",
+			fetchStatus.LastFailure, fetchStatus.LastFailureError, key.URL, key.Match, key.Replace,
+		)
+		return err
+	}
+	return nil
 }

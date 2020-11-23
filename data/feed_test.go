@@ -1,6 +1,8 @@
 package data
 
 import (
+	"database/sql"
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,7 +10,7 @@ import (
 )
 
 func TestGetItemEmpty(t *testing.T) {
-	err := resetDb()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
@@ -18,8 +20,10 @@ func TestGetItemEmpty(t *testing.T) {
 }
 
 func TestSaveReadItem(t *testing.T) {
-	err := resetDb()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
+
+	prepareFeeds(dbService, "http://feed1", "http://feed2")
 
 	key1 := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item1 := Feeditem{
@@ -57,8 +61,10 @@ func TestSaveReadItem(t *testing.T) {
 }
 
 func TestUpdateReadItem(t *testing.T) {
-	err := resetDb()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
+
+	prepareFeeds(dbService, "http://feed1")
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item := Feeditem{
@@ -87,8 +93,10 @@ func TestUpdateReadItem(t *testing.T) {
 }
 
 func TestUpdateReadItemUnchanged(t *testing.T) {
-	err := resetDb()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
+
+	prepareFeeds(dbService, "http://feed1")
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item := Feeditem{
@@ -114,9 +122,12 @@ func TestUpdateReadItemUnchanged(t *testing.T) {
 	assert.Equal(t, &item, dbItem)
 }
 
-func TestSaveReadItemTTLExpired(t *testing.T) {
-	err := resetDb()
+func TestSaveReadItemTTLExpiredItem(t *testing.T) {
+	err := prepareFeedTests()
 	assert.NoError(t, err)
+
+	prepareFeeds(dbService, "http://feed1")
+
 	var oldTTL = itemTTL
 	itemTTL = time.Nanosecond * 0
 	defer func() { itemTTL = oldTTL }()
@@ -132,7 +143,11 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
+	expiredTime := time.Now().Add(-time.Minute * 15).UTC().Truncate(time.Millisecond)
+	_, err = dbService.db.Exec("UPDATE feeditems SET last_seen=$1 WHERE url='http://item1'", expiredTime)
+	assert.NoError(t, err)
+
+	err = dbService.deleteExpiredItems()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
@@ -140,8 +155,12 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 	assert.Nil(t, dbItem)
 }
 
-func TestSaveReadItemTTLNotExpired(t *testing.T) {
-	err := resetDb()
+func TestSaveReadItemTTLExpiredFeed(t *testing.T) {
+	err := prepareFeedTests()
+	assert.NoError(t, err)
+
+	prepareFeeds(dbService, "http://feed1")
+	_, err = dbService.db.Exec("UPDATE feeds SET last_success = NULL")
 	assert.NoError(t, err)
 
 	item := &Feeditem{
@@ -155,7 +174,32 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
+	err = dbService.deleteExpiredItems()
+	assert.NoError(t, err)
+
+	dbItem, err := dbService.GetFeeditem(item.Key)
+	assert.NoError(t, err)
+	assert.Nil(t, dbItem)
+}
+
+func TestSaveReadItemTTLNotExpired(t *testing.T) {
+	err := prepareFeedTests()
+	assert.NoError(t, err)
+
+	prepareFeeds(dbService, "http://feed1")
+
+	item := &Feeditem{
+		Title:    "t1",
+		URL:      "http://item1",
+		Date:     time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC),
+		Contents: "c1",
+		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
+		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
+	}
+	err = dbService.SaveFeeditems(item)
+	assert.NoError(t, err)
+
+	err = dbService.deleteExpiredItems()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
@@ -164,7 +208,29 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 }
 
 func TestSaveReadAllItems(t *testing.T) {
-	err := resetDb()
+	err := prepareFeedTests()
+	assert.NoError(t, err)
+
+	user1 := &User{
+		Opml: `<opml version="1.0">` +
+			`<body>` +
+			`<outline text="Site 1" title="Site 1" type="rss" xmlUrl="http://feed1" htmlUrl="http://feed1"/>` +
+			`</body>` +
+			`</opml>`,
+		username: "user01",
+	}
+	err = dbService.SaveUser(user1)
+	assert.NoError(t, err)
+	user2 := &User{
+		Opml: `<opml version="1.0">` +
+			`<body>` +
+			`<outline text="Site 1" title="Site 1" type="rss" xmlUrl="http://feed1" htmlUrl="http://feed1"/>` +
+			`<outline text="Site 2" title="Site 2" type="rss" xmlUrl="http://feed2" htmlUrl="http://feed2"/>` +
+			`</body>` +
+			`</opml>`,
+		username: "user02",
+	}
+	err = dbService.SaveUser(user2)
 	assert.NoError(t, err)
 
 	item1 := Feeditem{
@@ -191,21 +257,39 @@ func TestSaveReadAllItems(t *testing.T) {
 		Updated:  time.Date(2019, time.February, 18, 23, 2, 0, 0, time.UTC),
 		Key:      &FeeditemKey{FeedURL: "http://feed2", GUID: "g2"},
 	}
-	items := []Feeditem{item1, item2, item3}
 	err = dbService.SaveFeeditems(&item1, &item2, &item3)
 	assert.NoError(t, err)
 
-	dbItems := []Feeditem{}
-	ch := make(chan *Feeditem)
-	done := make(chan bool)
-	go func() {
-		for item := range ch {
-			dbItems = append(dbItems, *item)
-		}
-		close(done)
-	}()
-	err = dbService.ReadAllFeedItems(ch)
-	<-done
+	items1 := []*Feeditem{&item1, &item2}
+	dbItems1, err := dbService.GetFeeditems(user1)
 	assert.NoError(t, err)
-	assert.EqualValues(t, items, dbItems)
+	assert.EqualValues(t, items1, dbItems1)
+
+	items2 := []*Feeditem{&item1, &item2, &item3}
+	dbItems2, err := dbService.GetFeeditems(user2)
+	assert.NoError(t, err)
+	assert.EqualValues(t, items2, dbItems2)
+}
+
+func prepareFeedTests() error {
+	cleanDatabases := []string{"users", "feeds"}
+	for _, table := range cleanDatabases {
+		_, err := dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func prepareFeeds(s *DBService, feedURLs ...string) error {
+	return s.updateTx(func(tx *sql.Tx) error {
+		for _, feedURL := range feedURLs {
+			_, err := s.db.Exec("INSERT INTO feeds(url, last_success) VALUES($1, NOW())", feedURL)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }

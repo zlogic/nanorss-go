@@ -1,4 +1,4 @@
-package datadb
+package data
 
 import (
 	"database/sql/driver"

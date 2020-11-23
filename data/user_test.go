@@ -1,6 +1,7 @@
 package data
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestGetUserEmpty(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user, err := dbService.GetUser(defaultUsername)
@@ -23,13 +24,13 @@ func TestGetUserEmpty(t *testing.T) {
 }
 
 func TestCreateGetUser(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user := &User{
 		Password:    "password",
-		Opml:        "opml",
-		Pagemonitor: "pagemonitor",
+		Opml:        "<opml></opml>",
+		Pagemonitor: "<pages></pages>",
 		username:    "user01",
 	}
 	err = dbService.SaveUser(user)
@@ -39,38 +40,38 @@ func TestCreateGetUser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
 	assert.Equal(t, "password", user.Password)
-	assert.Equal(t, "opml", user.Opml)
-	assert.Equal(t, "pagemonitor", user.Pagemonitor)
+	assert.Equal(t, "<opml></opml>", user.Opml)
+	assert.Equal(t, "<pages></pages>", user.Pagemonitor)
 }
 
 func TestReadAllUsers(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user1 := User{
 		Password:    "pass1",
-		Opml:        "opml1",
-		Pagemonitor: "pagemonitor1",
+		Opml:        "<opml><!-- 1 --></opml>",
+		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
-		Opml:        "opml2",
-		Pagemonitor: "pagemonitor2",
+		Opml:        "<opml><!-- 2 --></opml>",
+		Pagemonitor: "<pages><!-- 2 --></pages>",
 		username:    "user02",
 	}
-	users := []User{user1, user2}
+	users := []*User{&user1, &user2}
 	for _, user := range users {
-		err = dbService.SaveUser(&user)
+		err = dbService.SaveUser(user)
 		assert.NoError(t, err)
 	}
 
-	dbUsers := []User{}
+	dbUsers := []*User{}
 	ch := make(chan *User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
-			dbUsers = append(dbUsers, *user)
+			dbUsers = append(dbUsers, user)
 		}
 		close(done)
 	}()
@@ -95,13 +96,13 @@ func TestSetUserPassword(t *testing.T) {
 }
 
 func TestSetUsername(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user := User{
 		Password:    "pass1",
-		Opml:        "opml1",
-		Pagemonitor: "pagemonitor1",
+		Opml:        "<opml><!-- 1 --></opml>",
+		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	users := []*User{&user}
@@ -133,13 +134,13 @@ func TestSetUsername(t *testing.T) {
 }
 
 func TestSetUsernameAndOtherFields(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user := User{
 		Password:    "pass1",
-		Opml:        "opml1",
-		Pagemonitor: "pagemonitor1",
+		Opml:        "<opml><!-- 1 --></opml>",
+		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	users := []*User{&user}
@@ -147,8 +148,8 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 	assert.NoError(t, err)
 
 	user.Password = "pass1new"
-	user.Opml = "opml1new"
-	user.Pagemonitor = "pagemonitor1new"
+	user.Opml = "<opml><!-- 1 new --></opml>"
+	user.Pagemonitor = "<pages><!-- 1 new --></pages>"
 	err = user.SetUsername("user02")
 	assert.NoError(t, err)
 
@@ -176,34 +177,32 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 }
 
 func TestSetUsernameAlreadyExists(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user1 := User{
 		Password:    "pass1",
-		Opml:        "opml1",
-		Pagemonitor: "pagemonitor1",
+		Opml:        "<opml><!-- 1 --></opml>",
+		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
-		Opml:        "opml2",
-		Pagemonitor: "pagemonitor2",
+		Opml:        "<opml><!-- 2 --></opml>",
+		Pagemonitor: "<pages><!-- 2 --></pages>",
 		username:    "user02",
 	}
-	users := []User{user1, user2}
-	err = dbService.SaveUser(&user1)
-	assert.NoError(t, err)
-	err = dbService.SaveUser(&user2)
-	assert.NoError(t, err)
+	users := []*User{&user1, &user2}
+	for _, user := range users {
+		err = dbService.SaveUser(user)
+		assert.NoError(t, err)
+	}
 
 	err = user1.SetUsername("user02")
 	assert.NoError(t, err)
 	err = dbService.SaveUser(&user1)
 	assert.Error(t, err)
 	assert.Equal(t, "user01", user1.username)
-	assert.Equal(t, "user02", user1.newUsername)
-	user1.newUsername = ""
 
 	dbUser1, err := dbService.GetUser("user01")
 	assert.Equal(t, user1, *dbUser1)
@@ -211,12 +210,12 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 	dbUser2, err := dbService.GetUser("user02")
 	assert.Equal(t, user2, *dbUser2)
 
-	dbUsers := []User{}
+	dbUsers := []*User{}
 	ch := make(chan *User)
 	done := make(chan bool)
 	go func() {
 		for user := range ch {
-			dbUsers = append(dbUsers, *user)
+			dbUsers = append(dbUsers, user)
 		}
 		close(done)
 	}()
@@ -227,13 +226,13 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 }
 
 func TestSetUsernameEmptyString(t *testing.T) {
-	err := resetDb()
+	err := prepareUserTests()
 	assert.NoError(t, err)
 
 	user := User{
 		Password:    "pass1",
-		Opml:        "opml1",
-		Pagemonitor: "pagemonitor1",
+		Opml:        "<opml><!-- 1 --></opml>",
+		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	users := []*User{&user}
@@ -297,4 +296,15 @@ func TestParseOPML(t *testing.T) {
 		{URL: "http://updates-site2.com", Title: "Site 2"},
 		{URL: "http://updates-site3.com", Title: "Site 3"},
 	}, items)
+}
+
+func prepareUserTests() error {
+	cleanDatabases := []string{"users", "pagemonitors"}
+	for _, table := range cleanDatabases {
+		_, err := dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

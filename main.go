@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -87,33 +86,9 @@ func serve(db *data.DBService) {
 
 const backupFilename = "nanorss.json"
 
-func backupData(db *data.DBService) {
-	data, err := db.Backup()
-	if err != nil {
-		log.WithError(err).Fatal("Failed to back up json")
-	}
-	err = ioutil.WriteFile(backupFilename, []byte(data), 0644)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to write file")
-	}
-	log.WithField("filename", backupFilename).Info("Backed up")
-}
-
-func restoreData(db *data.DBService) {
-	data, err := ioutil.ReadFile(backupFilename)
-	if err != nil {
-		log.Fatalf("Failed to read file %v", err)
-	}
-	err = db.Restore(string(data))
-	if err != nil {
-		log.Fatalf("Failed to restore data %v", err)
-	}
-	log.WithField("filename", backupFilename).Info("Restored")
-}
-
 func main() {
 	// Init data layer
-	db, err := data.Open(data.DefaultOptions())
+	db, err := data.Open()
 	defer func() {
 		db.GC()
 		db.Close()
@@ -123,17 +98,5 @@ func main() {
 		log.Fatalf("Failed to open data store %v", err)
 	}
 
-	if len(os.Args) < 2 || os.Args[1] == "serve" {
-		serve(db)
-	} else {
-		switch directive := os.Args[1]; directive {
-		case "backup":
-			backupData(db)
-		case "restore":
-			restoreData(db)
-		default:
-			db.Close()
-			log.Fatalf("Unrecognized directive %v", directive)
-		}
-	}
+	serve(db)
 }

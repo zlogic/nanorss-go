@@ -43,12 +43,12 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 	if err != nil {
 		log.WithField("feed", feedURL).WithError(err).Error("Failed to get feed")
 		fetchStatus.LastFailure = time.Now()
+		fetchStatus.LastFailureError = err.Error()
 	} else {
 		fetchStatus.LastSuccess = time.Now()
 	}
 
-	fetchStatusKey := (&data.UserFeed{URL: feedURL}).CreateKey()
-	if err := fetcher.DB.SetFetchStatus(fetchStatusKey, fetchStatus); err != nil {
+	if err := fetcher.DB.SetFeedFetchStatus(feedURL, fetchStatus); err != nil {
 		log.WithField("feed", feedURL).WithError(err).Error("Failed to save fetch status for feed")
 	}
 	return err

@@ -267,9 +267,9 @@ func TestFeedItemAuthorized(t *testing.T) {
 	}
 
 	dbMock.On("GetFeeditem", key).Return(item, nil).Once()
-	dbMock.On("SetReadStatus", user, key.CreateKey(), true).Return(nil).Once()
+	dbMock.On("SetFeeditemReadStatus", user, key, true).Return(nil).Once()
 
-	req, _ := http.NewRequest("GET", "/api/items/"+escapeKeyForURL(key.CreateKey()), nil)
+	req, _ := http.NewRequest("GET", "/api/items/feeditem/"+escapeFeeditemKeyForURL(key), nil)
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
@@ -278,7 +278,7 @@ func TestFeedItemAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem/http:%252F%252Fsite1%252Frss%2Fg1"}`+"\n", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 }
@@ -304,9 +304,9 @@ func TestPageAuthorized(t *testing.T) {
 	}
 
 	dbMock.On("GetPage", config).Return(page, nil).Once()
-	dbMock.On("SetReadStatus", user, config.CreateKey(), true).Return(nil).Once()
+	dbMock.On("SetPageReadStatus", user, config, true).Return(nil).Once()
 
-	req, _ := http.NewRequest("GET", "/api/items/"+escapeKeyForURL(config.CreateKey()), nil)
+	req, _ := http.NewRequest("GET", "/api/items/page/"+escapePagemonitorKeyForURL(config), nil)
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
@@ -315,7 +315,7 @@ func TestPageAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":true,"MarkUnreadURL":"api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"URL":"http://site1/1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":true,"MarkUnreadURL":"api/items/page/http:%252F%252Fsite1%252F1%2Fm1%2Fr1"}`+"\n", string(res.Body.Bytes()))
 
 	dbMock.AssertExpectations(t)
 }
@@ -337,7 +337,7 @@ func TestFeedItemAuthorizedNotFound(t *testing.T) {
 
 	dbMock.On("GetFeeditem", key).Return(nil, nil).Once()
 
-	req, _ := http.NewRequest("GET", "/api/items/"+escapeKeyForURL(key.CreateKey()), nil)
+	req, _ := http.NewRequest("GET", "/api/items/feeditem/"+escapeFeeditemKeyForURL(key), nil)
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
@@ -368,7 +368,7 @@ func TestPageAuthorizedNotFound(t *testing.T) {
 
 	dbMock.On("GetPage", config).Return(nil, nil).Once()
 
-	req, _ := http.NewRequest("GET", "/api/items/"+escapeKeyForURL(config.CreateKey()), nil)
+	req, _ := http.NewRequest("GET", "/api/items/page/"+escapePagemonitorKeyForURL(config), nil)
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
@@ -395,7 +395,7 @@ func TestGetUnknownItemTypeAuthorized(t *testing.T) {
 	user.SetPassword("pass")
 	dbMock.On("GetUser", "user01").Return(user, nil).Once()
 
-	req, _ := http.NewRequest("GET", "/api/items/magic", nil)
+	req, _ := http.NewRequest("GET", "/api/items/page/magic", nil)
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
@@ -418,7 +418,7 @@ func TestGetItemNotAuthorized(t *testing.T) {
 	router, err := CreateRouter(services)
 	assert.NoError(t, err)
 
-	req, _ := http.NewRequest("GET", "/api/items/feeditem--", nil)
+	req, _ := http.NewRequest("GET", "/api/items/feeditem/--", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -439,7 +439,7 @@ func TestGetItemUserDoesNotExist(t *testing.T) {
 
 	dbMock.On("GetUser", "user01").Return(nil, nil).Once()
 
-	req, _ := http.NewRequest("GET", "/api/items/feeditem--", nil)
+	req, _ := http.NewRequest("GET", "/api/items/feeditem/--", nil)
 	res := httptest.NewRecorder()
 
 	cookie := cookieHandler.NewCookie()
@@ -453,7 +453,7 @@ func TestGetItemUserDoesNotExist(t *testing.T) {
 	dbMock.AssertExpectations(t)
 }
 
-func TestSetUnreadAuthorized(t *testing.T) {
+func TestSetFeeditemUnreadAuthorized(t *testing.T) {
 	dbMock := new(DBMock)
 	cookieHandler, err := createTestCookieHandler()
 	assert.NoError(t, err)
@@ -468,9 +468,41 @@ func TestSetUnreadAuthorized(t *testing.T) {
 
 	key := &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"}
 
-	dbMock.On("SetReadStatus", user, key.CreateKey(), false).Return(nil).Once()
+	dbMock.On("SetFeeditemReadStatus", user, key, false).Return(nil).Once()
 
-	req, _ := http.NewRequest("POST", "/api/items/"+escapeKeyForURL(key.CreateKey()), strings.NewReader("Read=false"))
+	req, _ := http.NewRequest("POST", "/api/items/feeditem/"+escapeFeeditemKeyForURL(key), strings.NewReader("Read=false"))
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	res := httptest.NewRecorder()
+
+	cookie := cookieHandler.NewCookie()
+	cookieHandler.SetCookieUsername(cookie, "user01")
+	req.AddCookie(cookie)
+
+	router.ServeHTTP(res, req)
+	assert.Equal(t, http.StatusOK, res.Code)
+	assert.Equal(t, "OK", string(res.Body.Bytes()))
+
+	dbMock.AssertExpectations(t)
+}
+
+func TestSetPageUnreadAuthorized(t *testing.T) {
+	dbMock := new(DBMock)
+	cookieHandler, err := createTestCookieHandler()
+	assert.NoError(t, err)
+
+	services := &Services{db: dbMock, cookieHandler: cookieHandler}
+	router, err := CreateRouter(services)
+	assert.NoError(t, err)
+
+	user := data.NewUser("user01")
+	user.SetPassword("pass")
+	dbMock.On("GetUser", "user01").Return(user, nil).Once()
+
+	config := &data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}
+
+	dbMock.On("SetPageReadStatus", user, config, false).Return(nil).Once()
+
+	req, _ := http.NewRequest("POST", "/api/items/page/"+escapePagemonitorKeyForURL(config), strings.NewReader("Read=false"))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	res := httptest.NewRecorder()
 
@@ -500,7 +532,7 @@ func TestPostItemUnsupportedOperationAuthorized(t *testing.T) {
 
 	key := &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"}
 
-	req, _ := http.NewRequest("POST", "/api/items/"+escapeKeyForURL(key.CreateKey()), strings.NewReader("Read=true"))
+	req, _ := http.NewRequest("POST", "/api/items/feeditem/"+escapeFeeditemKeyForURL(key), strings.NewReader("Read=true"))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	res := httptest.NewRecorder()
 
@@ -526,7 +558,7 @@ func TestSetUnreadNotAuthorized(t *testing.T) {
 
 	key := &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"}
 
-	req, _ := http.NewRequest("POST", "/api/items/"+escapeKeyForURL(key.CreateKey()), strings.NewReader("Read=false"))
+	req, _ := http.NewRequest("POST", "/api/items/feeditem/"+escapeFeeditemKeyForURL(key), strings.NewReader("Read=false"))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	res := httptest.NewRecorder()
 
@@ -550,7 +582,7 @@ func TestSetUnreadUserDoesNotExist(t *testing.T) {
 
 	key := &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"}
 
-	req, _ := http.NewRequest("POST", "/api/items/"+escapeKeyForURL(key.CreateKey()), strings.NewReader("Read=false"))
+	req, _ := http.NewRequest("POST", "/api/items/feeditem/"+escapeFeeditemKeyForURL(key), strings.NewReader("Read=false"))
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	res := httptest.NewRecorder()
 
@@ -937,10 +969,10 @@ func TestGetStatusAuthorizedSuccess(t *testing.T) {
 	date1 := time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)
 	date2 := time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
 	dbMock.On("GetUser", "user01").Return(user, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date2, LastFailure: date1}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date1}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date2, LastFailure: date1}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/2"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date2}, nil).Once()
+	dbMock.On("GetFeedFetchStatus", "http://site1/rss").Return(&data.FetchStatus{LastSuccess: date2, LastFailure: date1, LastFailureError: "some error"}, nil).Once()
+	dbMock.On("GetFeedFetchStatus", "http://site2/rss").Return(&data.FetchStatus{LastSuccess: date1}, nil).Once()
+	dbMock.On("GetPageFetchStatus", &data.UserPagemonitor{URL: "http://site1/1", Title: "Site 1", Match: "m1", Replace: "r1"}).Return(&data.FetchStatus{LastSuccess: date2, LastFailure: date1, LastFailureError: "some error"}, nil).Once()
+	dbMock.On("GetPageFetchStatus", &data.UserPagemonitor{URL: "http://site1/2", Title: "Site 2"}).Return(&data.FetchStatus{LastSuccess: date2}, nil).Once()
 
 	req, _ := http.NewRequest("GET", "/api/status", nil)
 	res := httptest.NewRecorder()
@@ -951,9 +983,9 @@ func TestGetStatusAuthorizedSuccess(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "["+`{"Name":"Feed 1","Success":true,"LastFailure":"2019-02-16T23:00:00Z","LastSuccess":"2019-02-16T23:01:00Z"},`+
+	assert.Equal(t, "["+`{"Name":"Feed 1","Success":true,"LastSuccess":"2019-02-16T23:01:00Z","LastFailure":"2019-02-16T23:00:00Z","LastFailureError":"some error"},`+
 		`{"Name":"Feed 2","Success":true,"LastSuccess":"2019-02-16T23:00:00Z"},`+
-		`{"Name":"Site 1","Success":true,"LastFailure":"2019-02-16T23:00:00Z","LastSuccess":"2019-02-16T23:01:00Z"},`+
+		`{"Name":"Site 1","Success":true,"LastSuccess":"2019-02-16T23:01:00Z","LastFailure":"2019-02-16T23:00:00Z","LastFailureError":"some error"},`+
 		`{"Name":"Site 2","Success":true,"LastSuccess":"2019-02-16T23:01:00Z"}`+
 		"]\n", string(res.Body.Bytes()))
 
@@ -975,10 +1007,10 @@ func TestGetStatusAuthorizedFailure(t *testing.T) {
 	date1 := time.Date(2019, time.February, 16, 23, 0, 0, 0, time.UTC)
 	date2 := time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC)
 	dbMock.On("GetUser", "user01").Return(user, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date1, LastFailure: date2}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()).Return(&data.FetchStatus{LastFailure: date1}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}).CreateKey()).Return(&data.FetchStatus{LastSuccess: date1, LastFailure: date2}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/2"}).CreateKey()).Return(&data.FetchStatus{LastFailure: date2}, nil).Once()
+	dbMock.On("GetFeedFetchStatus", "http://site1/rss").Return(&data.FetchStatus{LastSuccess: date1, LastFailure: date2, LastFailureError: "some error"}, nil).Once()
+	dbMock.On("GetFeedFetchStatus", "http://site2/rss").Return(&data.FetchStatus{LastFailure: date1}, nil).Once()
+	dbMock.On("GetPageFetchStatus", &data.UserPagemonitor{URL: "http://site1/1", Title: "Site 1", Match: "m1", Replace: "r1"}).Return(&data.FetchStatus{LastSuccess: date1, LastFailure: date2, LastFailureError: "some error"}, nil).Once()
+	dbMock.On("GetPageFetchStatus", &data.UserPagemonitor{URL: "http://site1/2", Title: "Site 2"}).Return(&data.FetchStatus{LastFailure: date2}, nil).Once()
 
 	req, _ := http.NewRequest("GET", "/api/status", nil)
 	res := httptest.NewRecorder()
@@ -989,9 +1021,9 @@ func TestGetStatusAuthorizedFailure(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "["+`{"Name":"Feed 1","Success":false,"LastFailure":"2019-02-16T23:01:00Z","LastSuccess":"2019-02-16T23:00:00Z"},`+
+	assert.Equal(t, "["+`{"Name":"Feed 1","Success":false,"LastSuccess":"2019-02-16T23:00:00Z","LastFailure":"2019-02-16T23:01:00Z","LastFailureError":"some error"},`+
 		`{"Name":"Feed 2","Success":false,"LastFailure":"2019-02-16T23:00:00Z"},`+
-		`{"Name":"Site 1","Success":false,"LastFailure":"2019-02-16T23:01:00Z","LastSuccess":"2019-02-16T23:00:00Z"},`+
+		`{"Name":"Site 1","Success":false,"LastSuccess":"2019-02-16T23:00:00Z","LastFailure":"2019-02-16T23:01:00Z","LastFailureError":"some error"},`+
 		`{"Name":"Site 2","Success":false,"LastFailure":"2019-02-16T23:01:00Z"}`+
 		"]\n", string(res.Body.Bytes()))
 
@@ -1011,10 +1043,10 @@ func TestGetStatusAuthorizedUnknown(t *testing.T) {
 	user.Opml = defaultOpml
 	user.Pagemonitor = defaultPagemonitor
 	dbMock.On("GetUser", "user01").Return(user, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/1", Match: "m1", Replace: "r1"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
-	dbMock.On("GetFetchStatus", (&data.UserPagemonitor{URL: "http://site1/2"}).CreateKey()).Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetFeedFetchStatus", "http://site1/rss").Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetFeedFetchStatus", "http://site2/rss").Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetPageFetchStatus", &data.UserPagemonitor{URL: "http://site1/1", Title: "Site 1", Match: "m1", Replace: "r1"}).Return(&data.FetchStatus{}, nil).Once()
+	dbMock.On("GetPageFetchStatus", &data.UserPagemonitor{URL: "http://site1/2", Title: "Site 2"}).Return(&data.FetchStatus{}, nil).Once()
 
 	req, _ := http.NewRequest("GET", "/api/status", nil)
 	res := httptest.NewRecorder()

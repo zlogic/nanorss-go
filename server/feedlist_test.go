@@ -22,22 +22,8 @@ const defaultPagemonitor = `<pages>` +
 	`</pages>`
 
 func (m *DBMock) configureMockForFeedList(feedItems []*data.Feeditem, pages []*data.PagemonitorPage) {
-	m.On("ReadAllFeedItems", mock.AnythingOfType("chan *data.Feeditem")).Return(nil).Once().
-		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.Feeditem)
-			for _, feedItem := range feedItems {
-				ch <- feedItem
-			}
-			close(ch)
-		})
-	m.On("ReadAllPages", mock.AnythingOfType("chan *data.PagemonitorPage")).Return(nil).Once().
-		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.PagemonitorPage)
-			for _, page := range pages {
-				ch <- page
-			}
-			close(ch)
-		})
+	m.On("GetFeeditems", mock.AnythingOfType("*data.User")).Return(feedItems, nil).Once()
+	m.On("GetPages", mock.AnythingOfType("*data.User")).Return(pages, nil).Once()
 }
 
 func TestFeedListHelperEmptyList(t *testing.T) {
@@ -49,7 +35,8 @@ func TestFeedListHelperEmptyList(t *testing.T) {
 	}
 
 	dbMock.configureMockForFeedList([]*data.Feeditem{}, []*data.PagemonitorPage{})
-	dbMock.On("GetReadStatus", user).Return(nil, nil).Once()
+	dbMock.On("GetFeeditemsReadStatus", user).Return(nil, nil).Once()
+	dbMock.On("GetPagesReadStatus", user).Return(nil, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)
@@ -70,34 +57,34 @@ func TestFeedListHelperOrdering(t *testing.T) {
 		{
 			Origin:   "Site 2",
 			SortDate: time.Date(2019, time.February, 18, 23, 3, 0, 0, time.UTC),
-			FetchURL: "api/items/pagemonitor-aHR0cDovL3NpdGUxLzI--",
+			FetchURL: "api/items/page/http:%252F%252Fsite1%252F2%2F%2F",
 			IsRead:   false,
 		},
 		{
 			Title:    "t2",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 2, 0, 0, time.UTC),
-			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzI",
+			FetchURL: "api/items/feeditem/http:%252F%252Fsite1%252Frss%2Fg2",
 			IsRead:   false,
 		},
 		{
 			Title:    "t1",
 			Origin:   "Feed 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
-			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE",
+			FetchURL: "api/items/feeditem/http:%252F%252Fsite1%252Frss%2Fg1",
 			IsRead:   false,
 		},
 		{
 			Title:    "t21",
 			Origin:   "Feed 2",
 			SortDate: time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
-			FetchURL: "api/items/feeditem-aHR0cDovL3NpdGUyL3Jzcw-ZzE",
+			FetchURL: "api/items/feeditem/http:%252F%252Fsite2%252Frss%2Fg1",
 			IsRead:   true,
 		},
 		{
 			Origin:   "Site 1",
 			SortDate: time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
-			FetchURL: "api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE",
+			FetchURL: "api/items/page/http:%252F%252Fsite1%252F1%2Fm1%2Fr1",
 			IsRead:   true,
 		},
 	}
@@ -134,13 +121,12 @@ func TestFeedListHelperOrdering(t *testing.T) {
 		},
 	}
 
-	readItems := [][]byte{
-		pages[0].Config.CreateKey(),
-		feedItems[1].Key.CreateKey(),
-	}
+	readPages := []*data.UserPagemonitor{pages[0].Config}
+	readFeeditems := []*data.FeeditemKey{feedItems[1].Key}
 
 	dbMock.configureMockForFeedList(feedItems, pages)
-	dbMock.On("GetReadStatus", user).Return(readItems, nil).Once()
+	dbMock.On("GetFeeditemsReadStatus", user).Return(readFeeditems, nil).Once()
+	dbMock.On("GetPagesReadStatus", user).Return(readPages, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)
@@ -178,7 +164,8 @@ func TestFeedListHelperIgnoreUnknownItems(t *testing.T) {
 	}
 
 	dbMock.configureMockForFeedList(feedItems, pages)
-	dbMock.On("GetReadStatus", user).Return(nil, nil).Once()
+	dbMock.On("GetFeeditemsReadStatus", user).Return(nil, nil).Once()
+	dbMock.On("GetPagesReadStatus", user).Return(nil, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)

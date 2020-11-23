@@ -66,7 +66,6 @@ func TestFetchFeed(t *testing.T) {
 	}
 
 	feedURL := "http://site1/rss"
-	feedKey := (&data.UserFeed{URL: feedURL}).CreateKey()
 	beforeUpdate := time.Now()
 	dbMock.On("SaveFeeditems", mock.AnythingOfType("[]*data.Feeditem")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
@@ -85,7 +84,7 @@ func TestFetchFeed(t *testing.T) {
 			}
 			assert.Equal(t, expectedRssFeedItems, savedItems)
 		})
-	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFeedFetchStatus", feedURL, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()
 			fetchStatus := args.Get(1).(*data.FetchStatus)
@@ -110,9 +109,8 @@ func TestFetchFeedError(t *testing.T) {
 	}
 
 	feedURL := "http://site1/rss"
-	feedKey := (&data.UserFeed{URL: feedURL}).CreateKey()
 	beforeUpdate := time.Now()
-	dbMock.On("SetFetchStatus", feedKey, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFeedFetchStatus", feedURL, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
 		Run(func(args mock.Arguments) {
 			currentTime := time.Now()
 			fetchStatus := args.Get(1).(*data.FetchStatus)
@@ -197,11 +195,11 @@ func TestFetchAllFeeds(t *testing.T) {
 		assertTimeBetween(t, beforeUpdate, currentTime, fetchStatus.LastSuccess)
 		assert.Equal(t, emptyTime, fetchStatus.LastFailure)
 	}
-	feedKey1 := (&data.UserFeed{URL: "http://site1/rss"}).CreateKey()
-	feedKey2 := (&data.UserFeed{URL: "http://site2/rss"}).CreateKey()
-	dbMock.On("SetFetchStatus", feedKey1, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	feedURL1 := "http://site1/rss"
+	feedURL2 := "http://site2/rss"
+	dbMock.On("SetFeedFetchStatus", feedURL1, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
 		Run(assertSetFetchStatus)
-	dbMock.On("SetFetchStatus", feedKey2, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
+	dbMock.On("SetFeedFetchStatus", feedURL2, mock.AnythingOfType("*data.FetchStatus")).Return(nil).Once().
 		Run(assertSetFetchStatus)
 	err := fetcher.FetchAllFeeds()
 	assert.NoError(t, err)

@@ -1,14 +1,11 @@
 package data
 
 import (
-	"bytes"
-	"encoding/gob"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
 	"strings"
 
-	"github.com/dgraph-io/badger/v2"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -18,13 +15,8 @@ type User struct {
 	Opml        string
 	Pagemonitor string
 	username    string
-	newUsername string
-}
 
-// UserService wraps a DBService and makes sure that only data for Username is returned.
-type UserService struct {
-	DBService
-	Username string
+	id *int
 }
 
 // UserPagemonitor is a deserialized copy of a page from the Pagemonitor.
@@ -46,41 +38,25 @@ func NewUser(username string) *User {
 	return &User{username: username}
 }
 
-// Decode deserializes a User.
-func (user *User) Decode(val []byte) error {
-	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(user)
-}
-
 // ReadAllUsers reads all users from database and sends them to the provided channel.
 func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
-	err := s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(UserKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			k := item.Key()
-
-			username, err := DecodeUserKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
-				continue
-			}
-
-			user := &User{username: *username}
-			if err := item.Value(user.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
-				continue
-			}
-			ch <- user
-		}
-		return nil
-	})
+	rows, err := s.db.Query("SELECT id, username, password, opml, pagemonitor FROM users")
 	if err != nil {
-		return fmt.Errorf("Cannot read users because of %w", err)
+		return fmt.Errorf("failed to read users: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		user := &User{id: &id}
+		err := rows.Scan(&user.id, &user.username, &user.Password, &user.Opml, &user.Pagemonitor)
+
+		if err != nil {
+			return fmt.Errorf("failed to read user: %w", err)
+		}
+
+		ch <- user
 	}
 	return nil
 }
@@ -88,56 +64,57 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 // GetUser returns the User by username.
 // If user doesn't exist, returns nil.
 func (s *DBService) GetUser(username string) (*User, error) {
-	user := &User{username: username}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(user.CreateKey())
-		if err == badger.ErrKeyNotFound {
-			user = nil
-			return nil
-		}
+	var id int
+	user := User{id: &id}
+	err := s.db.QueryRow("SELECT id, username, password, opml, pagemonitor FROM users WHERE username=$1", username).
+		Scan(&user.id, &user.username, &user.Password, &user.Opml, &user.Pagemonitor)
 
-		if err := item.Value(user.Decode); err != nil {
-			user = nil
-		}
-		return err
-	})
-	if err != nil {
-		return nil, fmt.Errorf("Cannot read User %v because of %w", username, err)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to read user %v: %w", username, err)
 	}
-	return user, nil
+
+	return &user, nil
 }
 
 // SaveUser saves the user in the database.
 func (s *DBService) SaveUser(user *User) (err error) {
-	if user.newUsername == "" {
-		user.newUsername = user.username
-	}
-	key := CreateUserKey(user.newUsername)
-
-	var value bytes.Buffer
-	if err := gob.NewEncoder(&value).Encode(user); err != nil {
-		return fmt.Errorf("Cannot marshal user because of %w", err)
-	}
-	err = s.db.Update(func(txn *badger.Txn) error {
-		if user.newUsername != user.username {
-			existingUser, err := txn.Get(key)
-			if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
-				return fmt.Errorf("New username %v is already in use", key)
-			}
-
-			oldUserKey := CreateUserKey(user.username)
-			if err := txn.Delete(oldUserKey); err != nil {
+	var id int
+	userExists := user.id != nil
+	err = s.updateTx(func(tx *sql.Tx) error {
+		if userExists && user.id != nil {
+			id = *user.id
+			_, err := tx.Exec("UPDATE users SET username=$1, password=$2, opml=$3, pagemonitor=$4 WHERE id=$5", user.username, user.Password, user.Opml, user.Pagemonitor, id)
+			if err != nil {
 				return err
 			}
-			if err := s.renameReadStatus(user)(txn); err != nil {
+		} else {
+			err := tx.QueryRow("INSERT INTO users(username, password, opml, pagemonitor) VALUES($1, $2, $3, $4) RETURNING id", user.username, user.Password, user.Opml, user.Pagemonitor).Scan(&id)
+			if err != nil {
 				return err
 			}
 		}
-		return txn.Set(key, value.Bytes())
+
+		if user.id == nil {
+			user.id = &id
+		}
+
+		err = linkUserPages(user, tx)
+		if err != nil {
+			return err
+		}
+		return linkUserFeeds(user, tx)
 	})
-	if err == nil {
-		user.username = user.newUsername
-		user.newUsername = ""
+	if err != nil && userExists {
+		revertErr := s.db.QueryRow("SELECT username, password, opml, pagemonitor FROM users WHERE id=$1", user.id).
+			Scan(&user.username, &user.Password, &user.Opml, &user.Pagemonitor)
+		if revertErr != nil {
+			return fmt.Errorf("failed to reload user details (%v) on a failed SaveUser: %w", revertErr, err)
+		}
+	}
+	if err != nil && !userExists {
+		user.id = nil
 	}
 	return err
 }
@@ -151,9 +128,9 @@ func (user *User) GetUsername() string {
 func (user *User) SetUsername(newUsername string) error {
 	newUsername = strings.TrimSpace(newUsername)
 	if newUsername == "" {
-		return fmt.Errorf("Cannot set username to an empty string")
+		return fmt.Errorf("cannot set username to an empty string")
 	}
-	user.newUsername = newUsername
+	user.username = newUsername
 	return nil
 }
 
@@ -174,6 +151,11 @@ func (user *User) ValidatePassword(password string) error {
 
 // GetPages parses user's configuration and returns all UserPagemonitor configuration items.
 func (user *User) GetPages() ([]UserPagemonitor, error) {
+	if user.Pagemonitor == "" {
+		// Empty pagemonitor config - treat as empty XML.
+		return []UserPagemonitor{}, nil
+	}
+
 	type UserPages struct {
 		XMLName xml.Name          `xml:"pages"`
 		Pages   []UserPagemonitor `xml:"page"`
@@ -181,7 +163,7 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 	items := &UserPages{}
 	err := xml.Unmarshal([]byte(user.Pagemonitor), items)
 	if err != nil {
-		err = fmt.Errorf("Cannot parse pagemonitor xml because of %w", err)
+		err = fmt.Errorf("cannot parse pagemonitor xml: %w", err)
 		return nil, err
 	}
 	return items.Pages, nil
@@ -189,6 +171,11 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 
 // GetFeeds parses user's configuration and returns all UserFeed configuration items.
 func (user *User) GetFeeds() ([]UserFeed, error) {
+	if user.Opml == "" {
+		// Empty opml - treat as empty XML.
+		return []UserFeed{}, nil
+	}
+
 	type UserOPMLOutline struct {
 		UserFeed
 		Children []UserOPMLOutline `xml:"outline"`
@@ -200,7 +187,7 @@ func (user *User) GetFeeds() ([]UserFeed, error) {
 	items := &UserOPML{}
 	err := xml.Unmarshal([]byte(user.Opml), items)
 	if err != nil {
-		err = fmt.Errorf("Cannot parse opml xml because of %w", err)
+		err = fmt.Errorf("cannot parse opml xml: %w", err)
 		return nil, err
 	}
 	feeds := []UserFeed{}

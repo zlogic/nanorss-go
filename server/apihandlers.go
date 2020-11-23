@@ -115,6 +115,9 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		itemType := chi.URLParam(r, "type")
+		key := strings.Replace(chi.URLParam(r, "key"), "-", "/", -1)
+
 		type clientFeedItem struct {
 			URL           string
 			Contents      string
@@ -122,10 +125,9 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			Plaintext     bool
 			MarkUnreadURL string
 		}
-
-		getItem := func(key string) *clientFeedItem {
-			if strings.HasPrefix(key, data.FeeditemKeyPrefix) {
-				feeditemKey, err := data.DecodeFeeditemKey([]byte(key))
+		getItem := func() *clientFeedItem {
+			if itemType == "feeditem" {
+				feeditemKey, err := decodeFeeditemKeyFromURL(key)
 				if err != nil {
 					log.WithField("key", key).WithError(err).Error("Failed to parse feed item key")
 					return nil
@@ -138,7 +140,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				if feedItem == nil {
 					return nil
 				}
-				err = s.db.SetReadStatus(user, []byte(key), true)
+				err = s.db.SetFeeditemReadStatus(user, feedItem.Key, true)
 				if err != nil {
 					log.WithField("key", key).WithError(err).Error("Failed to set read status for feed item")
 				}
@@ -147,10 +149,10 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 					Date:          feedItem.Date,
 					URL:           feedItem.URL,
 					Plaintext:     false,
-					MarkUnreadURL: "api/items/" + escapeKeyForURL([]byte(key)),
+					MarkUnreadURL: "api/items/feeditem/" + escapeFeeditemKeyForURL(feeditemKey),
 				}
-			} else if strings.HasPrefix(key, data.PagemonitorKeyPrefix) {
-				pagemonitorKey, err := data.DecodePagemonitorKey([]byte(key))
+			} else if itemType == "page" {
+				pagemonitorKey, err := decodePagemonitorKeyFromURL(key)
 				if err != nil {
 					log.WithField("key", key).WithError(err).Error("Failed to parse pagemonitor page key")
 					return nil
@@ -163,7 +165,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				if pagemonitorPage == nil {
 					return nil
 				}
-				err = s.db.SetReadStatus(user, []byte(key), true)
+				err = s.db.SetPageReadStatus(user, pagemonitorPage.Config, true)
 				if err != nil {
 					log.WithField("key", key).WithError(err).Error("Failed to set read status for page")
 				}
@@ -173,17 +175,40 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 					Date:          pagemonitorPage.Updated,
 					URL:           pagemonitorKey.URL,
 					Plaintext:     true,
-					MarkUnreadURL: "api/items/" + escapeKeyForURL([]byte(key)),
+					MarkUnreadURL: "api/items/page/" + escapePagemonitorKeyForURL(pagemonitorKey),
 				}
 			}
-			log.WithField("key", key).Error("Unknown item key format")
+			log.WithField("type", itemType).WithField("key", key).Error("Unknown item key format")
 			return nil
 		}
 
-		key := strings.Replace(chi.URLParam(r, "key"), "-", "/", -1)
+		markUnread := func() error {
+			if itemType == "feeditem" {
+				feeditemKey, err := decodeFeeditemKeyFromURL(key)
+				if err != nil {
+					return err
+				}
+				err = s.db.SetFeeditemReadStatus(user, feeditemKey, false)
+				if err != nil {
+					return err
+				}
+				return nil
+			} else if itemType == "page" {
+				pagemonitorKey, err := decodePagemonitorKeyFromURL(key)
+				if err != nil {
+					return err
+				}
+				err = s.db.SetPageReadStatus(user, pagemonitorKey, false)
+				if err != nil {
+					return err
+				}
+				return nil
+			}
+			return fmt.Errorf("unknown key format: %v type: %v", key, itemType)
+		}
 
 		if r.Method == http.MethodGet {
-			item := getItem(key)
+			item := getItem()
 
 			if item == nil {
 				http.Error(w, "Not found", http.StatusNotFound)
@@ -204,7 +229,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if err := s.db.SetReadStatus(user, []byte(key), false); err != nil {
+			if err := markUnread(); err != nil {
 				handleError(w, r, err)
 				return
 			}
@@ -325,10 +350,11 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		type itemStatus struct {
-			Name        string
-			Success     bool
-			LastFailure *time.Time `json:",omitempty"`
-			LastSuccess *time.Time `json:",omitempty"`
+			Name             string
+			Success          bool
+			LastSuccess      *time.Time `json:",omitempty"`
+			LastFailure      *time.Time `json:",omitempty"`
+			LastFailureError string     `json:",omitempty"`
 		}
 		itemStatuses := make([]itemStatus, len(feeds)+len(pages))
 
@@ -340,6 +366,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			var emptyTime = time.Time{}
 			if status.LastFailure != emptyTime {
 				itemStatus.LastFailure = &status.LastFailure
+				itemStatus.LastFailureError = status.LastFailureError
 			}
 			if status.LastSuccess != emptyTime {
 				itemStatus.LastSuccess = &status.LastSuccess
@@ -349,7 +376,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for i, feed := range feeds {
-			fetchStatus, err := s.db.GetFetchStatus(feed.CreateKey())
+			fetchStatus, err := s.db.GetFeedFetchStatus(feed.URL)
 			if err != nil {
 				handleError(w, r, err)
 				return
@@ -358,7 +385,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		for i, page := range pages {
-			fetchStatus, err := s.db.GetFetchStatus(page.CreateKey())
+			fetchStatus, err := s.db.GetPageFetchStatus(&page)
 			if err != nil {
 				handleError(w, r, err)
 				return

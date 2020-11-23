@@ -78,7 +78,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		page.Contents = text
 		page.Updated = time.Now()
 		page.Config = config
-		err = fetcher.DB.SetReadStatusForAll(config.CreateKey(), false)
+		err = fetcher.DB.SetPageUnreadForAll(config)
 		if err != nil {
 			return fmt.Errorf("Cannot mark page as unread %v because of %w", config, err)
 		}
@@ -92,12 +92,12 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 	if err != nil {
 		log.WithField("page", config).WithError(err).Error("Failed to get page")
 		fetchStatus.LastFailure = time.Now()
+		fetchStatus.LastFailureError = err.Error()
 	} else {
 		fetchStatus.LastSuccess = time.Now()
 	}
 
-	fetchStatusKey := config.CreateKey()
-	if err := fetcher.DB.SetFetchStatus(fetchStatusKey, fetchStatus); err != nil {
+	if err := fetcher.DB.SetPageFetchStatus(config, fetchStatus); err != nil {
 		log.WithField("page", config).WithError(err).Error("Failed to save fetch status for page")
 	}
 	return err

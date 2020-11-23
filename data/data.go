@@ -1,81 +1,92 @@
 package data
 
 import (
+	"context"
+	"fmt"
 	"os"
-	"path"
 
-	"github.com/dgraph-io/badger/v2"
+	"database/sql"
+
 	log "github.com/sirupsen/logrus"
 )
 
-// DefaultOptions returns default options for the database, customized based on environment variables.
-func DefaultOptions() badger.Options {
-	dbPath, ok := os.LookupEnv("DATABASE_DIR")
-	if !ok {
-		dbPath = path.Join(os.TempDir(), "nanorss")
-	}
-	opts := badger.DefaultOptions(dbPath)
-	// Add a logger
-	opts.Logger = log.New()
-	// Optimize options for low memory usage
-	opts.MaxTableSize = 1 << 20
-	opts.BlockCacheSize = 0
-	opts.IndexCacheSize = 0
-	// Allow GC of value log
-	opts.ValueLogFileSize = 4 << 20
-	opts.ValueLogMaxEntries = 10000
-	return opts
-}
-
 // DBService provides services for reading and writing structs in the database.
 type DBService struct {
-	db *badger.DB
+	db *sql.DB
 }
 
-// Open opens the database with options and returns a DBService instance.
-func Open(options badger.Options) (*DBService, error) {
-	log.WithField("dir", options.Dir).Info("Opening database")
-	db, err := badger.Open(options)
+// Open opens the database and returns a DBService instance.
+func Open() (*DBService, error) {
+	databaseURL, ok := os.LookupEnv("DATABASE_URL")
+	if !ok {
+		return nil, fmt.Errorf("cannot determine database URL - DATABASE_URL is missing")
+	}
+
+	log.Info("Opening database")
+	db, err := sql.Open("pgx", databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	return &DBService{db: db}, nil
+	err = db.Ping()
+	if err != nil {
+		defer db.Close()
+		return nil, fmt.Errorf("failed to ping database %w", err)
+	}
+
+	log.Info("Applying database migrations")
+	dbService := &DBService{db: db}
+	err = dbService.updateTx(applyMigrations)
+	if err != nil {
+		defer db.Close()
+		return nil, fmt.Errorf("failed to apply database migrations: %w", err)
+	}
+	return dbService, nil
 }
 
 // GC deletes expired items and attempts to perform a database cleanup.
-func (service *DBService) GC() {
-	service.DeleteExpiredItems()
-	service.DeleteStaleFetchStatuses()
-	service.DeleteStaleReadStatuses()
-	for {
-		err := service.db.RunValueLogGC(0.5)
-		if err == badger.ErrNoRewrite {
-			log.WithField("result", err).Debug("Cleanup didn't cause a log file rewrite")
-		} else if err != nil {
-			log.WithField("result", err).Info("Cleanup completed")
-		}
-		if err != nil {
-			break
-		}
-		log.Info("Cleanup reclaimed space")
-	}
+func (s *DBService) GC() {
+	s.deleteExpiredItems()
 }
 
 // Close closes the underlying database.
-func (service *DBService) Close() {
+func (s *DBService) Close() {
 	log.Info("Closing database")
-	if service != nil && service.db != nil {
-		err := service.db.Close()
+	if s != nil && s.db != nil {
+		err := s.db.Close()
 		if err != nil {
 			log.Fatal(err)
 		}
-		service.db = nil
 	}
 }
 
-// IteratorDoNotPrefetchOptions returns Badger iterator options with PrefetchValues = false.
-func IteratorDoNotPrefetchOptions() badger.IteratorOptions {
-	options := badger.DefaultIteratorOptions
-	options.PrefetchValues = false
-	return options
+// viewTx runs the function in a read-only transaction.
+func (s *DBService) viewTx(fn func(tx *sql.Tx) error) error {
+	return tx(s.db, fn, true)
+}
+
+// updateTx runs the function in a read-write transaction.
+func (s *DBService) updateTx(fn func(tx *sql.Tx) error) error {
+	return tx(s.db, fn, false)
+}
+
+// tx runs the function in a transaction.
+// If the function doesn't return an error, the transaction is committed.
+// Otherwise, the transaction will be rolled back.
+func tx(db *sql.DB, fn func(tx *sql.Tx) error, readOnly bool) error {
+	tx, err := db.BeginTx(context.TODO(), &sql.TxOptions{ReadOnly: readOnly})
+	if err != nil {
+		return fmt.Errorf("failed to open transaction: %w", err)
+	}
+
+	if fnErr := fn(tx); fnErr != nil {
+		if err := tx.Rollback(); err != nil {
+			return fmt.Errorf("transaction failed to rollback: %v when hadling error from: %w", err, fnErr)
+		}
+		return fnErr
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
 }

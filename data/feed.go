@@ -1,13 +1,9 @@
 package data
 
 import (
-	"bytes"
-	"encoding/gob"
+	"database/sql"
 	"fmt"
 	"time"
-
-	"github.com/dgraph-io/badger/v2"
-	log "github.com/sirupsen/logrus"
 )
 
 // FeeditemKey is used to uniquely identify a Feeditem.
@@ -23,131 +19,140 @@ type Feeditem struct {
 	Date     time.Time
 	Contents string
 	Updated  time.Time
-	Key      *FeeditemKey `json:",omitempty"`
-}
 
-// Encode serializes a Feeditem.
-func (feedItem *Feeditem) Encode() ([]byte, error) {
-	key := feedItem.Key
-	defer func() { feedItem.Key = key }()
-	feedItem.Key = nil
-
-	var value bytes.Buffer
-	if err := gob.NewEncoder(&value).Encode(feedItem); err != nil {
-		return nil, err
-	}
-	return value.Bytes(), nil
-}
-
-// Decode deserializes a Feeditem.
-func (feedItem *Feeditem) Decode(val []byte) error {
-	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(feedItem)
+	Key *FeeditemKey `json:",omitempty"`
 }
 
 // GetFeeditem retrieves a Feeditem for the FeeditemKey.
 // If item doesn't exist, returns nil.
 func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
-	feeditem := &Feeditem{Key: key}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(key.CreateKey())
-		if err == badger.ErrKeyNotFound {
-			feeditem = nil
-			return nil
-		}
-
-		if err := item.Value(feeditem.Decode); err != nil {
-			feeditem = nil
-			return err
-		}
-		return nil
+	var feeditem *Feeditem
+	err := s.viewTx(func(tx *sql.Tx) error {
+		var err error
+		feeditem, err = getFeeditem(key, tx)
+		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot read feed item %v because of %w", key, err)
+		return nil, err
 	}
 	return feeditem, nil
 }
 
+func getFeeditem(key *FeeditemKey, tx *sql.Tx) (*Feeditem, error) {
+	feeditem := Feeditem{Key: key}
+	err := tx.QueryRow(
+		"SELECT fi.title, fi.url, fi.date, fi.contents, fi.updated FROM feeditems fi, feeds f WHERE fi.feed_id = f.id AND f.url=$1 AND fi.guid=$2",
+		key.FeedURL, key.GUID,
+	).Scan(&feeditem.Title, &feeditem.URL, &feeditem.Date, &feeditem.Contents, &feeditem.Updated)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("cannot read feed item %v: %w", key, err)
+	}
+	return &feeditem, nil
+}
+
 // SaveFeeditems saves feedItems in the database.
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
-	return s.db.Update(func(txn *badger.Txn) error {
-		getPreviousItem := func(key []byte) (*Feeditem, error) {
-			item, err := txn.Get(key)
-			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, fmt.Errorf("Failed to get previous feed item %v because of %w", string(key), err)
-			}
-			if err == nil {
-				existingFeedItem := &Feeditem{}
-				if err := item.Value(existingFeedItem.Decode); err != nil {
-					return nil, fmt.Errorf("Failed to read previous value of feed item %v because of %w", string(key), err)
-				}
-				return existingFeedItem, nil
-			}
-			// Item doesn't exist
-			return nil, nil
-		}
-
+	return s.updateTx(func(tx *sql.Tx) error {
 		for _, feedItem := range feedItems {
-			key := feedItem.Key.CreateKey()
-
-			previousItem, err := getPreviousItem(key)
+			previousItem, err := getFeeditem(feedItem.Key, tx)
 			if err != nil {
-				log.WithField("key", key).WithError(err).Error("Failed to read previous item")
-			} else if previousItem != nil {
+				return err
+			}
+
+			if previousItem != nil {
 				feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
-				previousItem.Updated = feedItem.Updated
-				previousItem.Key = feedItem.Key
+				if previousItem.Contents == feedItem.Contents &&
+					previousItem.Title == feedItem.Title &&
+					previousItem.URL == feedItem.URL {
+					feedItem.Contents = previousItem.Contents
+					feedItem.Title = previousItem.Title
+					feedItem.URL = previousItem.URL
+					feedItem.Updated = previousItem.Updated
+				}
 			}
 
-			value, err := feedItem.Encode()
-			if err != nil {
-				return fmt.Errorf("Cannot marshal feed item because of %w", err)
-			}
-
-			if err := s.SetLastSeen(key)(txn); err != nil {
-				return fmt.Errorf("Cannot set last seen time because of %w", err)
-			}
-
-			if previousItem != nil && *feedItem == *previousItem {
-				// Avoid writing to the database if nothing has changed
-				continue
-			} else if previousItem != nil {
-				log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Debug("Item has changed")
-			}
-
-			if err := txn.Set(key, value); err != nil {
-				return fmt.Errorf("Cannot save feed item because of %w", err)
+			if previousItem != nil {
+				_, err := tx.Exec(
+					"UPDATE feeditems fi SET title=$1, url=$2, date=$3, contents=$4, updated=$5, last_seen=NOW() FROM feeds f WHERE fi.feed_id = f.id AND f.url = $6 AND fi.guid = $7",
+					feedItem.Title, feedItem.URL, feedItem.Date, feedItem.Contents, feedItem.Updated,
+					feedItem.Key.FeedURL, feedItem.Key.GUID,
+				)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err = tx.Exec(
+					"INSERT INTO feeditems(feed_id, guid, title, url, date, contents, updated, last_seen) VALUES((SELECT id FROM feeds WHERE url = $1), $2, $3, $4, $5, $6, $7, NOW())",
+					feedItem.Key.FeedURL, feedItem.Key.GUID,
+					feedItem.Title, feedItem.URL, feedItem.Date, feedItem.Contents, feedItem.Updated,
+				)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		return nil
 	})
 }
 
-// ReadAllFeedItems reads all Feeditem items from database and sends them to the provided channel.
-func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
-	defer close(ch)
-	err = s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(FeeditemKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
+func linkUserFeeds(user *User, tx *sql.Tx) error {
+	if user.id == nil {
+		return fmt.Errorf("user hasn't been created yet")
+	}
+	feeds, err := user.GetFeeds()
+	if err != nil {
+		return err
+	}
 
-			k := item.Key()
-			key, err := DecodeFeeditemKey(k)
+	for _, feed := range feeds {
+		var id int
+		err := tx.QueryRow("SELECT id FROM feeds WHERE url=$1", feed.URL).
+			Scan(&id)
+		if err == sql.ErrNoRows {
+			err := tx.QueryRow("INSERT INTO feeds(url) VALUES($1) RETURNING id", feed.URL).Scan(&id)
 			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
-				continue
+				return err
 			}
-
-			feedItem := &Feeditem{Key: key}
-			if err := item.Value(feedItem.Decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
-				continue
-			}
-			ch <- feedItem
+		} else if err != nil {
+			return err
 		}
-		return nil
-	})
-	return
+
+		_, err = tx.Exec("INSERT INTO user_feeds(user_id, feed_id) VALUES($1, $2)", *user.id, id)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// GetFeeditems reads all Feeditem items from database for a specific user.
+func (s *DBService) GetFeeditems(user *User) ([]*Feeditem, error) {
+	if user == nil {
+		return nil, fmt.Errorf("user is nil")
+	}
+	if user.id == nil {
+		return nil, fmt.Errorf("user id is nil")
+	}
+
+	rows, err := s.db.Query(
+		"SELECT f.url, fi.guid, fi.title, fi.url, fi.date, fi.contents, fi.updated FROM feeditems fi, feeds f, user_feeds uf WHERE fi.feed_id = f.id AND f.id = uf.feed_id AND uf.user_id = $1",
+		*user.id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	feeditems := make([]*Feeditem, 0)
+	for rows.Next() {
+		feeditem := &Feeditem{Key: &FeeditemKey{}}
+		err := rows.Scan(&feeditem.Key.FeedURL, &feeditem.Key.GUID, &feeditem.Title, &feeditem.URL, &feeditem.Date, &feeditem.Contents, &feeditem.Updated)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read feed item: %w", err)
+		}
+
+		feeditems = append(feeditems, feeditem)
+	}
+	return feeditems, nil
 }

@@ -3,17 +3,14 @@ package data
 import (
 	"testing"
 
-	"github.com/dgraph-io/badger/v2"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestGetValue(t *testing.T) {
-	err := resetDb()
+	err := prepareServerConfigTests()
 	assert.NoError(t, err)
 
-	err = dbService.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(CreateServerConfigKey("k1"), []byte("v1"))
-	})
+	_, err = dbService.db.Exec("INSERT INTO serverconfig(key, value) VALUES ($1, $2)", "k1", "v1")
 	assert.NoError(t, err)
 
 	value, err := dbService.GetOrCreateConfigVariable("k1", func() (string, error) {
@@ -25,7 +22,7 @@ func TestGetValue(t *testing.T) {
 }
 
 func TestGenerateValue(t *testing.T) {
-	err := resetDb()
+	err := prepareServerConfigTests()
 	assert.NoError(t, err)
 
 	value, err := dbService.GetOrCreateConfigVariable("k1", func() (string, error) {
@@ -43,7 +40,7 @@ func TestGenerateValue(t *testing.T) {
 }
 
 func TestGetAllValues(t *testing.T) {
-	err := resetDb()
+	err := prepareServerConfigTests()
 	assert.NoError(t, err)
 
 	err = dbService.SetConfigVariable("k1", "v1")
@@ -55,4 +52,9 @@ func TestGetAllValues(t *testing.T) {
 	values, err := dbService.GetAllConfigVariables()
 	assert.NoError(t, err)
 	assert.Equal(t, map[string]string{"k1": "v1", "k2": "v2"}, values)
+}
+
+func prepareServerConfigTests() error {
+	_, err := dbService.db.Exec("DELETE FROM serverconfig")
+	return err
 }

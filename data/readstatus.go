@@ -1,152 +1,106 @@
 package data
 
 import (
-	"github.com/dgraph-io/badger/v2"
-	log "github.com/sirupsen/logrus"
+	"fmt"
 )
 
-type itemKey = []byte
+// GetPagesReadStatus returns the list of pages that are marked as read for user.
+func (s *DBService) GetPagesReadStatus(user *User) ([]*UserPagemonitor, error) {
+	if user == nil {
+		return nil, fmt.Errorf("user is nil")
+	}
+	if user.id == nil {
+		return nil, fmt.Errorf("user id is nil")
+	}
 
-// GetReadStatus returns the read status for keys and returns the list of items which are marked as read for user.
-func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
-	items := make([]itemKey, 0)
-	err := s.db.View(func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(user.CreateReadStatusPrefix())
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			k := item.Key()
-
-			itemKey, err := DecodeReadStatusKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
-				return err
-			}
-			items = append(items, itemKey)
-		}
-		return nil
-	})
+	rows, err := s.db.Query(
+		"SELECT pm.url, pm.match, pm.replace FROM user_read_pagemonitors urpm, pagemonitors pm WHERE urpm.pagemonitor_id = pm.id AND urpm.user_id = $1",
+		*user.id)
 	if err != nil {
 		return nil, err
 	}
-	return items, nil
-}
+	defer rows.Close()
 
-// SetReadStatus sets the read status for item, true for read, false for unread.
-func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
-	readStatusKey := user.CreateReadStatusKey(k)
-	return s.db.Update(func(txn *badger.Txn) error {
-		if read {
-			return txn.Set(readStatusKey, nil)
+	pages := make([]*UserPagemonitor, 0)
+	for rows.Next() {
+		page := &UserPagemonitor{}
+		err := rows.Scan(&page.URL, &page.Match, &page.Replace)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read pagemonitor read status: %w", err)
 		}
-		return txn.Delete(readStatusKey)
-	})
-}
 
-// SetReadStatusForAll sets the read status for item (for all users), true for read, false for unread.
-func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(UserKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			userKey := item.Key()
-
-			username, err := DecodeUserKey(userKey)
-			if err != nil {
-				log.WithField("key", userKey).WithError(err).Error("Failed to decode username of user")
-				continue
-			}
-
-			user := &User{username: *username}
-			readStatusKey := user.CreateReadStatusKey(k)
-
-			if read {
-				if err := txn.Set(readStatusKey, nil); err != nil {
-					log.WithField("key", readStatusKey).WithError(err).Error("Failed to set read status for all users")
-					return err
-				}
-				continue
-			}
-			if err := txn.Delete(readStatusKey); err != nil {
-				log.WithField("key", readStatusKey).WithError(err).Error("Failed to set unread status for all users")
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-// RenameReadStatus updates read status items for user to the new username.
-func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
-	newUser := &User{username: user.newUsername}
-	return func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(user.CreateReadStatusPrefix())
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.KeyCopy(nil)
-
-			itemKey, err := DecodeReadStatusKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
-				return err
-			}
-
-			err = txn.Delete(k)
-			if err != nil {
-				log.WithField("key", k).WithField("user", user.username).WithError(err).Error("Failed to delete read status from old username")
-				return err
-			}
-
-			newK := newUser.CreateReadStatusKey(itemKey)
-			err = txn.Set(newK, nil)
-			if err != nil {
-				log.WithField("key", newK).WithField("user", newUser.username).WithError(err).Error("Failed to create read status for new username")
-				return err
-			}
-		}
-		return nil
+		pages = append(pages, page)
 	}
+	return pages, nil
 }
 
-// DeleteStaleReadStatuses deletes all read statuses which are referring to items which no longer exist.
-func (s *DBService) DeleteStaleReadStatuses() error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(ReadStatusPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.KeyCopy(nil)
+// GetFeeditemsReadStatus returns the list of feed items that are marked as read for user.
+func (s *DBService) GetFeeditemsReadStatus(user *User) ([]*FeeditemKey, error) {
+	if user == nil {
+		return nil, fmt.Errorf("user is nil")
+	}
+	if user.id == nil {
+		return nil, fmt.Errorf("user id is nil")
+	}
 
-			itemKey, err := DecodeReadStatusKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of read status")
-				continue
-			}
+	rows, err := s.db.Query(
+		"SELECT f.url, fi.guid FROM user_read_feeditems urfi, feeditems fi, feeds f WHERE urfi.feeditem_guid = fi.guid AND fi.feed_id = f.id AND urfi.user_id = $1",
+		*user.id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-			referencedItem, err := txn.Get(itemKey)
-			if err == badger.ErrKeyNotFound {
-				log.WithField("item", referencedItem).Debug("Deleting invalid read status")
-				if err := txn.Delete(k); err != nil {
-					log.WithField("key", k).WithError(err).Error("Failed to delete read status")
-					continue
-				}
-			} else if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to get item referenced by read status")
-				continue
-			}
+	feeditems := make([]*FeeditemKey, 0)
+	for rows.Next() {
+		feeditem := &FeeditemKey{}
+		err := rows.Scan(&feeditem.FeedURL, &feeditem.GUID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read feed item read status: %w", err)
 		}
-		return nil
-	})
+
+		feeditems = append(feeditems, feeditem)
+	}
+	return feeditems, nil
+}
+
+// SetPageReadStatus sets the read status for a page, true for read, false for unread.
+func (s *DBService) SetPageReadStatus(user *User, k *UserPagemonitor, read bool) error {
+	if read {
+		_, err := s.db.Exec(
+			"INSERT INTO user_read_pagemonitors(user_id, pagemonitor_id) VALUES($1, (SELECT id FROM pagemonitors WHERE url=$2 AND match=$3 AND replace=$4))",
+			user.id, k.URL, k.Match, k.Replace,
+		)
+		return err
+	}
+	_, err := s.db.Exec(
+		"DELETE FROM user_read_pagemonitors WHERE user_id=$1 AND pagemonitor_id IN(SELECT id FROM pagemonitors WHERE url=$2 AND match=$3 AND replace=$4)",
+		user.id, k.URL, k.Match, k.Replace,
+	)
+	return err
+}
+
+// SetFeeditemReadStatus sets the read status for a feed item, true for read, false for unread.
+func (s *DBService) SetFeeditemReadStatus(user *User, k *FeeditemKey, read bool) error {
+	if read {
+		_, err := s.db.Exec(
+			"INSERT INTO user_read_feeditems(user_id, feed_id, feeditem_guid) VALUES($1, (SELECT id FROM feeditems fi, feeds f WHERE fi.feed_id = f.id AND f.url=$2 AND fi.guid=$3), $3)",
+			user.id, k.FeedURL, k.GUID,
+		)
+		return err
+	}
+	_, err := s.db.Exec(
+		"DELETE FROM user_read_feeditems WHERE user_id=$1 AND feed_id IN(SELECT f.id FROM feeditems fi, feeds f WHERE fi.feed_id = f.id AND f.url=$2 AND fi.guid=$3) AND feeditem_guid=$3",
+		user.id, k.FeedURL, k.GUID,
+	)
+	return err
+}
+
+// SetPageUnreadForAll sets the page as unread (for all users).
+func (s *DBService) SetPageUnreadForAll(k *UserPagemonitor) error {
+	_, err := s.db.Exec(
+		"DELETE FROM user_read_pagemonitors WHERE pagemonitor_id IN(SELECT id FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3)",
+		k.URL, k.Match, k.Replace,
+	)
+	return err
 }

@@ -11,12 +11,15 @@ type DB interface {
 	GetUser(username string) (*data.User, error)
 	SaveUser(*data.User) error
 	GetFeeditem(*data.FeeditemKey) (*data.Feeditem, error)
-	ReadAllFeedItems(chan *data.Feeditem) error
+	GetFeeditems(*data.User) ([]*data.Feeditem, error)
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
-	ReadAllPages(chan *data.PagemonitorPage) error
-	GetReadStatus(*data.User) ([][]byte, error)
-	SetReadStatus(user *data.User, itemKey []byte, read bool) error
-	GetFetchStatus(key []byte) (*data.FetchStatus, error)
+	GetPages(*data.User) ([]*data.PagemonitorPage, error)
+	GetFeeditemsReadStatus(*data.User) ([]*data.FeeditemKey, error)
+	GetPagesReadStatus(*data.User) ([]*data.UserPagemonitor, error)
+	SetFeeditemReadStatus(*data.User, *data.FeeditemKey, bool) error
+	SetPageReadStatus(*data.User, *data.UserPagemonitor, bool) error
+	GetFeedFetchStatus(feedURL string) (*data.FetchStatus, error)
+	GetPageFetchStatus(*data.UserPagemonitor) (*data.FetchStatus, error)
 }
 
 // Fetcher provides a method to refresh all feeds.

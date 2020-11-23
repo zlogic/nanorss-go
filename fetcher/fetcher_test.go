@@ -36,8 +36,18 @@ func (m *DBMock) ReadAllUsers(ch chan *data.User) error {
 	return args.Error(0)
 }
 
-func (m *DBMock) SetFetchStatus(key []byte, fetchStatus *data.FetchStatus) error {
+func (m *DBMock) SetFeedFetchStatus(feedURL string, fetchStatus *data.FetchStatus) error {
+	args := m.Called(feedURL, fetchStatus)
+	return args.Error(0)
+}
+
+func (m *DBMock) SetPageFetchStatus(key *data.UserPagemonitor, fetchStatus *data.FetchStatus) error {
 	args := m.Called(key, fetchStatus)
+	return args.Error(0)
+}
+
+func (m *DBMock) SetPageUnreadForAll(k *data.UserPagemonitor) error {
+	args := m.Called(k)
 	return args.Error(0)
 }
 

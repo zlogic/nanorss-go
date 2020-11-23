@@ -1,8 +1,8 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -26,10 +26,62 @@ type FeedListService struct {
 
 type itemsSortable []*Item
 
-func escapeKeyForURL(key []byte) string {
-	return strings.Replace(string(key), "/", "-", -1)
+const (
+	feeditemURLPrefix = "feeditem"
+	pageURLPrefix     = "page"
+)
+
+func escapeKeyForURL(attributes ...string) string {
+	safeAttributes := make([]string, len(attributes))
+	for i := range attributes {
+		safeAttributes[i] = url.PathEscape(attributes[i])
+	}
+	return url.PathEscape(strings.Join(safeAttributes, "/"))
 }
 
+func escapeFeeditemKeyForURL(key *data.FeeditemKey) string {
+	return escapeKeyForURL(key.FeedURL, key.GUID)
+}
+
+func escapePagemonitorKeyForURL(key *data.UserPagemonitor) string {
+	return escapeKeyForURL(key.URL, key.Match, key.Replace)
+}
+
+func decodeKeyFromURL(key string) ([]string, error) {
+	key, err := url.PathUnescape(key)
+	if err != nil {
+		return nil, err
+	}
+	parts := strings.Split(key, "/")
+	for i := range parts {
+		part, err := url.PathUnescape(parts[i])
+		if err != nil {
+			return nil, err
+		}
+		parts[i] = part
+	}
+	return parts, nil
+}
+
+func decodeFeeditemKeyFromURL(key string) (*data.FeeditemKey, error) {
+	parts, err := decodeKeyFromURL(key)
+	if err != nil {
+		return nil, err
+	} else if len(parts) != 2 {
+		return nil, fmt.Errorf("unsupported feed item key format: %v", parts)
+	}
+	return &data.FeeditemKey{FeedURL: parts[0], GUID: parts[1]}, nil
+}
+
+func decodePagemonitorKeyFromURL(key string) (*data.UserPagemonitor, error) {
+	parts, err := decodeKeyFromURL(key)
+	if err != nil {
+		return nil, err
+	} else if len(parts) != 3 {
+		return nil, fmt.Errorf("unsupported pagemonitor pagekey format: %v", parts)
+	}
+	return &data.UserPagemonitor{URL: parts[0], Match: parts[1], Replace: parts[2]}, nil
+}
 func (a itemsSortable) Len() int      { return len(a) }
 func (a itemsSortable) Swap(i, j int) { a[i], a[j] = a[j], a[i] }
 func (a itemsSortable) Less(i, j int) bool {
@@ -44,98 +96,100 @@ func (a itemsSortable) Less(i, j int) bool {
 
 // GetAllItems returns all Items for user.
 func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
-	feeds, err := user.GetFeeds()
+	userFeeds, err := user.GetFeeds()
 	if err != nil {
 		return nil, err
 	}
-	pages, err := user.GetPages()
+	userPages, err := user.GetPages()
 	if err != nil {
 		return nil, err
 	}
 
-	readItems, err := h.db.GetReadStatus(user)
+	readFeeditems, err := h.db.GetFeeditemsReadStatus(user)
+	if err != nil {
+		return nil, err
+	}
+
+	readPages, err := h.db.GetPagesReadStatus(user)
 	if err != nil {
 		return nil, err
 	}
 
 	items := make(itemsSortable, 0)
 
-	findFeedTitle := func(feedURL string) (string, error) {
-		for _, feed := range feeds {
-			if feed.URL == feedURL {
+	findFeedTitle := func(key *data.FeeditemKey) (string, error) {
+		for _, feed := range userFeeds {
+			if feed.URL == key.FeedURL {
 				return feed.Title, nil
 			}
 		}
 		return "", fmt.Errorf("Not found")
 	}
-	isRead := func(itemKey []byte) bool {
-		for _, readItemKey := range readItems {
-			if bytes.Equal(readItemKey, itemKey) {
+	isReadFeeditem := func(feedURL string) bool {
+		for _, readFeeditem := range readFeeditems {
+			if readFeeditem.FeedURL == feedURL {
 				return true
 			}
 		}
 		return false
 	}
-	feedItemsChan := make(chan *data.Feeditem)
-	feedItemsDone := make(chan bool)
-	go func() {
-		for feedItem := range feedItemsChan {
-			title, err := findFeedTitle(feedItem.Key.FeedURL)
-			//TODO: this is not efficient for more than a couple of users
-			if err != nil {
-				// Probably an orphaned feed
-				continue
-			}
-			item := &Item{
-				Title:    feedItem.Title,
-				Origin:   title,
-				FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
-				SortDate: feedItem.Date,
-				IsRead:   isRead(feedItem.Key.CreateKey()),
-			}
-			items = append(items, item)
-		}
-		close(feedItemsDone)
-	}()
-	err = h.db.ReadAllFeedItems(feedItemsChan)
+
+	feedItems, err := h.db.GetFeeditems(user)
 	if err != nil {
 		return nil, err
 	}
-	<-feedItemsDone
+	for _, feedItem := range feedItems {
+		title, err := findFeedTitle(feedItem.Key)
+		if err != nil {
+			// Probably an orphaned feed
+			continue
+		}
+		item := &Item{
+			Title:    feedItem.Title,
+			Origin:   title,
+			FetchURL: "api/items/feeditem/" + escapeFeeditemKeyForURL(feedItem.Key),
+			SortDate: feedItem.Date,
+			IsRead:   isReadFeeditem(feedItem.Key.FeedURL),
+		}
+		items = append(items, item)
+	}
 
-	findPagemonitorTitle := func(key []byte) (string, error) {
-		for _, page := range pages {
-			if bytes.Equal(key, page.CreateKey()) {
+	findPagemonitorTitle := func(key *data.UserPagemonitor) (string, error) {
+		for _, page := range userPages {
+			if page.URL == key.URL && page.Match == key.Match && page.Replace == key.Replace {
 				return page.Title, nil
 			}
 		}
 		return "", fmt.Errorf("Not found")
 	}
-	pagemonitorPageChan := make(chan *data.PagemonitorPage)
-	pagemonitorDone := make(chan bool)
-	go func() {
-		for page := range pagemonitorPageChan {
-			title, err := findPagemonitorTitle(page.Config.CreateKey())
-			if err != nil {
-				// Probably an orphaned feed
-				continue
+	isReadPage := func(key *data.UserPagemonitor) bool {
+		for _, readPageKey := range readPages {
+			if readPageKey.URL == key.URL && readPageKey.Match == key.Match && readPageKey.Replace == key.Replace {
+				return true
 			}
-			item := &Item{
-				Title:    "",
-				Origin:   title,
-				FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),
-				SortDate: page.Updated,
-				IsRead:   isRead(page.Config.CreateKey()),
-			}
-			items = append(items, item)
 		}
-		close(pagemonitorDone)
-	}()
-	err = h.db.ReadAllPages(pagemonitorPageChan)
+		return false
+	}
+
+	pages, err := h.db.GetPages(user)
 	if err != nil {
 		return nil, err
 	}
-	<-pagemonitorDone
+	for _, page := range pages {
+		title, err := findPagemonitorTitle(page.Config)
+		if err != nil {
+			// Probably an orphaned feed
+			continue
+		}
+		item := &Item{
+			Title:    "",
+			Origin:   title,
+			FetchURL: "api/items/page/" + escapePagemonitorKeyForURL(page.Config),
+			SortDate: page.Updated,
+			IsRead:   isReadPage(page.Config),
+		}
+		items = append(items, item)
+	}
 
 	sort.Sort(items)
 
