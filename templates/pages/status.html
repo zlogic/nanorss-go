@@ -26,15 +26,18 @@ document.addEventListener("DOMContentLoaded", () => {
   var showItems = function(items) {
     emptyStatusTarget();
 
-    var createDateNode = function(label, date) {
+    var createStatusNode = function(label, text) {
       var dateNode = document.createElement("em");
-      dateNode.textContent = new Date(date).toLocaleString();
+      dateNode.textContent = text;
       var labelNode = document.createElement("span");
       labelNode.textContent = label;
       var dateNodeDiv = document.createElement("div");
       dateNodeDiv.append(labelNode);
       dateNodeDiv.append(dateNode);
       return dateNodeDiv;
+    };
+    var createDateNode = function(label, date) {
+      return createStatusNode(label, new Date(date).toLocaleString());
     };
 
     for (i in items) {
@@ -57,7 +60,18 @@ document.addEventListener("DOMContentLoaded", () => {
         itemEntry.setAttribute("class", "message-body")
         itemArticle.append(itemEntry);
         if (item.LastFailure !== undefined) {
-          itemEntry.append(createDateNode("Last failure: ", item.LastFailure));
+          var dateNode = createDateNode("Last failure: ", item.LastFailure);
+          itemEntry.append(dateNode);
+          if (item.LastFailureError !== undefined) {
+            var errorNode = document.createElement("em");
+            errorNode.textContent = item.LastFailureError;
+            var labelNode = document.createElement("span");
+            labelNode.textContent = "Error message: ";
+            var errorNodeDiv = document.createElement("div");
+            errorNodeDiv.append(labelNode);
+            errorNodeDiv.append(errorNode);
+            itemEntry.append(errorNodeDiv);
+          }
         }
         if (item.LastSuccess !== undefined) {
           itemEntry.append(createDateNode("Last success: ", item.LastSuccess));

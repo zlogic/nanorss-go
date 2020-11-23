@@ -119,8 +119,16 @@ func linkUserFeeds(user *User, tx *sql.Tx) error {
 			return err
 		}
 
-		_, err = tx.Exec("INSERT INTO user_feeds(user_id, feed_id) VALUES($1, $2)", *user.id, id)
-		if err != nil {
+		var existingUserFeed int
+		err = tx.QueryRow("SELECT 1 FROM user_feeds WHERE user_id=$1 AND feed_id=$2", *user.id, id).
+			Scan(&existingUserFeed)
+
+		if err == sql.ErrNoRows {
+			_, err = tx.Exec("INSERT INTO user_feeds(user_id, feed_id) VALUES($1, $2)", *user.id, id)
+			if err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
 	}

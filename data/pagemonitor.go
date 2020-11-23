@@ -94,10 +94,18 @@ func linkUserPages(user *User, tx *sql.Tx) error {
 			return err
 		}
 
-		_, err = tx.Exec("INSERT INTO user_pagemonitors(user_id, pagemonitor_id) VALUES($1, $2)", *user.id, id)
-		if err != nil {
+		var existingUserPage int
+		err = tx.QueryRow("SELECT 1 FROM user_pagemonitors WHERE user_id=$1 AND pagemonitor_id=$2", *user.id, id).
+			Scan(&existingUserPage)
+		if err == sql.ErrNoRows {
+			_, err = tx.Exec("INSERT INTO user_pagemonitors(user_id, pagemonitor_id) VALUES($1, $2)", *user.id, id)
+			if err != nil {
+				return err
+			}
+		} else if err != nil {
 			return err
 		}
+
 	}
 	return nil
 }
