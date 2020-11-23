@@ -79,6 +79,7 @@ func (fetcher *Fetcher) FetchAllFeeds() error {
 		}
 		close(done)
 	}()
+	// TODO: This is not efficient. Iterate through feeds instead of users?
 	err := fetcher.DB.ReadAllUsers(ch)
 	<-done
 	if err != nil {

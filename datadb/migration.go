@@ -10,7 +10,7 @@ import (
 const migrationCreateSchema = `
 -- Database schema version
 CREATE TABLE schema_version (
-	version integer NOT NULL
+	version INT NOT NULL
 );
 
 -- Feeds

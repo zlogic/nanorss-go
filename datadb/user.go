@@ -81,8 +81,9 @@ func (s *DBService) GetUser(username string) (*User, error) {
 // SaveUser saves the user in the database.
 func (s *DBService) SaveUser(user *User) (err error) {
 	var id int
+	userExists := user.id != nil
 	err = s.updateTx(func(tx *sql.Tx) error {
-		if user.id != nil {
+		if userExists && user.id != nil {
 			id = *user.id
 			_, err := tx.Exec("UPDATE users SET username=$1, password=$2, opml=$3, pagemonitor=$4 WHERE id=$5", user.username, user.Password, user.Opml, user.Pagemonitor, id)
 			if err != nil {
@@ -98,14 +99,22 @@ func (s *DBService) SaveUser(user *User) (err error) {
 		if user.id == nil {
 			user.id = &id
 		}
-		return linkUserPages(user, tx)
+
+		err = linkUserPages(user, tx)
+		if err != nil {
+			return err
+		}
+		return linkUserFeeds(user, tx)
 	})
-	if err != nil && user.id != nil {
-		revertErr := s.db.QueryRow("SELECT username, password, opml, pagemonitor FROM users WHERE id=$1", id).
+	if err != nil && userExists {
+		revertErr := s.db.QueryRow("SELECT username, password, opml, pagemonitor FROM users WHERE id=$1", user.id).
 			Scan(&user.username, &user.Password, &user.Opml, &user.Pagemonitor)
 		if revertErr != nil {
 			return fmt.Errorf("failed to reload user details (%v) on a failed SaveUser: %w", revertErr, err)
 		}
+	}
+	if err != nil && !userExists {
+		user.id = nil
 	}
 	return err
 }

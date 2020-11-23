@@ -31,7 +31,7 @@ func TestCreateGetUser(t *testing.T) {
 
 	user := &User{
 		Password:    "password",
-		Opml:        "opml",
+		Opml:        "<opml></opml>",
 		Pagemonitor: "<pages></pages>",
 		username:    "user01",
 	}
@@ -42,7 +42,7 @@ func TestCreateGetUser(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, user)
 	assert.Equal(t, "password", user.Password)
-	assert.Equal(t, "opml", user.Opml)
+	assert.Equal(t, "<opml></opml>", user.Opml)
 	assert.Equal(t, "<pages></pages>", user.Pagemonitor)
 }
 
@@ -53,13 +53,13 @@ func TestReadAllUsers(t *testing.T) {
 
 	user1 := User{
 		Password:    "pass1",
-		Opml:        "opml1",
+		Opml:        "<opml><!-- 1 --></opml>",
 		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
-		Opml:        "opml2",
+		Opml:        "<opml><!-- 2 --></opml>",
 		Pagemonitor: "<pages><!-- 2 --></pages>",
 		username:    "user02",
 	}
@@ -105,7 +105,7 @@ func TestSetUsername(t *testing.T) {
 
 	user := User{
 		Password:    "pass1",
-		Opml:        "opml1",
+		Opml:        "<opml><!-- 1 --></opml>",
 		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
@@ -144,7 +144,7 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 
 	user := User{
 		Password:    "pass1",
-		Opml:        "opml1",
+		Opml:        "<opml><!-- 1 --></opml>",
 		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
@@ -153,7 +153,7 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 	assert.NoError(t, err)
 
 	user.Password = "pass1new"
-	user.Opml = "opml1new"
+	user.Opml = "<opml><!-- 1 new --></opml>"
 	user.Pagemonitor = "<pages><!-- 1 new --></pages>"
 	err = user.SetUsername("user02")
 	assert.NoError(t, err)
@@ -188,13 +188,13 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 
 	user1 := User{
 		Password:    "pass1",
-		Opml:        "opml1",
+		Opml:        "<opml><!-- 1 --></opml>",
 		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}
 	user2 := User{
 		Password:    "pass2",
-		Opml:        "opml2",
+		Opml:        "<opml><!-- 2 --></opml>",
 		Pagemonitor: "<pages><!-- 2 --></pages>",
 		username:    "user02",
 	}
@@ -238,7 +238,7 @@ func TestSetUsernameEmptyString(t *testing.T) {
 
 	user := User{
 		Password:    "pass1",
-		Opml:        "opml1",
+		Opml:        "<opml><!-- 1 --></opml>",
 		Pagemonitor: "<pages><!-- 1 --></pages>",
 		username:    "user01",
 	}

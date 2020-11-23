@@ -22,22 +22,35 @@ type PagemonitorPage struct {
 // GetPage retrieves a PagemonitorPage for the UserPagemonitor configuration.
 // If page doesn't exist, returns nil.
 func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
-	page := &PagemonitorPage{Config: pm}
-	err := s.db.QueryRow("SELECT contents, delta, updated, last_success, last_failure, last_failure_error FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3",
+	var page *PagemonitorPage
+	err := s.viewTx(func(tx *sql.Tx) error {
+		var err error
+		page, err = getPage(pm, tx)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return page, nil
+}
+
+func getPage(pm *UserPagemonitor, tx *sql.Tx) (*PagemonitorPage, error) {
+	page := PagemonitorPage{Config: pm}
+	err := tx.QueryRow("SELECT contents, delta, updated, last_success, last_failure, last_failure_error FROM pagemonitors WHERE url=$1 AND match=$2 AND replace=$3",
 		pm.URL, pm.Match, pm.Replace,
 	).Scan(&page.Contents, &page.Delta, &page.Updated, &page.LastSuccess, &page.LastFailure, &page.LastError)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
-		return nil, fmt.Errorf("Cannot read page %v because of %w", page, err)
+		return nil, fmt.Errorf("cannot read page %v: %w", page, err)
 	}
-	return page, nil
+	return &page, nil
 }
 
 // SavePage saves a PagemonitorPage.
 func (s *DBService) SavePage(page *PagemonitorPage) error {
 	return s.updateTx(func(tx *sql.Tx) error {
-		previousPage, err := s.GetPage(page.Config)
+		previousPage, err := getPage(page.Config, tx)
 		if err != nil {
 			return err
 		}
@@ -85,7 +98,7 @@ func linkUserPages(user *User, tx *sql.Tx) error {
 			return err
 		}
 
-		_, err = tx.Exec("INSERT INTO user_pagemonitors(user_id, pagemonitor_id) VALUES($1,$2)", *user.id, id)
+		_, err = tx.Exec("INSERT INTO user_pagemonitors(user_id, pagemonitor_id) VALUES($1, $2)", *user.id, id)
 		if err != nil {
 			return err
 		}

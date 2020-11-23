@@ -19,7 +19,7 @@ func (s *DBService) deleteExpiredItems() error {
 			errors = append(errors, fmt.Errorf("failed to clean up expired feeds %w", err))
 		}
 
-		_, err = tx.Exec("DELETE FROM feeditems WHERE (last_seen < $1 OR LAST_SEEN IS NULL)", expires)
+		_, err = tx.Exec("DELETE FROM feeditems WHERE (last_seen < $1 OR last_seen IS NULL)", expires)
 		if err != nil {
 			errors = append(errors, fmt.Errorf("failed to clean up expired feed items %w", err))
 		}
