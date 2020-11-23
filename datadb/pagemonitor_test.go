@@ -24,9 +24,8 @@ func checkPages(t *testing.T, dbService *DBService, pages *[]PagemonitorPage) {
 }
 
 func TestGetPage(t *testing.T) {
-	dbService, err := preparePagemonitorTests()
+	err := preparePagemonitorTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	userPage := UserPagemonitor{
 		URL:     "http://site1.com",
@@ -43,9 +42,8 @@ func TestGetPage(t *testing.T) {
 }
 
 func TestSavePage(t *testing.T) {
-	dbService, err := preparePagemonitorTests()
+	err := preparePagemonitorTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	userPage1 := UserPagemonitor{
 		URL:     "http://site1.com",
@@ -77,9 +75,8 @@ func TestSavePage(t *testing.T) {
 }
 
 func TestGetPages(t *testing.T) {
-	dbService, err := preparePagemonitorTests()
+	err := preparePagemonitorTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user1 := &User{
 		Pagemonitor: `<pages>` +
@@ -132,9 +129,8 @@ func TestGetPages(t *testing.T) {
 }
 
 func TestGetPagesEmptyList(t *testing.T) {
-	dbService, err := preparePagemonitorTests()
+	err := preparePagemonitorTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user := &User{
 		Pagemonitor: "<pages></pages>",
@@ -157,9 +153,8 @@ func TestGetPagesEmptyList(t *testing.T) {
 }
 
 func TestSaveReadPageTTLExpired(t *testing.T) {
-	dbService, err := preparePagemonitorTests()
+	err := preparePagemonitorTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 	var oldTTL = itemTTL
 	defer func() { itemTTL = oldTTL }()
 
@@ -196,9 +191,8 @@ func TestSaveReadPageTTLExpired(t *testing.T) {
 }
 
 func TestSaveReadPageTTLNotExpired(t *testing.T) {
-	dbService, err := preparePagemonitorTests()
+	err := preparePagemonitorTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	userPage := UserPagemonitor{
 		URL:     "http://site1.com",
@@ -223,19 +217,13 @@ func TestSaveReadPageTTLNotExpired(t *testing.T) {
 	assert.Equal(t, &page, dbPage)
 }
 
-func preparePagemonitorTests() (*DBService, error) {
-	useRealDatabase()
-	dbService, err := Open()
-	if err != nil {
-		return nil, err
-	}
+func preparePagemonitorTests() error {
 	cleanDatabases := []string{"users", "pagemonitors"}
 	for _, table := range cleanDatabases {
-		_, err = dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		_, err := dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
 		if err != nil {
-			dbService.Close()
-			return nil, err
+			return err
 		}
 	}
-	return dbService, nil
+	return nil
 }

@@ -15,9 +15,8 @@ func TestNewUser(t *testing.T) {
 }
 
 func TestGetUserEmpty(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user, err := dbService.GetUser(defaultUsername)
 	assert.NoError(t, err)
@@ -25,9 +24,8 @@ func TestGetUserEmpty(t *testing.T) {
 }
 
 func TestCreateGetUser(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user := &User{
 		Password:    "password",
@@ -47,9 +45,8 @@ func TestCreateGetUser(t *testing.T) {
 }
 
 func TestReadAllUsers(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user1 := User{
 		Password:    "pass1",
@@ -99,9 +96,8 @@ func TestSetUserPassword(t *testing.T) {
 }
 
 func TestSetUsername(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user := User{
 		Password:    "pass1",
@@ -138,9 +134,8 @@ func TestSetUsername(t *testing.T) {
 }
 
 func TestSetUsernameAndOtherFields(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user := User{
 		Password:    "pass1",
@@ -182,9 +177,8 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 }
 
 func TestSetUsernameAlreadyExists(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user1 := User{
 		Password:    "pass1",
@@ -232,9 +226,8 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 }
 
 func TestSetUsernameEmptyString(t *testing.T) {
-	dbService, err := prepareUserTests()
+	err := prepareUserTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user := User{
 		Password:    "pass1",
@@ -305,19 +298,13 @@ func TestParseOPML(t *testing.T) {
 	}, items)
 }
 
-func prepareUserTests() (*DBService, error) {
-	useRealDatabase()
-	dbService, err := Open()
-	if err != nil {
-		return nil, err
-	}
+func prepareUserTests() error {
 	cleanDatabases := []string{"users", "pagemonitors"}
 	for _, table := range cleanDatabases {
-		_, err = dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		_, err := dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
 		if err != nil {
-			dbService.Close()
-			return nil, err
+			return err
 		}
 	}
-	return dbService, nil
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -120,4 +121,18 @@ func openMock(exactMatch bool) (*DBService, sqlmock.Sqlmock, error) {
 		return nil, nil, err
 	}
 	return &DBService{db: db}, mock, nil
+}
+
+var dbService *DBService
+
+func TestMain(m *testing.M) {
+	var err error
+	useRealDatabase()
+	dbService, err = Open()
+	if err != nil {
+		log.WithError(err).Fatal("failed to initialize database")
+	}
+	code := m.Run()
+	dbService.Close()
+	os.Exit(code)
 }

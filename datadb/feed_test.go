@@ -10,9 +10,8 @@ import (
 )
 
 func TestGetItemEmpty(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	key := FeeditemKey{FeedURL: "http://feed1", GUID: "g1"}
 	item, err := dbService.GetFeeditem(&key)
@@ -21,9 +20,8 @@ func TestGetItemEmpty(t *testing.T) {
 }
 
 func TestSaveReadItem(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	prepareFeeds(dbService, "http://feed1", "http://feed2")
 
@@ -63,9 +61,8 @@ func TestSaveReadItem(t *testing.T) {
 }
 
 func TestUpdateReadItem(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	prepareFeeds(dbService, "http://feed1")
 
@@ -96,9 +93,8 @@ func TestUpdateReadItem(t *testing.T) {
 }
 
 func TestUpdateReadItemUnchanged(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	prepareFeeds(dbService, "http://feed1")
 
@@ -127,9 +123,8 @@ func TestUpdateReadItemUnchanged(t *testing.T) {
 }
 
 func TestSaveReadItemTTLExpiredItem(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	prepareFeeds(dbService, "http://feed1")
 
@@ -159,9 +154,8 @@ func TestSaveReadItemTTLExpiredItem(t *testing.T) {
 }
 
 func TestSaveReadItemTTLExpiredFeed(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	prepareFeeds(dbService, "http://feed1")
 	_, err = dbService.db.Exec("UPDATE feeds SET last_success = NULL")
@@ -189,9 +183,8 @@ func TestSaveReadItemTTLExpiredFeed(t *testing.T) {
 }
 
 func TestSaveReadItemTTLNotExpired(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	prepareFeeds(dbService, "http://feed1")
 
@@ -217,9 +210,8 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 }
 
 func TestSaveReadAllItems(t *testing.T) {
-	dbService, err := prepareFeedTests()
+	err := prepareFeedTests()
 	assert.NoError(t, err)
-	defer dbService.Close()
 
 	user1 := &User{
 		Opml: `<opml version="1.0">` +
@@ -281,21 +273,15 @@ func TestSaveReadAllItems(t *testing.T) {
 	assert.EqualValues(t, items2, dbItems2)
 }
 
-func prepareFeedTests() (*DBService, error) {
-	useRealDatabase()
-	dbService, err := Open()
-	if err != nil {
-		return nil, err
-	}
+func prepareFeedTests() error {
 	cleanDatabases := []string{"users", "feeds"}
 	for _, table := range cleanDatabases {
-		_, err = dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
+		_, err := dbService.db.Exec(fmt.Sprintf("DELETE FROM %s", table))
 		if err != nil {
-			dbService.Close()
-			return nil, err
+			return err
 		}
 	}
-	return dbService, nil
+	return nil
 }
 
 func prepareFeeds(s *DBService, feedURLs ...string) error {
