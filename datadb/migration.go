@@ -87,12 +87,13 @@ CREATE TABLE user_pagemonitors (
 );
 
 CREATE TABLE user_read_feeditems (
-	user_id     INT NOT NULL,
-	feeditem_id INT NOT NULL,
+	user_id       INT NOT NULL,
+	feed_id       INT NOT NULL,
+	feeditem_guid TEXT NOT NULL,
 
 	FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-	FOREIGN KEY(feeditem_id) REFERENCES feeds(id) ON DELETE CASCADE,
-	PRIMARY KEY(user_id, feeditem_id)
+	FOREIGN KEY(feed_id, feeditem_guid) REFERENCES feeditems(feed_id, guid) ON DELETE CASCADE,
+	PRIMARY KEY(user_id, feed_id, feeditem_guid)
 );
 
 CREATE TABLE user_read_pagemonitors (
