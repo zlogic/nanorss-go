@@ -9,55 +9,55 @@ import (
 
 // This should be separate from regular data classes in case the structures change and we need to restore data from an older version
 
-// BackupUser is a backup-friendly version of User.
-type BackupUser struct {
+// backupUser is a backup-friendly version of User.
+type backupUser struct {
 	User
 	Username  string
 	ReadItems []string
 }
 
-// BackupFeeditem is a backup-friendly version of Feeditem and its FeeditemKey.
-type BackupFeeditem struct {
+// backupFeeditem is a backup-friendly version of Feeditem and its FeeditemKey.
+type backupFeeditem struct {
 	Feeditem
 	FeeditemKey
 }
 
-// BackupPagemonitor is a backup-friendly version of PagemonitorPage and its configuration UserPagemonitor.
-type BackupPagemonitor struct {
+// backupPagemonitor is a backup-friendly version of PagemonitorPage and its configuration UserPagemonitor.
+type backupPagemonitor struct {
 	PagemonitorPage
 	UserPagemonitor
 }
 
-// BackupData is the toplevel structure exported in a backup.
-type BackupData struct {
-	Users        []*BackupUser
-	Feeds        []*BackupFeeditem
-	Pagemonitor  []*BackupPagemonitor
+// backupData is the toplevel structure exported in a backup.
+type backupData struct {
+	Users        []*backupUser
+	Feeds        []*backupFeeditem
+	Pagemonitor  []*backupPagemonitor
 	ServerConfig map[string]string
 }
 
 // Backup returns a serialized copy of all data.
 func (service *DBService) Backup() (string, error) {
-	data := BackupData{}
+	data := backupData{}
 
 	done := make(chan bool)
 	userChan := make(chan *User)
 	go func() {
 		for user := range userChan {
-			backupUser := &BackupUser{User: *user, Username: user.username}
+			backupUser := &backupUser{User: *user, Username: user.username}
 			data.Users = append(data.Users, backupUser)
 		}
 		done <- true
 	}()
 	if err := service.ReadAllUsers(userChan); err != nil {
-		return "", fmt.Errorf("Error backing up users because of %w", err)
+		return "", fmt.Errorf("failed to backup users: %w", err)
 	}
 	<-done
 
 	for _, user := range data.Users {
 		readStatus, err := service.GetReadStatus(&user.User)
 		if err != nil {
-			return "", fmt.Errorf("Error backing up item read status for user because of %w", err)
+			return "", fmt.Errorf("failed to backup item read status for user: %w", err)
 		}
 		user.ReadItems = make([]string, len(readStatus))
 		for i, readItemKey := range readStatus {
@@ -69,7 +69,7 @@ func (service *DBService) Backup() (string, error) {
 	go func() {
 		for feedItem := range feedChan {
 			// Flatten/reformat data
-			backupFeeditem := &BackupFeeditem{
+			backupFeeditem := &backupFeeditem{
 				Feeditem:    *feedItem,
 				FeeditemKey: *feedItem.Key,
 			}
@@ -79,7 +79,7 @@ func (service *DBService) Backup() (string, error) {
 		done <- true
 	}()
 	if err := service.ReadAllFeedItems(feedChan); err != nil {
-		return "", fmt.Errorf("Error backing up feed items because of %w", err)
+		return "", fmt.Errorf("failed to back up feed items: %w", err)
 	}
 	<-done
 
@@ -87,7 +87,7 @@ func (service *DBService) Backup() (string, error) {
 	go func() {
 		for page := range pageChan {
 			// Flatten/reformat data
-			backupPagemonitor := &BackupPagemonitor{
+			backupPagemonitor := &backupPagemonitor{
 				PagemonitorPage: *page,
 				UserPagemonitor: *page.Config,
 			}
@@ -98,19 +98,19 @@ func (service *DBService) Backup() (string, error) {
 	}()
 
 	if err := service.ReadAllPages(pageChan); err != nil {
-		return "", fmt.Errorf("Error backing up pagemonitor pages because of %w", err)
+		return "", fmt.Errorf("failed to backup pagemonitor pages: %w", err)
 	}
 	<-done
 
 	serverConfig, err := service.GetAllConfigVariables()
 	if err != nil {
-		return "", fmt.Errorf("Error backing up server configuration because of %w", err)
+		return "", fmt.Errorf("failed to backup server configuration: %w", err)
 	}
 	data.ServerConfig = serverConfig
 
 	value, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("Error marshaling json because of %w", err)
+		return "", fmt.Errorf("failed to marshal json: %w", err)
 	}
 
 	return string(value), nil
@@ -118,10 +118,10 @@ func (service *DBService) Backup() (string, error) {
 
 // Restore replaces database data with the provided serialized value.
 func (service *DBService) Restore(value string) error {
-	data := BackupData{}
+	data := backupData{}
 	failed := false
 	if err := json.Unmarshal([]byte(value), &data); err != nil {
-		return fmt.Errorf("Error unmarshaling json because of %w", err)
+		return fmt.Errorf("failed to unmarshal json: %w", err)
 	}
 
 	for _, user := range data.Users {
@@ -164,7 +164,7 @@ func (service *DBService) Restore(value string) error {
 		}
 	}
 	if failed {
-		return fmt.Errorf("Failed to restore at least one item")
+		return fmt.Errorf("failed to restore at least one item")
 	}
 	return nil
 }

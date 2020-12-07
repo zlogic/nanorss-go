@@ -6,10 +6,11 @@ import (
 	"github.com/dgraph-io/badger/v2"
 )
 
-// GetOrCreateConfigVariable returns the value for the varName ServerConfig variable, or if there's no entry, uses generator to create and save a value.
+// GetOrCreateConfigVariable returns the value for the varName ServerConfig variable,
+// or if there's no entry, uses generator to create and save a value.
 func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error) {
 	varValue := ""
-	varKey := CreateServerConfigKey(varName)
+	varKey := createServerConfigKey(varName)
 	err := s.db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get(varKey)
 		if err == badger.ErrKeyNotFound {
@@ -34,19 +35,19 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("Cannot read config key %v because of %w", varName, err)
+		return "", fmt.Errorf("cannot read config key %v: %w", varName, err)
 	}
 	return varValue, nil
 }
 
 // SetConfigVariable returns the value for the varName ServerConfig variable, or nil if no value is saved.
 func (s *DBService) SetConfigVariable(varName, varValue string) error {
-	varKey := CreateServerConfigKey(varName)
+	varKey := createServerConfigKey(varName)
 	err := s.db.Update(func(txn *badger.Txn) error {
 		return txn.Set(varKey, []byte(varValue))
 	})
 	if err != nil {
-		return fmt.Errorf("Cannot write config key %v because of %w", varName, err)
+		return fmt.Errorf("cannot write config key %v: %w", varName, err)
 	}
 	return nil
 }
@@ -55,7 +56,7 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 	vars := make(map[string]string)
 	opts := badger.DefaultIteratorOptions
-	opts.Prefix = []byte(ServerConfigKeyPrefix)
+	opts.Prefix = []byte(serverConfigKeyPrefix)
 	err := s.db.View(func(txn *badger.Txn) error {
 		it := txn.NewIterator(opts)
 		defer it.Close()
@@ -63,9 +64,9 @@ func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 			item := it.Item()
 			k := item.Key()
 
-			key, err := DecodeServerConfigKey(k)
+			key, err := decodeServerConfigKey(k)
 			if err != nil {
-				return fmt.Errorf("Error reading config key %v because of %w", k, err)
+				return fmt.Errorf("error reading config key %v: %w", string(k), err)
 			}
 
 			err = item.Value(func(val []byte) error {
@@ -73,7 +74,7 @@ func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
 				return nil
 			})
 			if err != nil {
-				return fmt.Errorf("Error reading config value %v because of %w", k, err)
+				return fmt.Errorf("error reading config value %v: %w", string(k), err)
 			}
 		}
 		return nil

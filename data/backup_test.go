@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var backupUsers = []*User{
+var testBackupUsers = []*User{
 	{
 		Password:    "pass1",
 		Opml:        "opml1",
@@ -22,7 +22,7 @@ var backupUsers = []*User{
 	},
 }
 
-var backupFeeditems = []*Feeditem{
+var testBackupFeeditems = []*Feeditem{
 	{
 		Title:    "t1",
 		URL:      "http://item1/1",
@@ -49,7 +49,7 @@ var backupFeeditems = []*Feeditem{
 	},
 }
 
-var backupPagemonitor = []*PagemonitorPage{
+var testBackupPagemonitor = []*PagemonitorPage{
 	{
 		Contents: "p1",
 		Delta:    "d1",
@@ -64,7 +64,7 @@ var backupPagemonitor = []*PagemonitorPage{
 	},
 }
 
-const backupData = `{
+const testBackupData = `{
   "Users": [
     {
       "Password": "pass1",
@@ -148,34 +148,34 @@ func TestBackup(t *testing.T) {
 	err := resetDb()
 	assert.NoError(t, err)
 
-	for _, user := range backupUsers {
+	for _, user := range testBackupUsers {
 		dbService.SaveUser(user)
 	}
-	dbService.SaveFeeditems(backupFeeditems...)
-	for _, page := range backupPagemonitor {
+	dbService.SaveFeeditems(testBackupFeeditems...)
+	for _, page := range testBackupPagemonitor {
 		dbService.SavePage(page)
 	}
 
-	dbService.SetReadStatus(backupUsers[0], backupFeeditems[0].Key.CreateKey(), true)
-	dbService.SetReadStatus(backupUsers[0], backupFeeditems[1].Key.CreateKey(), true)
-	dbService.SetReadStatus(backupUsers[0], backupPagemonitor[0].Config.CreateKey(), true)
-	dbService.SetReadStatus(backupUsers[1], backupFeeditems[0].Key.CreateKey(), true)
-	dbService.SetReadStatus(backupUsers[1], backupFeeditems[2].Key.CreateKey(), true)
-	dbService.SetReadStatus(backupUsers[1], backupPagemonitor[1].Config.CreateKey(), true)
+	dbService.SetReadStatus(testBackupUsers[0], testBackupFeeditems[0].Key.CreateKey(), true)
+	dbService.SetReadStatus(testBackupUsers[0], testBackupFeeditems[1].Key.CreateKey(), true)
+	dbService.SetReadStatus(testBackupUsers[0], testBackupPagemonitor[0].Config.CreateKey(), true)
+	dbService.SetReadStatus(testBackupUsers[1], testBackupFeeditems[0].Key.CreateKey(), true)
+	dbService.SetReadStatus(testBackupUsers[1], testBackupFeeditems[2].Key.CreateKey(), true)
+	dbService.SetReadStatus(testBackupUsers[1], testBackupPagemonitor[1].Config.CreateKey(), true)
 
 	dbService.SetConfigVariable("k1", "v1")
 	dbService.SetConfigVariable("k2", "v2")
 
 	data, err := dbService.Backup()
 	assert.NoError(t, err)
-	assert.Equal(t, backupData, data)
+	assert.Equal(t, testBackupData, data)
 }
 
 func TestRestore(t *testing.T) {
 	err := resetDb()
 	assert.NoError(t, err)
 
-	err = dbService.Restore(backupData)
+	err = dbService.Restore(testBackupData)
 	assert.NoError(t, err)
 
 	done := make(chan bool)
@@ -190,22 +190,22 @@ func TestRestore(t *testing.T) {
 	err = dbService.ReadAllUsers(userChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, backupUsers, dbUsers)
+	assert.Equal(t, testBackupUsers, dbUsers)
 
-	user1ReadStatus, err := dbService.GetReadStatus(backupUsers[0])
+	user1ReadStatus, err := dbService.GetReadStatus(testBackupUsers[0])
 	assert.NoError(t, err)
 	assert.Equal(t, [][]byte{
-		backupFeeditems[0].Key.CreateKey(),
-		backupFeeditems[1].Key.CreateKey(),
-		backupPagemonitor[0].Config.CreateKey(),
+		testBackupFeeditems[0].Key.CreateKey(),
+		testBackupFeeditems[1].Key.CreateKey(),
+		testBackupPagemonitor[0].Config.CreateKey(),
 	}, user1ReadStatus)
 
-	user2ReadStatus, err := dbService.GetReadStatus(backupUsers[1])
+	user2ReadStatus, err := dbService.GetReadStatus(testBackupUsers[1])
 	assert.NoError(t, err)
 	assert.Equal(t, [][]byte{
-		backupFeeditems[0].Key.CreateKey(),
-		backupFeeditems[2].Key.CreateKey(),
-		backupPagemonitor[1].Config.CreateKey(),
+		testBackupFeeditems[0].Key.CreateKey(),
+		testBackupFeeditems[2].Key.CreateKey(),
+		testBackupPagemonitor[1].Config.CreateKey(),
 	}, user2ReadStatus)
 
 	feedChan := make(chan *Feeditem)
@@ -219,7 +219,7 @@ func TestRestore(t *testing.T) {
 	err = dbService.ReadAllFeedItems(feedChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, backupFeeditems, dbFeeditems)
+	assert.Equal(t, testBackupFeeditems, dbFeeditems)
 
 	pageChan := make(chan *PagemonitorPage)
 	dbPages := make([]*PagemonitorPage, 0)
@@ -232,7 +232,7 @@ func TestRestore(t *testing.T) {
 	err = dbService.ReadAllPages(pageChan)
 	assert.NoError(t, err)
 	<-done
-	assert.Equal(t, backupPagemonitor, dbPages)
+	assert.Equal(t, testBackupPagemonitor, dbPages)
 
 	values, err := dbService.GetAllConfigVariables()
 	assert.NoError(t, err)

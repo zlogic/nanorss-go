@@ -73,8 +73,8 @@ func (service *DBService) Close() {
 	}
 }
 
-// IteratorDoNotPrefetchOptions returns Badger iterator options with PrefetchValues = false.
-func IteratorDoNotPrefetchOptions() badger.IteratorOptions {
+// iteratorDoNotPrefetchOptions returns Badger iterator options with PrefetchValues = false.
+func iteratorDoNotPrefetchOptions() badger.IteratorOptions {
 	options := badger.DefaultIteratorOptions
 	options.PrefetchValues = false
 	return options

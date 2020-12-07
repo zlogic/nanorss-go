@@ -26,8 +26,8 @@ type Feeditem struct {
 	Key      *FeeditemKey `json:",omitempty"`
 }
 
-// Encode serializes a Feeditem.
-func (feedItem *Feeditem) Encode() ([]byte, error) {
+// encode serializes a Feeditem.
+func (feedItem *Feeditem) encode() ([]byte, error) {
 	key := feedItem.Key
 	defer func() { feedItem.Key = key }()
 	feedItem.Key = nil
@@ -39,8 +39,8 @@ func (feedItem *Feeditem) Encode() ([]byte, error) {
 	return value.Bytes(), nil
 }
 
-// Decode deserializes a Feeditem.
-func (feedItem *Feeditem) Decode(val []byte) error {
+// decode deserializes a Feeditem.
+func (feedItem *Feeditem) decode(val []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(feedItem)
 }
 
@@ -55,14 +55,14 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 			return nil
 		}
 
-		if err := item.Value(feeditem.Decode); err != nil {
+		if err := item.Value(feeditem.decode); err != nil {
 			feeditem = nil
 			return err
 		}
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot read feed item %v because of %w", key, err)
+		return nil, fmt.Errorf("cannot read feed item %v: %w", key, err)
 	}
 	return feeditem, nil
 }
@@ -73,12 +73,12 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 		getPreviousItem := func(key []byte) (*Feeditem, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, fmt.Errorf("Failed to get previous feed item %v because of %w", string(key), err)
+				return nil, fmt.Errorf("failed to get previous feed item %v: %w", string(key), err)
 			}
 			if err == nil {
 				existingFeedItem := &Feeditem{}
-				if err := item.Value(existingFeedItem.Decode); err != nil {
-					return nil, fmt.Errorf("Failed to read previous value of feed item %v because of %w", string(key), err)
+				if err := item.Value(existingFeedItem.decode); err != nil {
+					return nil, fmt.Errorf("failed to read previous value of feed item %v: %w", string(key), err)
 				}
 				return existingFeedItem, nil
 			}
@@ -98,13 +98,13 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 				previousItem.Key = feedItem.Key
 			}
 
-			value, err := feedItem.Encode()
+			value, err := feedItem.encode()
 			if err != nil {
-				return fmt.Errorf("Cannot marshal feed item because of %w", err)
+				return fmt.Errorf("cannot marshal feed item: %w", err)
 			}
 
 			if err := s.SetLastSeen(key)(txn); err != nil {
-				return fmt.Errorf("Cannot set last seen time because of %w", err)
+				return fmt.Errorf("cannot set last seen time: %w", err)
 			}
 
 			if previousItem != nil && *feedItem == *previousItem {
@@ -115,7 +115,7 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 			}
 
 			if err := txn.Set(key, value); err != nil {
-				return fmt.Errorf("Cannot save feed item because of %w", err)
+				return fmt.Errorf("cannot save feed item: %w", err)
 			}
 		}
 		return nil
@@ -127,7 +127,7 @@ func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
 	defer close(ch)
 	err = s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(FeeditemKeyPrefix)
+		opts.Prefix = []byte(feeditemKeyPrefix)
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
@@ -141,7 +141,7 @@ func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
 			}
 
 			feedItem := &Feeditem{Key: key}
-			if err := item.Value(feedItem.Decode); err != nil {
+			if err := item.Value(feedItem.decode); err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
 				continue
 			}

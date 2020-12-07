@@ -11,8 +11,8 @@ type itemKey = []byte
 func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
 	items := make([]itemKey, 0)
 	err := s.db.View(func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(user.CreateReadStatusPrefix())
+		opts := iteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(user.createReadStatusPrefix())
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
@@ -20,7 +20,7 @@ func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
 
 			k := item.Key()
 
-			itemKey, err := DecodeReadStatusKey(k)
+			itemKey, err := decodeReadStatusKey(k)
 			if err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
 				return err
@@ -37,7 +37,7 @@ func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
 
 // SetReadStatus sets the read status for item, true for read, false for unread.
 func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
-	readStatusKey := user.CreateReadStatusKey(k)
+	readStatusKey := user.createReadStatusKey(k)
 	return s.db.Update(func(txn *badger.Txn) error {
 		if read {
 			return txn.Set(readStatusKey, nil)
@@ -49,8 +49,8 @@ func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
 // SetReadStatusForAll sets the read status for item (for all users), true for read, false for unread.
 func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
 	return s.db.Update(func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(UserKeyPrefix)
+		opts := iteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(userKeyPrefix)
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
@@ -58,14 +58,14 @@ func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
 
 			userKey := item.Key()
 
-			username, err := DecodeUserKey(userKey)
+			username, err := decodeUserKey(userKey)
 			if err != nil {
 				log.WithField("key", userKey).WithError(err).Error("Failed to decode username of user")
 				continue
 			}
 
 			user := &User{username: *username}
-			readStatusKey := user.CreateReadStatusKey(k)
+			readStatusKey := user.createReadStatusKey(k)
 
 			if read {
 				if err := txn.Set(readStatusKey, nil); err != nil {
@@ -83,19 +83,19 @@ func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
 	})
 }
 
-// RenameReadStatus updates read status items for user to the new username.
+// renameReadStatus updates read status items for user to the new username.
 func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
 	newUser := &User{username: user.newUsername}
 	return func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(user.CreateReadStatusPrefix())
+		opts := iteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(user.createReadStatusPrefix())
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			k := item.KeyCopy(nil)
 
-			itemKey, err := DecodeReadStatusKey(k)
+			itemKey, err := decodeReadStatusKey(k)
 			if err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
 				return err
@@ -107,7 +107,7 @@ func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
 				return err
 			}
 
-			newK := newUser.CreateReadStatusKey(itemKey)
+			newK := newUser.createReadStatusKey(itemKey)
 			err = txn.Set(newK, nil)
 			if err != nil {
 				log.WithField("key", newK).WithField("user", newUser.username).WithError(err).Error("Failed to create read status for new username")
@@ -121,15 +121,15 @@ func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
 // DeleteStaleReadStatuses deletes all read statuses which are referring to items which no longer exist.
 func (s *DBService) DeleteStaleReadStatuses() error {
 	return s.db.Update(func(txn *badger.Txn) error {
-		opts := IteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(ReadStatusPrefix)
+		opts := iteratorDoNotPrefetchOptions()
+		opts.Prefix = []byte(readStatusPrefix)
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
 			item := it.Item()
 			k := item.KeyCopy(nil)
 
-			itemKey, err := DecodeReadStatusKey(k)
+			itemKey, err := decodeReadStatusKey(k)
 			if err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to decode key of read status")
 				continue

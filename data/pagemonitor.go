@@ -18,8 +18,8 @@ type PagemonitorPage struct {
 	Config   *UserPagemonitor `json:",omitempty"`
 }
 
-// Encode serializes a PagemonitorPage.
-func (page *PagemonitorPage) Encode() ([]byte, error) {
+// encode serializes a PagemonitorPage.
+func (page *PagemonitorPage) encode() ([]byte, error) {
 	config := page.Config
 	defer func() { page.Config = config }()
 	page.Config = nil
@@ -31,8 +31,8 @@ func (page *PagemonitorPage) Encode() ([]byte, error) {
 	return value.Bytes(), nil
 }
 
-// Decode deserializes a PagemonitorPage.
-func (page *PagemonitorPage) Decode(val []byte) error {
+// decode deserializes a PagemonitorPage.
+func (page *PagemonitorPage) decode(val []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(page)
 }
 
@@ -47,10 +47,10 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 			return nil
 		}
 
-		return item.Value(page.Decode)
+		return item.Value(page.decode)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot read page %v because of %w", page, err)
+		return nil, fmt.Errorf("cannot read page %v: %w", page, err)
 	}
 	return page, nil
 }
@@ -60,18 +60,18 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
 	return s.db.Update(func(txn *badger.Txn) error {
 		if err := s.SetLastSeen(key)(txn); err != nil {
-			return fmt.Errorf("Cannot set last seen time because of %w", err)
+			return fmt.Errorf("cannot set last seen time: %w", err)
 		}
 
 		getPreviousPage := func(key []byte) (*PagemonitorPage, error) {
 			item, err := txn.Get(key)
 			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, fmt.Errorf("Failed to get previous page %v because of %w", string(key), err)
+				return nil, fmt.Errorf("failed to get previous page %v: %w", string(key), err)
 			}
 			if err == nil {
 				existingPage := &PagemonitorPage{}
-				if err := item.Value(existingPage.Decode); err != nil {
-					return nil, fmt.Errorf("Failed to read previous value of page %v because of %w", string(key), err)
+				if err := item.Value(existingPage.decode); err != nil {
+					return nil, fmt.Errorf("failed to read previous value of page %v: %w", string(key), err)
 				}
 				return existingPage, nil
 			}
@@ -86,9 +86,9 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 			previousPage.Config = page.Config
 		}
 
-		value, err := page.Encode()
+		value, err := page.encode()
 		if err != nil {
-			return fmt.Errorf("Cannot marshal page because of %w", err)
+			return fmt.Errorf("cannot marshal page: %w", err)
 		}
 
 		if previousPage != nil && *previousPage == *page {
@@ -105,7 +105,7 @@ func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 	defer close(ch)
 	err = s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(PagemonitorKeyPrefix)
+		opts.Prefix = []byte(pagemonitorKeyPrefix)
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
@@ -119,7 +119,7 @@ func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
 			}
 
 			page := &PagemonitorPage{Config: pm}
-			if err := item.Value(page.Decode); err != nil {
+			if err := item.Value(page.decode); err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to read value of page")
 				continue
 			}

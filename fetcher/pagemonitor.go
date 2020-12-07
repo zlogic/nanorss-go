@@ -13,6 +13,7 @@ import (
 	"github.com/zlogic/nanorss-go/data"
 )
 
+// getPreviousResult returns the previous value for the page (or an empty PagemonitorPage if no value exists).
 func (fetcher *Fetcher) getPreviousResult(config *data.UserPagemonitor) *data.PagemonitorPage {
 	page, err := fetcher.DB.GetPage(config)
 	if err != nil {
@@ -36,15 +37,15 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		}
 
 		if err == nil && resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("Cannot GET page (status code %v)", resp.StatusCode)
+			err = fmt.Errorf("cannot GET page (status code %v)", resp.StatusCode)
 		}
 		if err != nil {
-			return fmt.Errorf("Cannot GET page %v because of %w", config, err)
+			return fmt.Errorf("cannot GET page %v: %w", config, err)
 		}
 
 		respData, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("Cannot read response for page %v because of %w", config, err)
+			return fmt.Errorf("cannot read response for page %v: %w", config, err)
 		}
 		text, err := html2text.FromString(string(respData))
 
@@ -52,7 +53,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		if config.Match != "" {
 			regex, err := regexp.Compile(config.Match)
 			if err != nil {
-				return fmt.Errorf("Cannot compile match regex %v because of %w", config, err)
+				return fmt.Errorf("cannot compile match regex %v: %w", config, err)
 			}
 			textFiltered = regex.ReplaceAllString(text, config.Replace)
 			previousTextFiltered = regex.ReplaceAllString(page.Contents, config.Replace)
@@ -72,7 +73,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			Context: 3,
 		})
 		if err != nil {
-			return fmt.Errorf("Cannot create diff for page %v because of %w", config, err)
+			return fmt.Errorf("cannot create diff for page %v: %w", config, err)
 		}
 		page.Delta = diff
 		page.Contents = text
@@ -80,7 +81,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 		page.Config = config
 		err = fetcher.DB.SetReadStatusForAll(config.CreateKey(), false)
 		if err != nil {
-			return fmt.Errorf("Cannot mark page as unread %v because of %w", config, err)
+			return fmt.Errorf("cannot mark page %v as unread: %w", config, err)
 		}
 
 		log.WithField("value", page).WithField("page", config).WithField("delta", page.Delta).Debug("Page has changed")

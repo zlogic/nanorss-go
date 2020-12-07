@@ -8,15 +8,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// itemTTL specifies the TTL after which items expire.
 var itemTTL = 14 * 24 * time.Hour
 
+// skipUpdateTTL how old the item has to be for its "last seen" status to be updated.
+// Prevents excessive writes to the database.
 var skipUpdateTTL = itemTTL / 2
 
 // SetLastSeen creates or updates the last seen value for key.
 func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 	return func(txn *badger.Txn) error {
 		currentTime := time.Now()
-		lastSeenKey := CreateLastSeenKey(key)
+		lastSeenKey := createLastSeenKey(key)
 
 		previous, err := txn.Get(lastSeenKey)
 		if err == nil {
@@ -36,10 +39,10 @@ func (s *DBService) SetLastSeen(key []byte) func(*badger.Txn) error {
 
 		value, err := currentTime.MarshalBinary()
 		if err != nil {
-			return fmt.Errorf("Error marshaling current time (%w)", err)
+			return fmt.Errorf("error marshaling current time: %w", err)
 		}
 		if err := txn.Set(lastSeenKey, value); err != nil {
-			return fmt.Errorf("Error saving last seen time (%w)", err)
+			return fmt.Errorf("error saving last seen time: %w", err)
 		}
 		return nil
 	}
@@ -54,7 +57,7 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 				log.WithField("key", key).WithError(err).Error("Failed to delete item")
 			}
 
-			key = CreateLastSeenKey(key)
+			key = createLastSeenKey(key)
 			if err := txn.Delete(key); err != nil {
 				log.WithField("key", string(key)).WithError(err).Error("Failed to delete item last seen time")
 			}
@@ -68,7 +71,7 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 			item := it.Item()
 			k := item.KeyCopy(nil)
 
-			lastSeenKey := CreateLastSeenKey(k)
+			lastSeenKey := createLastSeenKey(k)
 			lastSeenItem, err := txn.Get(lastSeenKey)
 
 			if err != nil {
@@ -101,20 +104,20 @@ func (s *DBService) deleteExpiredItems(prefix []byte) func(*badger.Txn) error {
 func (s *DBService) DeleteExpiredItems() error {
 	failed := false
 	return s.db.Update(func(txn *badger.Txn) error {
-		err := s.deleteExpiredItems([]byte(FeeditemKeyPrefix))(txn)
+		err := s.deleteExpiredItems([]byte(feeditemKeyPrefix))(txn)
 		if err != nil {
 			failed = true
 			log.WithError(err).Error("Failed to clean up expired feed items")
 		}
 
-		err = s.deleteExpiredItems([]byte(PagemonitorKeyPrefix))(txn)
+		err = s.deleteExpiredItems([]byte(pagemonitorKeyPrefix))(txn)
 		if err != nil {
 			failed = true
 			log.WithError(err).Error("Failed to clean up expired pages")
 		}
 
 		if failed {
-			return fmt.Errorf("Failed to delete at least one expired item")
+			return fmt.Errorf("failed to delete at least one expired item")
 		}
 		return nil
 	})

@@ -6,12 +6,15 @@ import (
 	"strings"
 )
 
+// separatator is used to separate parts of an item key.
 const separator = "/"
 
+// encodePart encodes a part of the key into a string so that it can be safely joined with separator.
 func encodePart(part string) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(part))
 }
 
+// decodePart decodes a part of the key into a string.
 func decodePart(part string) (string, error) {
 	res, err := base64.RawURLEncoding.DecodeString(part)
 	if err != nil {
@@ -20,179 +23,189 @@ func decodePart(part string) (string, error) {
 	return string(res), nil
 }
 
-// LastSeenKeyPrefix is the key prefix for LastSeen entries.
-const LastSeenKeyPrefix = "lastseen" + separator
+// lastSeenKeyPrefix is the key prefix for LastSeen entries.
+const lastSeenKeyPrefix = "lastseen" + separator
 
-// CreateLastSeenKey creates a LastSeen key for itemKey.
-func CreateLastSeenKey(itemKey []byte) []byte {
-	return append([]byte(LastSeenKeyPrefix), itemKey...)
+// createLastSeenKey creates a LastSeen key for itemKey.
+func createLastSeenKey(itemKey []byte) []byte {
+	return append([]byte(lastSeenKeyPrefix), itemKey...)
 }
 
-// FetchStatusKeyPrefix is the key prefix for FetchStatus entries.
-const FetchStatusKeyPrefix = "fetchstatus" + separator
+// fetchStatusKeyPrefix is the key prefix for FetchStatus entries.
+const fetchStatusKeyPrefix = "fetchstatus" + separator
 
-// CreateFetchStatusKey creates a FetchStatus key for itemKey.
-func CreateFetchStatusKey(itemKey []byte) []byte {
-	return append([]byte(FetchStatusKeyPrefix), itemKey...)
+// createFetchStatusKey creates a FetchStatus key for itemKey.
+func createFetchStatusKey(itemKey []byte) []byte {
+	return append([]byte(fetchStatusKeyPrefix), itemKey...)
 }
 
-// UserKeyPrefix is the key prefix for User entries.
-const UserKeyPrefix = "user" + separator
+// userKeyPrefix is the key prefix for User entries.
+const userKeyPrefix = "user" + separator
 
-// CreateUserKey creates a key for user.
-func CreateUserKey(username string) []byte {
-	return []byte(UserKeyPrefix + encodePart(username))
+// createUserKey creates a key for user.
+func createUserKey(username string) []byte {
+	return []byte(userKeyPrefix + encodePart(username))
 }
 
-// CreateKey creates a key for user.
-func (user *User) CreateKey() []byte {
-	return CreateUserKey(user.username)
+// createKey creates a key for user.
+func (user *User) createKey() []byte {
+	return createUserKey(user.username)
 }
 
-// DecodeUserKey decodes the username from a user key.
-func DecodeUserKey(key []byte) (*string, error) {
+// decodeUserKey decodes the username from a user key.
+func decodeUserKey(key []byte) (*string, error) {
 	keyString := string(key)
-	if !strings.HasPrefix(keyString, UserKeyPrefix) {
-		return nil, fmt.Errorf("Not a user key: %v", keyString)
+	if !strings.HasPrefix(keyString, userKeyPrefix) {
+		return nil, fmt.Errorf("not a user key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 2 {
-		return nil, fmt.Errorf("Invalid format of user key: %v", keyString)
+		return nil, fmt.Errorf("invalid format of user key: %v", keyString)
 	}
 	username, err := decodePart(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode username: %v because of %w", keyString, err)
+		return nil, fmt.Errorf("failed to decode username %v: %w", keyString, err)
 	}
 	return &username, nil
 }
 
-// PagemonitorKeyPrefix is the key prefix for Pagemonitor.
-const PagemonitorKeyPrefix = "pagemonitor" + separator
+// pagemonitorKeyPrefix is the key prefix for Pagemonitor.
+const pagemonitorKeyPrefix = "pagemonitor" + separator
 
 // CreateKey creates a key for a Pagemonitor entry.
 func (pm *UserPagemonitor) CreateKey() []byte {
 	keyURL := encodePart(pm.URL)
 	keyMatch := encodePart(pm.Match)
 	keyReplace := encodePart(pm.Replace)
-	return []byte(PagemonitorKeyPrefix + keyURL + separator + keyMatch + separator + keyReplace)
+	return []byte(pagemonitorKeyPrefix + keyURL + separator + keyMatch + separator + keyReplace)
 }
 
 // DecodePagemonitorKey decodes the Pagemonitor configuration from a Pagemonitor key.
 func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 	keyString := string(key)
-	if !strings.HasPrefix(keyString, PagemonitorKeyPrefix) {
-		return nil, fmt.Errorf("Not a Pagemonitor key: %v", keyString)
+	if !strings.HasPrefix(keyString, pagemonitorKeyPrefix) {
+		return nil, fmt.Errorf("not a Pagemonitor key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 4 {
-		return nil, fmt.Errorf("Invalid format of Pagemonitor key: %v", keyString)
+		return nil, fmt.Errorf("invalid format of Pagemonitor key: %v", keyString)
 	}
 	res := &UserPagemonitor{}
 	var err error
 	res.URL, err = decodePart(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode URL of Pagemonitor key: %v because of %w", keyString, err)
+		return nil, fmt.Errorf("failed to decode URL of Pagemonitor key %v: %w", keyString, err)
 	}
 	res.Match, err = decodePart(parts[2])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode Match of Pagemonitor key: %v because of %w", keyString, err)
+		return nil, fmt.Errorf("failed to decode Match of Pagemonitor key %v: %w", keyString, err)
 	}
 	res.Replace, err = decodePart(parts[3])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode Replace of Pagemonitor key: %v because of %w", keyString, err)
+		return nil, fmt.Errorf("failed to decode Replace of Pagemonitor key %v: %w", keyString, err)
 	}
 	return res, nil
 }
 
-// FeedKeyPrefix is the key prefix for a UserFeed.
-const FeedKeyPrefix = "feed" + separator
+// feedKeyPrefix is the key prefix for a UserFeed.
+const feedKeyPrefix = "feed" + separator
 
 // CreateKey creates a key for a Pagemonitor entry.
 func (feed *UserFeed) CreateKey() []byte {
 	keyURL := encodePart(feed.URL)
-	return []byte(FeedKeyPrefix + keyURL)
+	return []byte(feedKeyPrefix + keyURL)
 }
 
-// FeeditemKeyPrefix is the key prefix for Feeditem.
-const FeeditemKeyPrefix = "feeditem" + separator
+// feeditemKeyPrefix is the key prefix for Feeditem.
+const feeditemKeyPrefix = "feeditem" + separator
 
 // CreateKey creates a key for a Feeditem entry.
 func (key *FeeditemKey) CreateKey() []byte {
 	keyURL := encodePart(key.FeedURL)
 	keyGUID := encodePart(key.GUID)
-	return []byte(FeeditemKeyPrefix + keyURL + separator + keyGUID)
+	return []byte(feeditemKeyPrefix + keyURL + separator + keyGUID)
 }
 
 // DecodeFeeditemKey decodes the Feeditem configuration from a Feeditem key.
 func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 	keyString := string(key)
-	if !strings.HasPrefix(keyString, FeeditemKeyPrefix) {
-		return nil, fmt.Errorf("Not a Feeditem key: %v", keyString)
+	if !strings.HasPrefix(keyString, feeditemKeyPrefix) {
+		return nil, fmt.Errorf("not a Feeditem key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("Invalid format of Feeditem key: %v", keyString)
+		return nil, fmt.Errorf("invalid format of Feeditem key: %v", keyString)
 	}
 	res := &FeeditemKey{}
 	var err error
 	res.FeedURL, err = decodePart(parts[1])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode Feed URL of Feeditem key: %v because of %w", keyString, err)
+		return nil, fmt.Errorf("failed to decode Feed URL of Feeditem key %v: %w", keyString, err)
 	}
 	res.GUID, err = decodePart(parts[2])
 	if err != nil {
-		return nil, fmt.Errorf("Failed to decode GUID of Feeditem key: %v because of %w", keyString, err)
+		return nil, fmt.Errorf("failed to decode GUID of Feeditem key %v: %w", keyString, err)
 	}
 	return res, nil
 }
 
-// ReadStatusPrefix is the key prefix for an item read status.
-const ReadStatusPrefix = "feed" + separator
+// readStatusPrefix is the key prefix for an item read status.
+const readStatusPrefix = "feed" + separator
 
-// CreateReadStatusPrefix creates a read status key prefix for user.
-func (user *User) CreateReadStatusPrefix() string {
-	return ReadStatusPrefix + encodePart(user.username) + separator
+// createReadStatusPrefix creates a read status key prefix for user.
+func (user *User) createReadStatusPrefix() string {
+	return readStatusPrefix + encodePart(user.username) + separator
 }
 
-// CreateReadStatusKey creates a read status key for an item key.
-func (user *User) CreateReadStatusKey(itemKey []byte) []byte {
-	return append([]byte(user.CreateReadStatusPrefix()), itemKey...)
+// createReadStatusKey creates a read status key for an item key.
+func (user *User) createReadStatusKey(itemKey []byte) []byte {
+	return append([]byte(user.createReadStatusPrefix()), itemKey...)
 }
 
-// DecodeReadStatusKey decodes the item key from the read status key.
-func DecodeReadStatusKey(key []byte) ([]byte, error) {
+// decodeReadStatusKey decodes the item key from the read status key.
+func decodeReadStatusKey(key []byte) ([]byte, error) {
 	keyString := string(key)
-	if !strings.HasPrefix(keyString, ReadStatusPrefix) {
-		return nil, fmt.Errorf("Not a read status key: %v", keyString)
+	if !strings.HasPrefix(keyString, readStatusPrefix) {
+		return nil, fmt.Errorf("not a read status key: %v", keyString)
 	}
 	parts := strings.SplitN(keyString, separator, 3)
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("Invalid format of read status key: %v", keyString)
+		return nil, fmt.Errorf("invalid format of read status key: %v", keyString)
 	}
 	return []byte(parts[2]), nil
 }
 
-// ServerConfigKeyPrefix is the key prefix for a ServerConfig item.
-const ServerConfigKeyPrefix = "serverconfig" + separator
+// serverConfigKeyPrefix is the key prefix for a ServerConfig item.
+const serverConfigKeyPrefix = "serverconfig" + separator
 
-// CreateServerConfigKey creates a key for a ServerConfig item.
-func CreateServerConfigKey(varName string) []byte {
-	return []byte(ServerConfigKeyPrefix + encodePart(varName))
+// createServerConfigKey creates a key for a ServerConfig item.
+func createServerConfigKey(varName string) []byte {
+	return []byte(serverConfigKeyPrefix + encodePart(varName))
 }
 
-// DecodeServerConfigKey decodes the name of a ServerConfig key.
-func DecodeServerConfigKey(key []byte) (string, error) {
+// decodeServerConfigKey decodes the name of a ServerConfig key.
+func decodeServerConfigKey(key []byte) (string, error) {
 	keyString := string(key)
-	if !strings.HasPrefix(keyString, ServerConfigKeyPrefix) {
-		return "", fmt.Errorf("Not a config item key: %v", keyString)
+	if !strings.HasPrefix(keyString, serverConfigKeyPrefix) {
+		return "", fmt.Errorf("not a config item key: %v", keyString)
 	}
 	parts := strings.Split(keyString, separator)
 	if len(parts) != 2 {
-		return "", fmt.Errorf("Invalid format of config item key: %v", keyString)
+		return "", fmt.Errorf("invalid format of config item key: %v", keyString)
 	}
 	value, err := decodePart(parts[1])
 	if err != nil {
-		return "", fmt.Errorf("Failed to decode config item value: %v because of %w", keyString, err)
+		return "", fmt.Errorf("failed to decode config item value %v: %w", keyString, err)
 	}
 	return value, nil
+}
+
+// IsFeeditemKey returns if key is referencing a Feeditem.
+func IsFeeditemKey(key []byte) bool {
+	return strings.HasPrefix(string(key), feeditemKeyPrefix)
+}
+
+// IsPagemonitorKey returns if key is referencing a Pagemonitor entry.
+func IsPagemonitorKey(key []byte) bool {
+	return strings.HasPrefix(string(key), pagemonitorKeyPrefix)
 }

@@ -24,6 +24,7 @@ var dateFormats = []string{
 	"Mon, _2 Jan 2006 15:04:05 +0300",
 }
 
+// sanitizeHTML removes unsafe HTML and replaces relative URLs with absolute ones.
 func (fetcher *Fetcher) sanitizeHTML(baseURL string, items []*data.Feeditem) {
 	if fetcher.TagsPolicy == nil {
 		return
@@ -40,13 +41,14 @@ func (fetcher *Fetcher) sanitizeHTML(baseURL string, items []*data.Feeditem) {
 	}
 }
 
+// fixURLs replaces relative URLs in itemHTML with absolute URLs (relative to baseURL).
 func fixURLs(baseURL, itemHTML string) (string, error) {
 	tokenizer := html.NewTokenizer(strings.NewReader(itemHTML))
 	buff := bytes.Buffer{}
 
 	itemBaseURL, err := url.Parse(baseURL)
 	if err != nil {
-		return "", fmt.Errorf("Failed to parse item base URL %w", err)
+		return "", fmt.Errorf("failed to parse item base URL: %w", err)
 	}
 
 	for {
@@ -68,6 +70,7 @@ func fixURLs(baseURL, itemHTML string) (string, error) {
 	}
 }
 
+// fixURLAttributes will replace relative URLs with absolute in the token's attributes.
 func fixURLAttributes(token *html.Token, baseURL *url.URL) error {
 	for i := range token.Attr {
 		a := &token.Attr[i]
@@ -79,7 +82,7 @@ func fixURLAttributes(token *html.Token, baseURL *url.URL) error {
 				continue
 			}
 			if err != nil {
-				return fmt.Errorf("Failed to parse %v %v URL %w", token.Data, a.Key, err)
+				return fmt.Errorf("failed to parse %v %v URL: %w", token.Data, a.Key, err)
 			}
 			a.Val = baseURL.ResolveReference(itemURL).String()
 		}
@@ -149,16 +152,16 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 		return nil, err
 	}
 
-	//Truncate current time to apply the same losses as gob
+	// Truncate current time to apply the same losses as gob.
 	timeNowTruncate := func() (time.Time, error) {
 		currentTime := time.Now()
 		currentTimeBin, err := currentTime.GobEncode()
 		if err != nil {
-			return time.Time{}, fmt.Errorf("Error encoding time (%w)", err)
+			return time.Time{}, fmt.Errorf("error encoding time: %w", err)
 		}
 		err = currentTime.GobDecode(currentTimeBin)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("Error decoding time (%w)", err)
+			return time.Time{}, fmt.Errorf("error decoding time: %w", err)
 		}
 		return currentTime, nil
 	}
@@ -167,7 +170,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 		return nil, err
 	}
 
-	//RSS time parser
+	// RSS time parser.
 	parseRssTime := func(timeStr string) (time.Time, error) {
 		timeStr = strings.TrimSpace(timeStr)
 		for _, format := range dateFormats {
@@ -177,12 +180,12 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 			}
 			log.WithField("date", timeStr).WithField("format", format).WithError(err).Debug("Failed to parse time")
 		}
-		return time.Time{}, fmt.Errorf("Failed to parse RSS time")
+		return time.Time{}, fmt.Errorf("failed to parse RSS time")
 	}
 
-	// Convert into a common format
+	// Convert into a common format.
 	if feedXML.XMLName.Local == "feed" {
-		//Atom
+		// Atom.
 		items := make([]*data.Feeditem, len(feedXML.AtomFeed.AtomFeedEntries))
 
 		for i, atomItem := range feedXML.AtomFeed.AtomFeedEntries {
@@ -240,7 +243,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 
 		return items, nil
 	} else if feedXML.XMLName.Local == "rss" {
-		// RSS
+		// RSS.
 		items := make([]*data.Feeditem, len(feedXML.RSSFeed.RSSFeedEntries))
 
 		fallbackDate := currentTime
@@ -287,7 +290,7 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 
 		return items, nil
 	} else if feedXML.XMLName.Local == "RDF" {
-		// RDF
+		// RDF.
 		items := make([]*data.Feeditem, len(feedXML.RDFFeed.RDFFeedEntries))
 		for i, rdfItem := range feedXML.RDFFeed.RDFFeedEntries {
 			item := &data.Feeditem{
@@ -320,5 +323,5 @@ func (fetcher *Fetcher) ParseFeed(feedURL string, reader io.Reader) ([]*data.Fee
 		return items, nil
 	}
 
-	return nil, fmt.Errorf("Unknown feed type %v", feedXML.XMLName)
+	return nil, fmt.Errorf("unknown feed type %v", feedXML.XMLName)
 }

@@ -18,19 +18,19 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 		}
 
 		if err == nil && resp.StatusCode != http.StatusOK {
-			err = fmt.Errorf("Cannot GET feed (status code %v)", resp.StatusCode)
+			err = fmt.Errorf("cannot GET feed (status code %v)", resp.StatusCode)
 		}
 		if err != nil {
-			return fmt.Errorf("Cannot GET feed %v because of %w", feedURL, err)
+			return fmt.Errorf("cannot GET feed %v: %w", feedURL, err)
 		}
 
 		items, err := fetcher.ParseFeed(feedURL, resp.Body)
 		if err != nil {
-			return fmt.Errorf("Cannot parse feed %v because of %w", feedURL, err)
+			return fmt.Errorf("cannot parse feed %v: %w", feedURL, err)
 		}
 
 		if len(items) == 0 {
-			return fmt.Errorf("Feed has no items %v", feedURL)
+			return fmt.Errorf("feed %v has no items", feedURL)
 		}
 
 		for _, item := range items {

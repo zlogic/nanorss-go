@@ -46,8 +46,8 @@ func NewUser(username string) *User {
 	return &User{username: username}
 }
 
-// Decode deserializes a User.
-func (user *User) Decode(val []byte) error {
+// decode deserializes a User.
+func (user *User) decode(val []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(user)
 }
 
@@ -56,7 +56,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(UserKeyPrefix)
+		opts.Prefix = []byte(userKeyPrefix)
 		it := txn.NewIterator(opts)
 		defer it.Close()
 		for it.Rewind(); it.Valid(); it.Next() {
@@ -64,14 +64,14 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 
 			k := item.Key()
 
-			username, err := DecodeUserKey(k)
+			username, err := decodeUserKey(k)
 			if err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
 				continue
 			}
 
 			user := &User{username: *username}
-			if err := item.Value(user.Decode); err != nil {
+			if err := item.Value(user.decode); err != nil {
 				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
 				continue
 			}
@@ -80,7 +80,7 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("Cannot read users because of %w", err)
+		return fmt.Errorf("cannot read users: %w", err)
 	}
 	return nil
 }
@@ -90,19 +90,19 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 func (s *DBService) GetUser(username string) (*User, error) {
 	user := &User{username: username}
 	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(user.CreateKey())
+		item, err := txn.Get(user.createKey())
 		if err == badger.ErrKeyNotFound {
 			user = nil
 			return nil
 		}
 
-		if err := item.Value(user.Decode); err != nil {
+		if err := item.Value(user.decode); err != nil {
 			user = nil
 		}
 		return err
 	})
 	if err != nil {
-		return nil, fmt.Errorf("Cannot read User %v because of %w", username, err)
+		return nil, fmt.Errorf("cannot read User %v: %w", username, err)
 	}
 	return user, nil
 }
@@ -112,20 +112,20 @@ func (s *DBService) SaveUser(user *User) (err error) {
 	if user.newUsername == "" {
 		user.newUsername = user.username
 	}
-	key := CreateUserKey(user.newUsername)
+	key := createUserKey(user.newUsername)
 
 	var value bytes.Buffer
 	if err := gob.NewEncoder(&value).Encode(user); err != nil {
-		return fmt.Errorf("Cannot marshal user because of %w", err)
+		return fmt.Errorf("cannot marshal user: %w", err)
 	}
 	err = s.db.Update(func(txn *badger.Txn) error {
 		if user.newUsername != user.username {
 			existingUser, err := txn.Get(key)
 			if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
-				return fmt.Errorf("New username %v is already in use", key)
+				return fmt.Errorf("new username %v is already in use", string(key))
 			}
 
-			oldUserKey := CreateUserKey(user.username)
+			oldUserKey := createUserKey(user.username)
 			if err := txn.Delete(oldUserKey); err != nil {
 				return err
 			}
@@ -151,7 +151,7 @@ func (user *User) GetUsername() string {
 func (user *User) SetUsername(newUsername string) error {
 	newUsername = strings.TrimSpace(newUsername)
 	if newUsername == "" {
-		return fmt.Errorf("Cannot set username to an empty string")
+		return fmt.Errorf("cannot set username to an empty string")
 	}
 	user.newUsername = newUsername
 	return nil
@@ -181,7 +181,7 @@ func (user *User) GetPages() ([]UserPagemonitor, error) {
 	items := &UserPages{}
 	err := xml.Unmarshal([]byte(user.Pagemonitor), items)
 	if err != nil {
-		err = fmt.Errorf("Cannot parse pagemonitor xml because of %w", err)
+		err = fmt.Errorf("cannot parse pagemonitor xml: %w", err)
 		return nil, err
 	}
 	return items.Pages, nil
@@ -200,7 +200,7 @@ func (user *User) GetFeeds() ([]UserFeed, error) {
 	items := &UserOPML{}
 	err := xml.Unmarshal([]byte(user.Opml), items)
 	if err != nil {
-		err = fmt.Errorf("Cannot parse opml xml because of %w", err)
+		err = fmt.Errorf("cannot parse opml xml: %w", err)
 		return nil, err
 	}
 	feeds := []UserFeed{}

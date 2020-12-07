@@ -12,7 +12,7 @@ func TestGetValue(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = dbService.db.Update(func(txn *badger.Txn) error {
-		return txn.Set(CreateServerConfigKey("k1"), []byte("v1"))
+		return txn.Set(createServerConfigKey("k1"), []byte("v1"))
 	})
 	assert.NoError(t, err)
 
