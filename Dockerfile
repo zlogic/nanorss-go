@@ -18,15 +18,11 @@ RUN CGO_ENABLED=0 go build -tags timetzdata -ldflags="-s -w"  && \
   mkdir /usr/src/nanorss/dist && \
   cp -r nanorss-go static templates /usr/src/nanorss/dist
 
-# Create non-root user
-RUN adduser -D -H -u 10001 nanorss
-
 # Copy into a fresh image
 FROM scratch
 
 COPY --from=builder /usr/src/nanorss/dist /usr/local/nanorss
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /etc/passwd /etc/passwd
 
 WORKDIR /usr/local/nanorss
 
