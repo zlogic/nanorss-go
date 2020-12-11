@@ -12,29 +12,20 @@ import (
 	"github.com/go-chi/chi"
 	log "github.com/sirupsen/logrus"
 	"github.com/zlogic/nanorss-go/data"
+	"github.com/zlogic/nanorss-go/server/auth"
 )
 
-func handleBadCredentials(w http.ResponseWriter, r *http.Request, err error) {
-	log.WithError(err).Error("Bad credentials for user")
-	http.Error(w, "Bad credentials", http.StatusUnauthorized)
-}
-
-func validateUserForAPI(w http.ResponseWriter, r *http.Request, s *Services) *data.User {
-	username := s.cookieHandler.GetUsername(w, r)
-	if username == "" {
-		http.Error(w, "Bad credentials", http.StatusUnauthorized)
-		return nil
-	}
-
-	user, err := s.db.GetUser(username)
-	if err != nil {
-		handleError(w, r, err)
-		return nil
-	}
-	if user == nil {
-		handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
-	}
-	return user
+// APIAuthHandler checks to see if the API is accessed by an authorized user,
+// and returns an error if the request is done by an unauthorized user.
+func APIAuthHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := auth.GetUser(r.Context())
+		if user == nil {
+			http.Error(w, "Bad credentials", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // LoginHandler authenticates the user and sets the encrypted session cookie if the user provided valid credentials.
@@ -60,21 +51,22 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if user == nil {
-			handleBadCredentials(w, r, fmt.Errorf("User %v does not exist", username))
+			log.Errorf("User %v doesn't exist", username)
+			http.Error(w, "Bad credentials", http.StatusUnauthorized)
 			return
 		}
 		err = user.ValidatePassword(password)
 		if err != nil {
-			handleBadCredentials(w, r, fmt.Errorf("Invalid password for user %v (%w)", username, err))
+			log.WithError(err).Errorf("Invalid password for user %v", username)
+			http.Error(w, "Bad credentials", http.StatusUnauthorized)
 			return
 		}
-		cookie := s.cookieHandler.NewCookie()
-		s.cookieHandler.SetCookieUsername(cookie, username)
-		if !rememberMe {
-			cookie.Expires = time.Time{}
-			cookie.MaxAge = 0
+		err = s.cookieHandler.SetCookieUsername(w, username, rememberMe)
+		if err != nil {
+			log.WithError(err).Error("Failed to set username cookie")
+			http.Error(w, "Failed to set username cookie", http.StatusInternalServerError)
+			return
 		}
-		http.SetCookie(w, cookie)
 		_, err = io.WriteString(w, "OK")
 		if err != nil {
 			log.WithError(err).Error("Failed to write response")
@@ -85,8 +77,9 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 // FeedHandler returns all feed (and page monitor) items for an authenticated user.
 func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := validateUserForAPI(w, r, s)
+		user := auth.GetUser(r.Context())
 		if user == nil {
+			// This should never happen.
 			return
 		}
 
@@ -109,9 +102,10 @@ func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 // FeedItemHandler returns a feed (or page monitor) item for an authenticated user.
 func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// There are no secrets, but still better check we have a valid user
-		user := validateUserForAPI(w, r, s)
+		// There are no secrets, but still better check we have a valid user.
+		user := auth.GetUser(r.Context())
 		if user == nil {
+			// This should never happen.
 			return
 		}
 
@@ -219,19 +213,9 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 // SettingsHandler gets or updates settings for an authenticated user.
 func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		username := s.cookieHandler.GetUsername(w, r)
-		if username == "" {
-			handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
-			return
-		}
-
-		user, err := s.db.GetUser(username)
-		if err != nil {
-			handleError(w, r, err)
-			return
-		}
+		user := auth.GetUser(r.Context())
 		if user == nil {
-			handleBadCredentials(w, r, fmt.Errorf("Unknown username %v", username))
+			// This should never happen.
 			return
 		}
 
@@ -260,15 +244,16 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if username != newUsername {
-				// Force logout
-				cookie := s.cookieHandler.NewCookie()
-				http.SetCookie(w, cookie)
+			if user.GetUsername() != newUsername {
+				// Force logout.
+				err := s.cookieHandler.SetCookieUsername(w, "", false)
+				if err != nil {
+					log.WithError(err).Error("Error while clearing the cookie during logout")
+				}
 			}
 
-			//Reload user to return updated values
-			username = user.GetUsername()
-			user, err = s.db.GetUser(username)
+			// Reload user to return updated values.
+			user, err = s.db.GetUser(user.GetUsername())
 			if err != nil {
 				handleError(w, r, err)
 				return
@@ -281,7 +266,7 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			Pagemonitor string
 		}
 
-		returnUser := &clientUser{Username: username, Opml: user.Opml, Pagemonitor: user.Pagemonitor}
+		returnUser := &clientUser{Username: user.GetUsername(), Opml: user.Opml, Pagemonitor: user.Pagemonitor}
 
 		if err := json.NewEncoder(w).Encode(returnUser); err != nil {
 			handleError(w, r, err)
@@ -292,8 +277,9 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 // RefreshHandler refreshes all items for an authenticated user.
 func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := validateUserForAPI(w, r, s)
+		user := auth.GetUser(r.Context())
 		if user == nil {
+			// This should never happen.
 			return
 		}
 
@@ -308,8 +294,9 @@ func RefreshHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 // StatusHandler returns the fetch status for all monitored items for an authenticated user.
 func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		user := validateUserForAPI(w, r, s)
+		user := auth.GetUser(r.Context())
 		if user == nil {
+			// This should never happen.
 			return
 		}
 

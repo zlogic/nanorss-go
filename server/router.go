@@ -46,10 +46,15 @@ func CreateRouter(s *Services) (*chi.Mux, error) {
 
 	r.Get("/", RootHandler(s))
 	r.Get("/login", HTMLLoginHandler(s))
-	r.Get("/logout", LogoutHandler(s))
-	r.Get("/feed", HTMLFeedHandler(s))
-	r.Get("/settings", HTMLSettingsHandler(s))
-	r.Get("/status", HTMLStatusHandler(s))
+
+	r.Group(func(authorized chi.Router) {
+		authorized.Use(s.cookieHandler.AuthHandlerFunc)
+		authorized.Use(PageAuthHandler)
+		authorized.Get("/logout", LogoutHandler(s))
+		authorized.Get("/feed", HTMLFeedHandler(s))
+		authorized.Get("/settings", HTMLSettingsHandler(s))
+		authorized.Get("/status", HTMLStatusHandler(s))
+	})
 	r.HandleFunc("/favicon.ico", FaviconHandler)
 	fs := http.FileServer(staticResourceFileSystem{http.Dir("static")})
 	r.Handle("/static/*", http.StripPrefix("/static/", fs))
@@ -57,13 +62,17 @@ func CreateRouter(s *Services) (*chi.Mux, error) {
 	r.Route("/api", func(api chi.Router) {
 		api.Use(NoCacheHeaderMiddlewareFunc)
 		api.Post("/login", LoginHandler(s))
-		api.Get("/configuration", SettingsHandler(s))
-		api.Post("/configuration", SettingsHandler(s))
-		api.Get("/feed", FeedHandler(s))
-		api.Get("/items/{key}", FeedItemHandler(s))
-		api.Post("/items/{key}", FeedItemHandler(s))
-		api.Get("/refresh", RefreshHandler(s))
-		api.Get("/status", StatusHandler(s))
+		api.Group(func(authorized chi.Router) {
+			authorized.Use(s.cookieHandler.AuthHandlerFunc)
+			authorized.Use(APIAuthHandler)
+			authorized.Get("/configuration", SettingsHandler(s))
+			authorized.Post("/configuration", SettingsHandler(s))
+			authorized.Get("/feed", FeedHandler(s))
+			authorized.Get("/items/{key}", FeedItemHandler(s))
+			authorized.Post("/items/{key}", FeedItemHandler(s))
+			authorized.Get("/refresh", RefreshHandler(s))
+			authorized.Get("/status", StatusHandler(s))
+		})
 	})
 	return r, nil
 }
