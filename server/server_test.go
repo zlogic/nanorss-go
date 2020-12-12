@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"time"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/zlogic/nanorss-go/data"
@@ -100,26 +99,19 @@ func (m *DBMock) GetFetchStatus(key []byte) (*data.FetchStatus, error) {
 var testAuthCookie = "testusername"
 
 type AuthHandlerMock struct {
-	db         *DB
-	authCookie *http.Cookie
-	authUser   *data.User
+	mock.Mock
+	authUser *data.User
 }
 
 func (m *AuthHandlerMock) SetCookieUsername(w http.ResponseWriter, username string, rememberMe bool) error {
-	c := &http.Cookie{Name: testAuthCookie}
-	if username != "" {
-		c.Expires = time.Now().Add(time.Hour)
-		c.MaxAge = int(time.Hour / time.Second)
-	}
-	http.SetCookie(w, c)
-	return nil
+	args := m.Called(w, username, rememberMe)
+	return args.Error(0)
 }
 
 func (m *AuthHandlerMock) AuthHandlerFunc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(testAuthCookie)
 		ctx := r.Context()
-		if err == nil && c != nil {
+		if m.authUser != nil {
 			ctx = context.WithValue(ctx, auth.UserContextKey, m.authUser)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
@@ -127,14 +119,13 @@ func (m *AuthHandlerMock) AuthHandlerFunc(next http.Handler) http.Handler {
 }
 
 func (m *AuthHandlerMock) HasAuthenticationCookie(r *http.Request) bool {
-	c, err := r.Cookie(testAuthCookie)
-	return err == nil && c != nil
+	args := m.Called(r)
+	return args.Get(0).(bool)
 }
 
-func (m *AuthHandlerMock) AllowCookie(user *data.User) *http.Cookie {
+func (m *AuthHandlerMock) AllowUser(user *data.User) *http.Cookie {
 	m.authUser = user
-	m.authCookie = &http.Cookie{Name: testAuthCookie}
-	return m.authCookie
+	return nil
 }
 
 func prepareTempDir() (string, func(), error) {

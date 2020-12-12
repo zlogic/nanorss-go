@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/zlogic/nanorss-go/data"
 )
 
@@ -28,9 +29,14 @@ func TestRootHandlerNotLoggedIn(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	res := httptest.NewRecorder()
 
+	authHandler.On("HasAuthenticationCookie", mock.Anything).
+		Return(false).Once()
+
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
 	assert.Equal(t, "/login", res.Header().Get("Location"))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestRootHandlerLoggedIn(t *testing.T) {
@@ -43,11 +49,15 @@ func TestRootHandlerLoggedIn(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/", nil)
 	res := httptest.NewRecorder()
 
-	req.AddCookie(authHandler.AllowCookie(&data.User{}))
+	authHandler.On("HasAuthenticationCookie", mock.Anything).
+		Return(true).Once()
+	authHandler.AllowUser(&data.User{})
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
 	assert.Equal(t, "/feed", res.Header().Get("Location"))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestLogoutHandler(t *testing.T) {
@@ -65,6 +75,8 @@ func TestLogoutHandler(t *testing.T) {
 	assert.Equal(t, "/login", res.Header().Get("Location"))
 
 	assert.Empty(t, res.Result().Cookies())
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestFaviconHandler(t *testing.T) {
@@ -90,6 +102,8 @@ func TestFaviconHandler(t *testing.T) {
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.Equal(t, faviconBytes, res.Body.Bytes())
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
@@ -118,6 +132,8 @@ func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.Equal(t, "User <nil>\nName \nContent loginpage", string(res.Body.Bytes()))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
@@ -143,11 +159,13 @@ func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/login", nil)
 	res := httptest.NewRecorder()
 
-	req.AddCookie(authHandler.AllowCookie(&data.User{}))
+	authHandler.AllowUser(&data.User{})
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.Equal(t, "User <nil>\nName \nContent loginpage", string(res.Body.Bytes()))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
@@ -173,12 +191,14 @@ func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/feed", nil)
 	res := httptest.NewRecorder()
 
-	req.AddCookie(authHandler.AllowCookie(&data.User{}))
+	authHandler.AllowUser(&data.User{})
 
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.Equal(t, "User {    }\nName feed\nContent feedpage", string(res.Body.Bytes()))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlFeedHandlerNotLoggedIn(t *testing.T) {
@@ -194,6 +214,8 @@ func TestHtmlFeedHandlerNotLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
 	assert.Equal(t, "/login", res.Header().Get("Location"))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlSettingsHandlerLoggedIn(t *testing.T) {
@@ -219,12 +241,14 @@ func TestHtmlSettingsHandlerLoggedIn(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/settings", nil)
 	res := httptest.NewRecorder()
 
-	req.AddCookie(authHandler.AllowCookie(&data.User{}))
+	authHandler.AllowUser(&data.User{})
 
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.Equal(t, "User {    }\nName settings\nContent settingspage", string(res.Body.Bytes()))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlSettingsHandlerNotLoggedIn(t *testing.T) {
@@ -240,6 +264,8 @@ func TestHtmlSettingsHandlerNotLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
 	assert.Equal(t, "/login", res.Header().Get("Location"))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlStatusHandlerLoggedIn(t *testing.T) {
@@ -265,12 +291,14 @@ func TestHtmlStatusHandlerLoggedIn(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/status", nil)
 	res := httptest.NewRecorder()
 
-	req.AddCookie(authHandler.AllowCookie(&data.User{}))
+	authHandler.AllowUser(&data.User{})
 
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
 	assert.Equal(t, "User {    }\nName status\nContent feedpage", string(res.Body.Bytes()))
+
+	authHandler.AssertExpectations(t)
 }
 
 func TestHtmlStatusHandlerNotLoggedIn(t *testing.T) {
@@ -286,4 +314,6 @@ func TestHtmlStatusHandlerNotLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusSeeOther, res.Code)
 	assert.Equal(t, "/login", res.Header().Get("Location"))
+
+	authHandler.AssertExpectations(t)
 }

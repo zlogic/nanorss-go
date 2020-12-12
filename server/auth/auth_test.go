@@ -9,35 +9,32 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/zlogic/nanorss-go/data"
 )
 
 type DBMock struct {
-	onGetUser                   func(username string) (*data.User, error)
-	onGetOrCreateConfigVariable func(varName string, generator func() (string, error)) string
+	mock.Mock
 }
 
 func (m *DBMock) GetOrCreateConfigVariable(varName string, generator func() (string, error)) (string, error) {
-	if varName == "cookie-sign-key" {
-		return m.onGetOrCreateConfigVariable(varName, generator), nil
-	}
-	return "", fmt.Errorf("unexpected varName %v", varName)
+	args := m.Called(varName, generator)
+	return args.Get(0).(string), args.Error(1)
 }
 
 func (m *DBMock) GetUser(username string) (*data.User, error) {
-	return m.onGetUser(username)
+	args := m.Called(username)
+	user, _ := args.Get(0).(*data.User)
+	return user, args.Error(1)
 }
 
 func createTestCookieHandler() (*CookieHandler, error) {
 	signKey := base64.StdEncoding.EncodeToString(generateRandomKey(64))
 	dbMock := DBMock{}
 
-	dbMock.onGetOrCreateConfigVariable = func(varName string, generator func() (string, error)) string {
-		return signKey
-	}
-	dbMock.onGetUser = func(username string) (*data.User, error) {
-		return nil, fmt.Errorf("user not found")
-	}
+	dbMock.On("GetOrCreateConfigVariable", "cookie-sign-key", mock.AnythingOfType("func() (string, error)")).
+		Return(signKey, nil).
+		Once()
 	return NewCookieHandler(&dbMock)
 }
 
@@ -74,15 +71,21 @@ func createTestCookie(handler *CookieHandler, username string, expires time.Dura
 func TestNewCookieHandlerGenerateNewKey(t *testing.T) {
 	dbMock := new(DBMock)
 
-	dbMock.onGetOrCreateConfigVariable = func(varName string, generator func() (string, error)) string {
-		key, err := generator()
-		assert.NoError(t, err)
-		assert.NotEmpty(t, key)
-		return key
-	}
+	dbMock.On("GetOrCreateConfigVariable", "cookie-sign-key", mock.AnythingOfType("func() (string, error)")).
+		Run(func(args mock.Arguments) {
+			generator := args.Get(1).(func() (string, error))
+			key, err := generator()
+			assert.NoError(t, err)
+			assert.NotEmpty(t, key)
+		}).
+		Return("", nil).
+		Once()
+
 	handler, err := NewCookieHandler(dbMock)
 	assert.NoError(t, err)
 	assert.NotNil(t, handler)
+
+	dbMock.AssertExpectations(t)
 }
 
 func TestGetUsername(t *testing.T) {
@@ -156,7 +159,7 @@ func TestAuthHandlerFunc(t *testing.T) {
 	tests := map[string]struct {
 		Cookie             *http.Cookie
 		ExpectGetUser      string
-		ReturnGetUserError string
+		ReturnGetUserError error
 		ReturnUser         *data.User
 	}{
 		"empty cookie": {
@@ -173,7 +176,8 @@ func TestAuthHandlerFunc(t *testing.T) {
 		},
 		"error getting user": {
 			Cookie:             validCookie,
-			ReturnGetUserError: "generic error",
+			ExpectGetUser:      "user01",
+			ReturnGetUserError: fmt.Errorf("generic error"),
 		},
 	}
 
@@ -186,14 +190,10 @@ func TestAuthHandlerFunc(t *testing.T) {
 				req.AddCookie(test.Cookie)
 			}
 
-			dbMock.onGetUser = func(username string) (*data.User, error) {
-				if test.ReturnGetUserError != "" {
-					return nil, fmt.Errorf(test.ReturnGetUserError)
-				}
-				if username == test.ExpectGetUser {
-					return test.ReturnUser, nil
-				}
-				return nil, nil
+			if test.ExpectGetUser != "" {
+				dbMock.On("GetUser", test.ExpectGetUser).
+					Return(test.ReturnUser, test.ReturnGetUserError).
+					Once()
 			}
 
 			var receivedUser *data.User
@@ -202,6 +202,8 @@ func TestAuthHandlerFunc(t *testing.T) {
 			})).ServeHTTP(res, req)
 
 			assert.Equal(t, test.ReturnUser, receivedUser)
+
+			dbMock.AssertExpectations(t)
 		})
 	}
 }
