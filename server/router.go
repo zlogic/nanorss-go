@@ -18,6 +18,8 @@ func NoCacheHeaderMiddlewareFunc(next http.Handler) http.Handler {
 	})
 }
 
+// parseBoolEnv will try to parse the varName into a boolean.
+// If varName is not set, will return defaultValue instead.
 func parseBoolEnv(varName string, defaultValue bool) bool {
 	valueStr, _ := os.LookupEnv(varName)
 	if valueStr == "" {

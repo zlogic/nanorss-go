@@ -67,8 +67,7 @@ func LoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Failed to set username cookie", http.StatusInternalServerError)
 			return
 		}
-		_, err = io.WriteString(w, "OK")
-		if err != nil {
+		if _, err := io.WriteString(w, "OK"); err != nil {
 			log.WithError(err).Error("Failed to write response")
 		}
 	}

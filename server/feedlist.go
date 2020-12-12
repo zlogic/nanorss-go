@@ -66,7 +66,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				return feed.Title, nil
 			}
 		}
-		return "", fmt.Errorf("Not found")
+		return "", fmt.Errorf("title for feedURL %v not found", feedURL)
 	}
 	isRead := func(itemKey []byte) bool {
 		for _, readItemKey := range readItems {
@@ -81,9 +81,9 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	go func() {
 		for feedItem := range feedItemsChan {
 			title, err := findFeedTitle(feedItem.Key.FeedURL)
-			//TODO: this is not efficient for more than a couple of users
+			// TODO: this is not efficient for more than a couple of users.
 			if err != nil {
-				// Probably an orphaned feed
+				// Probably an orphaned feed.
 				continue
 			}
 			item := &Item{
@@ -109,7 +109,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				return page.Title, nil
 			}
 		}
-		return "", fmt.Errorf("Not found")
+		return "", fmt.Errorf("title for page %v not found", string(key))
 	}
 	pagemonitorPageChan := make(chan *data.PagemonitorPage)
 	pagemonitorDone := make(chan bool)
@@ -117,7 +117,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		for page := range pagemonitorPageChan {
 			title, err := findPagemonitorTitle(page.Config.CreateKey())
 			if err != nil {
-				// Probably an orphaned feed
+				// Probably an orphaned feed.
 				continue
 			}
 			item := &Item{
