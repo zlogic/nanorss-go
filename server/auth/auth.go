@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
 	log "github.com/sirupsen/logrus"
@@ -73,9 +72,8 @@ func NewCookieHandler(db DB) (*CookieHandler, error) {
 // getUsernameToken returns the JWT token which can be saved into a cookie.
 // This token can be used to verify and authorize the user.
 func (handler *CookieHandler) getUsernameToken(username string) (string, error) {
-	cookieExpires := time.Now().Add(handler.cookieExpires)
-	claims := jwt.MapClaims{usernameClaim: username}
-	jwtauth.SetExpiry(claims, cookieExpires)
+	claims := map[string]interface{}{usernameClaim: username}
+	jwtauth.SetExpiryIn(claims, handler.cookieExpires)
 	_, value, err := handler.jwtAuth.Encode(claims)
 	if err != nil {
 		return "", fmt.Errorf("failed to encrypt cookie: %w", err)
@@ -133,13 +131,9 @@ func (handler *CookieHandler) getUsername(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		return "", fmt.Errorf("authentication failed: %w", err)
 	}
-	mapClaims, ok := token.Claims.(jwt.MapClaims)
+	username, ok := token.Get(usernameClaim)
 	if !ok {
-		return "", fmt.Errorf("cannot map claims %v", token.Claims)
-	}
-	username, ok := mapClaims[usernameClaim]
-	if !ok {
-		return "", fmt.Errorf("username claim not found %v", mapClaims)
+		return "", fmt.Errorf("username claim not found %v", token)
 	}
 	usernameString, ok := username.(string)
 	if !ok {
