@@ -208,28 +208,6 @@ func TestFeedHandlerNotAuthorized(t *testing.T) {
 	feedListHelper.AssertExpectations(t)
 }
 
-func TestFeedHandlerUserDoesNotExist(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	feedListHelper := new(FeedListHelperMock)
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler, feedListHelper: feedListHelper}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	req, _ := http.NewRequest("GET", "/api/feed", nil)
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-	feedListHelper.AssertExpectations(t)
-}
-
 func TestFeedItemAuthorized(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
@@ -399,25 +377,6 @@ func TestGetItemNotAuthorized(t *testing.T) {
 	authHandler.AssertExpectations(t)
 }
 
-func TestGetItemUserDoesNotExist(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	req, _ := http.NewRequest("GET", "/api/items/feeditem--", nil)
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-}
-
 func TestSetUnreadAuthorized(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
@@ -496,28 +455,6 @@ func TestSetUnreadNotAuthorized(t *testing.T) {
 	authHandler.AssertExpectations(t)
 }
 
-func TestSetUnreadUserDoesNotExist(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	key := &data.FeeditemKey{FeedURL: "http://site1/rss", GUID: "g1"}
-
-	req, _ := http.NewRequest("POST", "/api/items/"+escapeKeyForURL(key.CreateKey()), strings.NewReader("Read=false"))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-}
-
 func TestGetSettingsAuthorized(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
@@ -545,25 +482,6 @@ func TestGetSettingsAuthorized(t *testing.T) {
 }
 
 func TestGetSettingsNotAuthorized(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	req, _ := http.NewRequest("GET", "/api/configuration", nil)
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-}
-
-func TestGetSettingsUserDoesNotExist(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
 
@@ -750,26 +668,6 @@ func TestSaveSettingsUnauthorized(t *testing.T) {
 	authHandler.AssertExpectations(t)
 }
 
-func TestSaveSettingsUserDoesNotExist(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	req, _ := http.NewRequest("POST", "/api/configuration", strings.NewReader("Username=user01&Opml=opml2&Pagemonitor=pagemonitor2"))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-}
-
 func TestRefreshAuthorized(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
@@ -798,28 +696,6 @@ func TestRefreshAuthorized(t *testing.T) {
 }
 
 func TestRefreshNotAuthorized(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	fetcherMock := new(FetcherMock)
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler, fetcher: fetcherMock}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	req, _ := http.NewRequest("GET", "/api/refresh", nil)
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-	fetcherMock.AssertExpectations(t)
-}
-
-func TestRefreshUserDoesNotExist(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
 
@@ -948,25 +824,6 @@ func TestGetStatusAuthorizedUnknown(t *testing.T) {
 }
 
 func TestGetStatusNotAuthorized(t *testing.T) {
-	dbMock := new(DBMock)
-	authHandler := AuthHandlerMock{}
-
-	services := &Services{db: dbMock, cookieHandler: &authHandler}
-	router, err := CreateRouter(services)
-	assert.NoError(t, err)
-
-	req, _ := http.NewRequest("GET", "/api/status", nil)
-	res := httptest.NewRecorder()
-
-	router.ServeHTTP(res, req)
-	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
-
-	dbMock.AssertExpectations(t)
-	authHandler.AssertExpectations(t)
-}
-
-func TestGetStatusUserDoesNotExist(t *testing.T) {
 	dbMock := new(DBMock)
 	authHandler := AuthHandlerMock{}
 
