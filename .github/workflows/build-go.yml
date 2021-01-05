@@ -1,12 +1,9 @@
 name: Build image
-on:
-  push:
-    branches:
-      - master
+on: [push]
 jobs:
 
   build:
-    name: Build
+    name: Build and test
     runs-on: ubuntu-latest
     steps:
 
@@ -27,13 +24,19 @@ jobs:
             dep ensure
         fi
 
+    - name: Test
+      run: go test -cover ./...
+
     - name: Build
+      if: github.ref == 'refs/heads/master'
       run: CGO_ENABLED=0 go build -v -tags timetzdata -ldflags="-s -w" .
 
     - name: Create image
+      if: github.ref == 'refs/heads/master'
       run: docker build . --file .github/Dockerfile -t ghcr.io/zlogic/nanorss-go:latest
 
     - name: Push image
+      if: github.ref == 'refs/heads/master'
       run: |
         echo ${{ secrets.CR_PAT }} | docker login ghcr.io -u $DOCKER_USERNAME --password-stdin
         docker push ghcr.io/zlogic/nanorss-go:latest
