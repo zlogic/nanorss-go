@@ -7,8 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"github.com/zlogic/nanorss-go/data"
 	"gopkg.in/h2non/gock.v1"
+
+	"github.com/zlogic/nanorss-go/data"
 )
 
 const rssFeed = `<?xml version="1.0" encoding="utf-8"?>

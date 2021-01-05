@@ -10,6 +10,7 @@ import (
 	"github.com/jaytaylor/html2text"
 	"github.com/pmezard/go-difflib/difflib"
 	log "github.com/sirupsen/logrus"
+
 	"github.com/zlogic/nanorss-go/data"
 )
 

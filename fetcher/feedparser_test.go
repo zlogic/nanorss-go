@@ -7,6 +7,7 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/stretchr/testify/assert"
+
 	"github.com/zlogic/nanorss-go/data"
 )
 

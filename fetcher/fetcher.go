@@ -3,9 +3,9 @@ package fetcher
 import (
 	"net/http"
 
+	"github.com/microcosm-cc/bluemonday"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/microcosm-cc/bluemonday"
 	"github.com/zlogic/nanorss-go/data"
 )
 

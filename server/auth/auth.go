@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
 	log "github.com/sirupsen/logrus"
+
 	"github.com/zlogic/nanorss-go/data"
 )
 

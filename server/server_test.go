@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/stretchr/testify/mock"
+
 	"github.com/zlogic/nanorss-go/data"
 	"github.com/zlogic/nanorss-go/server/auth"
 )

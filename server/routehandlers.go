@@ -6,6 +6,7 @@ import (
 	"text/template"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/zlogic/nanorss-go/data"
 	"github.com/zlogic/nanorss-go/server/auth"
 )

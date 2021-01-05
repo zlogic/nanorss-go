@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zlogic/nanorss-go/data"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/zlogic/nanorss-go/data"
 )
 
 type FeedListHelperMock struct {
