@@ -20,5 +20,5 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 WORKDIR /usr/local/nanorss
 
 EXPOSE 8080
-USER nanorss
+USER 1001
 CMD [ "./nanorss-go" ]
