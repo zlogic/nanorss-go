@@ -1,7 +1,7 @@
 package data
 
 import (
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v3"
 	log "github.com/sirupsen/logrus"
 )
 

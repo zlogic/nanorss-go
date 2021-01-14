@@ -4,7 +4,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v3"
+	"github.com/dgraph-io/badger/v3/options"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -18,9 +19,10 @@ func DefaultOptions() badger.Options {
 	// Add a logger
 	opts.Logger = log.New()
 	// Optimize options for low memory usage
-	opts.MaxTableSize = 1 << 20
+	opts.MemTableSize = 1 << 20
 	opts.BlockCacheSize = 0
 	opts.IndexCacheSize = 0
+	opts.Compression = options.None
 	// Allow GC of value log
 	opts.ValueLogFileSize = 4 << 20
 	opts.ValueLogMaxEntries = 10000
