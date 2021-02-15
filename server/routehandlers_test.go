@@ -98,7 +98,7 @@ func TestFaviconHandler(t *testing.T) {
 	assert.NoError(t, err)
 
 	req, _ := http.NewRequest("GET", "/favicon.ico", nil)
-	res := httptest.NewRecorder()
+	res := newRecorder()
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)

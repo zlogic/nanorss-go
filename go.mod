@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	github.com/dgraph-io/badger/v3 v3.2011.1
-	github.com/go-chi/chi v1.5.1
+	github.com/go-chi/chi v1.5.2
 	github.com/go-chi/jwtauth v1.2.0
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
 	github.com/microcosm-cc/bluemonday v1.0.4
