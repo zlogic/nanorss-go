@@ -3,11 +3,8 @@ package server
 import (
 	"context"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path"
 
 	"github.com/stretchr/testify/mock"
 
@@ -142,32 +139,4 @@ func (rec *testRecorder) ReadFrom(r io.Reader) (n int64, err error) {
 
 func newRecorder() *testRecorder {
 	return &testRecorder{ResponseRecorder: httptest.NewRecorder()}
-}
-
-func prepareTempDir() (string, func(), error) {
-	currentDir, err := os.Getwd()
-	if err != nil {
-		return "", nil, err
-	}
-	recover := func() {
-		os.Chdir(currentDir)
-	}
-	tempDir, err := ioutil.TempDir("", "nanorss")
-	if err != nil {
-		return currentDir, recover, err
-	}
-	recover = func() {
-		os.Chdir(currentDir)
-		os.RemoveAll(tempDir)
-	}
-	err = os.Chdir(tempDir)
-	return tempDir, recover, err
-}
-
-func prepareTestFile(dir, fileName string, data []byte) error {
-	err := os.Mkdir(dir, 0755)
-	if err != nil {
-		return err
-	}
-	return ioutil.WriteFile(path.Join(dir, fileName), data, 0644)
 }

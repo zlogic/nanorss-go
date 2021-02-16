@@ -1,6 +1,8 @@
 package server
 
 import (
+	"bytes"
+	"embed"
 	"net/http"
 	"path"
 	"text/template"
@@ -29,8 +31,8 @@ func PageAuthHandler(next http.Handler) http.Handler {
 	})
 }
 
-func loadTemplate(pageName string) (*template.Template, error) {
-	return template.ParseFiles(path.Join("templates", "layout.html"), path.Join("templates", "pages", pageName+".html"))
+func loadTemplate(s *Services, pageName string) (*template.Template, error) {
+	return template.ParseFS(s.templates, "layout.html", path.Join("pages", pageName+".html"))
 }
 
 type viewData struct {
@@ -65,15 +67,39 @@ func LogoutHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+//go:embed static/favicon.ico
+var faviconFS embed.FS
+
+const faviconFilename = "static/favicon.ico"
+
 // FaviconHandler serves the favicon.
 func FaviconHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, path.Join("static", "favicon.ico"))
+	data, err := faviconFS.ReadFile(faviconFilename)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	f, err := faviconFS.Open(faviconFilename)
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		handleError(w, r, err)
+		return
+	}
+
+	http.ServeContent(w, r, "favicon.ico", stat.ModTime(), bytes.NewReader(data))
 }
 
 // HTMLLoginHandler serves the login page.
 func HTMLLoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		t, err := loadTemplate("login")
+		t, err := loadTemplate(s, "login")
 		if err != nil {
 			handleError(w, r, err)
 			return
@@ -92,7 +118,7 @@ func HTMLFeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 		}
 
 		const templateName = "feed"
-		t, err := loadTemplate(templateName)
+		t, err := loadTemplate(s, templateName)
 		if err != nil {
 			handleError(w, r, err)
 			return
@@ -111,7 +137,7 @@ func HTMLSettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Reques
 		}
 
 		const templateName = "settings"
-		t, err := loadTemplate(templateName)
+		t, err := loadTemplate(s, templateName)
 		if err != nil {
 			handleError(w, r, err)
 			return
@@ -130,7 +156,7 @@ func HTMLStatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request)
 		}
 
 		const templateName = "status"
-		t, err := loadTemplate(templateName)
+		t, err := loadTemplate(s, templateName)
 		if err != nil {
 			handleError(w, r, err)
 			return

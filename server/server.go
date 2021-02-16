@@ -1,11 +1,13 @@
 package server
 
 import (
+	"io/fs"
 	"net/http"
 
 	"github.com/zlogic/nanorss-go/data"
 	"github.com/zlogic/nanorss-go/fetcher"
 	"github.com/zlogic/nanorss-go/server/auth"
+	"github.com/zlogic/nanorss-go/server/templates"
 )
 
 // DB provides functions to read and write items in the database.
@@ -45,6 +47,7 @@ type Services struct {
 	cookieHandler  AuthHandler
 	fetcher        Fetcher
 	feedListHelper FeedListHelper
+	templates      fs.FS
 }
 
 // CreateServices creates a Services instance with db and default implementations of other services.
@@ -58,5 +61,6 @@ func CreateServices(db *data.DBService) (*Services, error) {
 		cookieHandler:  cookieHandler,
 		fetcher:        fetcher.NewFetcher(db),
 		feedListHelper: &FeedListService{db: db},
+		templates:      templates.Templates,
 	}, nil
 }

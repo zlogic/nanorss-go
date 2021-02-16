@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -90,7 +89,7 @@ func backupData(db *data.DBService) {
 	if err != nil {
 		log.WithError(err).Fatal("Failed to back up json")
 	}
-	err = ioutil.WriteFile(backupFilename, []byte(data), 0644)
+	err = os.WriteFile(backupFilename, []byte(data), 0644)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to write file")
 	}
@@ -98,7 +97,7 @@ func backupData(db *data.DBService) {
 }
 
 func restoreData(db *data.DBService) {
-	data, err := ioutil.ReadFile(backupFilename)
+	data, err := os.ReadFile(backupFilename)
 	if err != nil {
 		log.Fatalf("Failed to read file %v", err)
 	}

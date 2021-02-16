@@ -9,7 +9,7 @@ COPY . /usr/src/nanorss
 # Create bin directory
 RUN mkdir -p /usr/local/nanorss && \
   cd /usr/src/nanorss && \
-  cp -r nanorss-go static templates /usr/local/nanorss
+  cp nanorss-go /usr/local/nanorss
 
 # Copy into a fresh image
 FROM scratch

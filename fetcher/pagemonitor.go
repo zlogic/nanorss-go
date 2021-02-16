@@ -2,7 +2,7 @@ package fetcher
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"time"
@@ -44,7 +44,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			return fmt.Errorf("cannot GET page %v: %w", config, err)
 		}
 
-		respData, err := ioutil.ReadAll(resp.Body)
+		respData, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("cannot read response for page %v: %w", config, err)
 		}
