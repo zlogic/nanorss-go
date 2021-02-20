@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-chi/chi/middleware"
-	"github.com/go-chi/jwtauth"
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/jwtauth/v5"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/zlogic/nanorss-go/data"
