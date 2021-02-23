@@ -15,3 +15,15 @@ Download and install the latest version of Go. Then, run
 ```
 go build
 ```
+
+# Other versions
+
+nanoRSS contains several abandoned proof-of-concepts to test different data storage libraries (which were discarded):
+
+* [PostgreSQL](../../tree/postgres)
+* [Pogreb](../../tree/pogreb)
+* [Redis](../../tree/redis)
+
+In addition, there was:
+* An early attempt to implement a Bootstrap UI with [native HTML and Javascript](../../tree/nativehtml)
+* An old version based on [Bootstrap and jQuery](../../tree/bootstrap)
