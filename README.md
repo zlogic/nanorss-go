@@ -1,4 +1,7 @@
 # nanoRSS
+
+[![Build status](https://github.com/zlogic/nanorss-go/actions/workflows/build-go.yml/badge.svg?branch=master)](https://github.com/zlogic/nanorss-go/actions)
+
 nanoRSS is a simple RSS reader written in Go.
 
 Development is in progress, and the project is not production-ready or useful in any way.
