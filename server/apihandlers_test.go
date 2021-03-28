@@ -56,7 +56,7 @@ func TestLoginHandlerSuccessful(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "OK", string(res.Body.Bytes()))
+	assert.Equal(t, "OK", res.Body.String())
 	cookies := res.Result().Cookies()
 	assert.Equal(t, 1, len(cookies))
 	if len(cookies) > 0 {
@@ -85,7 +85,7 @@ func TestLoginHandlerIncorrectPassword(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 	assert.Empty(t, res.Result().Cookies())
 
 	dbMock.AssertExpectations(t)
@@ -108,7 +108,7 @@ func TestLoginHandlerUnknownUsername(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 	assert.Empty(t, res.Result().Cookies())
 
 	dbMock.AssertExpectations(t)
@@ -150,7 +150,7 @@ func TestFeedHandlerAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `[{"Title":"","Origin":"Site 1","FetchURL":"fetchurl1","IsRead":true},{"Title":"t2","Origin":"Feed 1","FetchURL":"fetchurl2","IsRead":false}]`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `[{"Title":"","Origin":"Site 1","FetchURL":"fetchurl1","IsRead":true},{"Title":"t2","Origin":"Feed 1","FetchURL":"fetchurl2","IsRead":false}]`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -179,7 +179,7 @@ func TestFeedHandlerAuthorizedNoItemsFound(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "[]\n", string(res.Body.Bytes()))
+	assert.Equal(t, "[]\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -201,7 +201,7 @@ func TestFeedHandlerNotAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -238,7 +238,7 @@ func TestFeedItemAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -272,7 +272,7 @@ func TestPageAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":true,"MarkUnreadURL":"api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"URL":"http://site1/1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":true,"MarkUnreadURL":"api/items/pagemonitor-aHR0cDovL3NpdGUxLzE-bTE-cjE"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -300,7 +300,7 @@ func TestFeedItemAuthorizedNotFound(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusNotFound, res.Code)
-	assert.Equal(t, "Not found\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Not found\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -328,7 +328,7 @@ func TestPageAuthorizedNotFound(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusNotFound, res.Code)
-	assert.Equal(t, "Not found\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Not found\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -352,7 +352,7 @@ func TestGetUnknownItemTypeAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusNotFound, res.Code)
-	assert.Equal(t, "Not found\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Not found\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -371,7 +371,7 @@ func TestGetItemNotAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -400,7 +400,7 @@ func TestSetUnreadAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "OK", string(res.Body.Bytes()))
+	assert.Equal(t, "OK", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -427,7 +427,7 @@ func TestPostItemUnsupportedOperationAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
-	assert.Equal(t, "Internal server error\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Internal server error\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -449,7 +449,7 @@ func TestSetUnreadNotAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -475,7 +475,7 @@ func TestGetSettingsAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"Username":"user01","Opml":"opml1","Pagemonitor":"pagemonitor1"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"Username":"user01","Opml":"opml1","Pagemonitor":"pagemonitor1"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -494,7 +494,7 @@ func TestGetSettingsNotAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -529,7 +529,7 @@ func TestSaveSettingsAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"Username":"user01","Opml":"opml2","Pagemonitor":"pagemonitor2"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"Username":"user01","Opml":"opml2","Pagemonitor":"pagemonitor2"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -565,7 +565,7 @@ func TestSaveSettingsChangePasswordAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"Username":"user01","Opml":"opml2","Pagemonitor":"pagemonitor2"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"Username":"user01","Opml":"opml2","Pagemonitor":"pagemonitor2"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -609,7 +609,7 @@ func TestSaveSettingsChangeUsernameAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"Username":"user02","Opml":"opml2","Pagemonitor":"pagemonitor2"}`+"\n", string(res.Body.Bytes()))
+	assert.Equal(t, `{"Username":"user02","Opml":"opml2","Pagemonitor":"pagemonitor2"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -638,11 +638,12 @@ func TestSaveSettingsChangeUsernameFailedAuthorized(t *testing.T) {
 	saveUser.Opml = "opml2"
 	saveUser.Pagemonitor = "pagemonitor2"
 	err = saveUser.SetUsername("user02")
+	assert.NoError(t, err)
 	dbMock.On("SaveUser", &saveUser).Return(fmt.Errorf("Username already in use")).Once()
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusInternalServerError, res.Code)
-	assert.Equal(t, "Internal server error\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Internal server error\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -662,7 +663,7 @@ func TestSaveSettingsUnauthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -688,7 +689,7 @@ func TestRefreshAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "OK", string(res.Body.Bytes()))
+	assert.Equal(t, "OK", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -710,7 +711,7 @@ func TestRefreshNotAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -747,7 +748,7 @@ func TestGetStatusAuthorizedSuccess(t *testing.T) {
 		`{"Name":"Feed 2","Success":true,"LastSuccess":"2019-02-16T23:00:00Z"},`+
 		`{"Name":"Site 1","Success":true,"LastFailure":"2019-02-16T23:00:00Z","LastSuccess":"2019-02-16T23:01:00Z"},`+
 		`{"Name":"Site 2","Success":true,"LastSuccess":"2019-02-16T23:01:00Z"}`+
-		"]\n", string(res.Body.Bytes()))
+		"]\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -783,7 +784,7 @@ func TestGetStatusAuthorizedFailure(t *testing.T) {
 		`{"Name":"Feed 2","Success":false,"LastFailure":"2019-02-16T23:00:00Z"},`+
 		`{"Name":"Site 1","Success":false,"LastFailure":"2019-02-16T23:01:00Z","LastSuccess":"2019-02-16T23:00:00Z"},`+
 		`{"Name":"Site 2","Success":false,"LastFailure":"2019-02-16T23:01:00Z"}`+
-		"]\n", string(res.Body.Bytes()))
+		"]\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -817,7 +818,7 @@ func TestGetStatusAuthorizedUnknown(t *testing.T) {
 		`{"Name":"Feed 2","Success":false},`+
 		`{"Name":"Site 1","Success":false},`+
 		`{"Name":"Site 2","Success":false}`+
-		"]\n", string(res.Body.Bytes()))
+		"]\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)
@@ -836,7 +837,7 @@ func TestGetStatusNotAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusUnauthorized, res.Code)
-	assert.Equal(t, "Bad credentials\n", string(res.Body.Bytes()))
+	assert.Equal(t, "Bad credentials\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)

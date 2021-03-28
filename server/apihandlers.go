@@ -194,7 +194,7 @@ func FeedItemHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 
 			readStatus := r.Form.Get("Read")
 			if readStatus != "false" {
-				handleError(w, r, fmt.Errorf("Unsupported update operation %v", r.Form))
+				handleError(w, r, fmt.Errorf("unsupported update operation %v", r.Form))
 				return
 			}
 

@@ -1,152 +1,156 @@
 package data
 
 import (
-	"github.com/dgraph-io/badger/v3"
+	"strings"
+
+	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
 type itemKey = []byte
 
-// GetReadStatus returns the read status for keys and returns the list of items which are marked as read for user.
-func (s *DBService) GetReadStatus(user *User) ([]itemKey, error) {
-	items := make([]itemKey, 0)
-	err := s.db.View(func(txn *badger.Txn) error {
-		opts := iteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(user.createReadStatusPrefix())
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
+// GetReadStatus returns true if itemKey is read, otherwise returns false.
+func (s *DBService) GetReadStatus(user *User, key itemKey) (bool, error) {
+	s.userLock.RLock()
+	defer s.userLock.RUnlock()
 
-			k := item.Key()
-
-			itemKey, err := decodeReadStatusKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
-				return err
-			}
-			items = append(items, itemKey)
-		}
-		return nil
-	})
+	k := user.createReadStatusKey(key)
+	value, err := s.db.Get(k)
 	if err != nil {
-		return nil, err
+		log.WithField("key", k).WithError(err).Error("Failed to get read status key")
+		return false, err
 	}
-	return items, nil
+
+	readStatus := value != nil
+	return readStatus, nil
 }
 
 // SetReadStatus sets the read status for item, true for read, false for unread.
 func (s *DBService) SetReadStatus(user *User, k itemKey, read bool) error {
 	readStatusKey := user.createReadStatusKey(k)
-	return s.db.Update(func(txn *badger.Txn) error {
-		if read {
-			return txn.Set(readStatusKey, nil)
-		}
-		return txn.Delete(readStatusKey)
-	})
+	if read {
+		return s.db.Put(readStatusKey, []byte{})
+	}
+	return s.db.Delete(readStatusKey)
 }
 
 // SetReadStatusForAll sets the read status for item (for all users), true for read, false for unread.
 func (s *DBService) SetReadStatusForAll(k itemKey, read bool) error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		opts := iteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(userKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
+	s.userLock.RLock()
+	defer s.userLock.RUnlock()
 
-			userKey := item.Key()
+	it := s.db.Items()
+	for {
+		// TODO: use an index here.
+		userKey, _, err := it.Next()
+		if err == pogreb.ErrIterationDone {
+			break
+		} else if err != nil {
+			return err
+		}
+		if !isUserKey(userKey) {
+			continue
+		}
 
-			username, err := decodeUserKey(userKey)
-			if err != nil {
-				log.WithField("key", userKey).WithError(err).Error("Failed to decode username of user")
-				continue
-			}
+		username, err := decodeUserKey(userKey)
+		if err != nil {
+			log.WithField("key", userKey).WithError(err).Error("Failed to decode username of user")
+			continue
+		}
 
-			user := &User{username: *username}
-			readStatusKey := user.createReadStatusKey(k)
+		user := &User{username: *username}
+		readStatusKey := user.createReadStatusKey(k)
 
-			if read {
-				if err := txn.Set(readStatusKey, nil); err != nil {
-					log.WithField("key", readStatusKey).WithError(err).Error("Failed to set read status for all users")
-					return err
-				}
-				continue
-			}
-			if err := txn.Delete(readStatusKey); err != nil {
-				log.WithField("key", readStatusKey).WithError(err).Error("Failed to set unread status for all users")
+		if read {
+			if err := s.db.Put(readStatusKey, []byte{}); err != nil {
+				log.WithField("key", readStatusKey).WithError(err).Error("Failed to set read status for all users")
 				return err
 			}
+			continue
 		}
-		return nil
-	})
+		if err := s.db.Delete(readStatusKey); err != nil {
+			log.WithField("key", readStatusKey).WithError(err).Error("Failed to set unread status for all users")
+			return err
+		}
+	}
+	return nil
 }
 
 // renameReadStatus updates read status items for user to the new username.
-func (s *DBService) renameReadStatus(user *User) func(*badger.Txn) error {
+func (s *DBService) renameReadStatus(user *User) error {
 	newUser := &User{username: user.newUsername}
-	return func(txn *badger.Txn) error {
-		opts := iteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(user.createReadStatusPrefix())
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.KeyCopy(nil)
-
-			itemKey, err := decodeReadStatusKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode item key")
-				return err
-			}
-
-			err = txn.Delete(k)
-			if err != nil {
-				log.WithField("key", k).WithField("user", user.username).WithError(err).Error("Failed to delete read status from old username")
-				return err
-			}
-
-			newK := newUser.createReadStatusKey(itemKey)
-			err = txn.Set(newK, nil)
-			if err != nil {
-				log.WithField("key", newK).WithField("user", newUser.username).WithError(err).Error("Failed to create read status for new username")
-				return err
-			}
+	prefix := user.createReadStatusPrefix()
+	it := s.db.Items()
+	for {
+		// TODO: use an index here.
+		k, _, err := it.Next()
+		if err == pogreb.ErrIterationDone {
+			break
+		} else if err != nil {
+			return err
 		}
-		return nil
+		if !strings.HasPrefix(string(k), prefix) {
+			continue
+		}
+
+		itemKey, err := decodeReadStatusKey(k)
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to decode item key")
+			return err
+		}
+
+		err = s.db.Delete(k)
+		if err != nil {
+			log.WithField("key", k).WithField("user", user.username).WithError(err).Error("Failed to delete read status from old username")
+			return err
+		}
+
+		newK := newUser.createReadStatusKey(itemKey)
+		err = s.db.Put(newK, []byte{})
+		if err != nil {
+			log.WithField("key", newK).WithField("user", newUser.username).WithError(err).Error("Failed to create read status for new username")
+			return err
+		}
 	}
+	return nil
 }
 
 // DeleteStaleReadStatuses deletes all read statuses which are referring to items which no longer exist.
 func (s *DBService) DeleteStaleReadStatuses() error {
-	return s.db.Update(func(txn *badger.Txn) error {
-		opts := iteratorDoNotPrefetchOptions()
-		opts.Prefix = []byte(readStatusPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-			k := item.KeyCopy(nil)
+	s.userLock.RLock()
+	defer s.userLock.RUnlock()
 
-			itemKey, err := decodeReadStatusKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of read status")
-				continue
-			}
+	it := s.db.Items()
+	for {
+		// TODO: use an index here.
+		k, _, err := it.Next()
+		if err == pogreb.ErrIterationDone {
+			break
+		} else if err != nil {
+			return err
+		}
+		if !isReadStatusKey(k) {
+			continue
+		}
 
-			referencedItem, err := txn.Get(itemKey)
-			if err == badger.ErrKeyNotFound {
-				log.WithField("item", referencedItem).Debug("Deleting invalid read status")
-				if err := txn.Delete(k); err != nil {
-					log.WithField("key", k).WithError(err).Error("Failed to delete read status")
-					continue
-				}
-			} else if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to get item referenced by read status")
+		itemKey, err := decodeReadStatusKey(k)
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to decode key of read status")
+			continue
+		}
+
+		referencedItem, err := s.db.Get(itemKey)
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to get item referenced by read status")
+			continue
+		}
+		if referencedItem == nil {
+			log.WithField("item", referencedItem).Debug("Deleting invalid read status")
+			if err := s.db.Delete(k); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to delete read status")
 				continue
 			}
 		}
-		return nil
-	})
+	}
+	return nil
 }

@@ -72,9 +72,9 @@ const testBackupData = `{
       "Pagemonitor": "pagemonitor1",
       "Username": "user01",
       "ReadItems": [
+        "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE",
         "feeditem/aHR0cDovL2ZlZWQx/ZzE",
-        "feeditem/aHR0cDovL2ZlZWQx/ZzI",
-        "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE"
+        "feeditem/aHR0cDovL2ZlZWQx/ZzI"
       ]
     },
     {
@@ -83,9 +83,9 @@ const testBackupData = `{
       "Pagemonitor": "pagemonitor2",
       "Username": "user02",
       "ReadItems": [
+        "pagemonitor/aHR0cDovL3NpdGUy//",
         "feeditem/aHR0cDovL2ZlZWQx/ZzE",
-        "feeditem/aHR0cDovL2ZlZWQy/ZzE",
-        "pagemonitor/aHR0cDovL3NpdGUy//"
+        "feeditem/aHR0cDovL2ZlZWQy/ZzE"
       ]
     }
   ],
@@ -192,21 +192,45 @@ func TestRestore(t *testing.T) {
 	<-done
 	assert.Equal(t, testBackupUsers, dbUsers)
 
-	user1ReadStatus, err := dbService.GetReadStatus(testBackupUsers[0])
+	readStatus, err := dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[0].Key.CreateKey())
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{
-		testBackupFeeditems[0].Key.CreateKey(),
-		testBackupFeeditems[1].Key.CreateKey(),
-		testBackupPagemonitor[0].Config.CreateKey(),
-	}, user1ReadStatus)
+	assert.True(t, readStatus)
 
-	user2ReadStatus, err := dbService.GetReadStatus(testBackupUsers[1])
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[1].Key.CreateKey())
 	assert.NoError(t, err)
-	assert.Equal(t, [][]byte{
-		testBackupFeeditems[0].Key.CreateKey(),
-		testBackupFeeditems[2].Key.CreateKey(),
-		testBackupPagemonitor[1].Config.CreateKey(),
-	}, user2ReadStatus)
+	assert.True(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[2].Key.CreateKey())
+	assert.NoError(t, err)
+	assert.False(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupPagemonitor[0].Config.CreateKey())
+	assert.NoError(t, err)
+	assert.True(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupPagemonitor[1].Config.CreateKey())
+	assert.NoError(t, err)
+	assert.False(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupFeeditems[0].Key.CreateKey())
+	assert.NoError(t, err)
+	assert.True(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupFeeditems[1].Key.CreateKey())
+	assert.NoError(t, err)
+	assert.False(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupFeeditems[2].Key.CreateKey())
+	assert.NoError(t, err)
+	assert.True(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupPagemonitor[0].Config.CreateKey())
+	assert.NoError(t, err)
+	assert.False(t, readStatus)
+
+	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupPagemonitor[1].Config.CreateKey())
+	assert.NoError(t, err)
+	assert.True(t, readStatus)
 
 	feedChan := make(chan *Feeditem)
 	dbFeeditems := make([]*Feeditem, 0)

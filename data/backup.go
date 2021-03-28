@@ -54,17 +54,6 @@ func (service *DBService) Backup() (string, error) {
 	}
 	<-done
 
-	for _, user := range data.Users {
-		readStatus, err := service.GetReadStatus(&user.User)
-		if err != nil {
-			return "", fmt.Errorf("failed to backup item read status for user: %w", err)
-		}
-		user.ReadItems = make([]string, len(readStatus))
-		for i, readItemKey := range readStatus {
-			user.ReadItems[i] = string(readItemKey)
-		}
-	}
-
 	feedChan := make(chan *Feeditem)
 	go func() {
 		for feedItem := range feedChan {
@@ -107,6 +96,28 @@ func (service *DBService) Backup() (string, error) {
 		return "", fmt.Errorf("failed to backup server configuration: %w", err)
 	}
 	data.ServerConfig = serverConfig
+
+	for _, user := range data.Users {
+		user.ReadItems = make([]string, 0)
+		for _, pm := range data.Pagemonitor {
+			isRead, err := service.GetReadStatus(&user.User, pm.CreateKey())
+			if err != nil {
+				return "", fmt.Errorf("failed to backup item read status for user: %w", err)
+			}
+			if isRead {
+				user.ReadItems = append(user.ReadItems, string(pm.CreateKey()))
+			}
+		}
+		for _, f := range data.Feeds {
+			isRead, err := service.GetReadStatus(&user.User, f.CreateKey())
+			if err != nil {
+				return "", fmt.Errorf("failed to backup feed read status for user: %w", err)
+			}
+			if isRead {
+				user.ReadItems = append(user.ReadItems, string(f.CreateKey()))
+			}
+		}
+	}
 
 	value, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {

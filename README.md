@@ -30,3 +30,4 @@ nanoRSS contains several abandoned proof-of-concepts to test different data stor
 In addition, there was:
 * An early attempt to implement a Bootstrap UI with [native HTML and Javascript](../../tree/nativehtml)
 * An old version based on [Bootstrap and jQuery](../../tree/bootstrap)
+* A version based on [Badger](../../tree/badger)

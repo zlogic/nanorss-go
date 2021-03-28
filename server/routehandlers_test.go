@@ -118,7 +118,7 @@ func TestHtmlLoginHandlerNotLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User <nil>\nName \nContent loginpage", string(res.Body.Bytes()))
+	assert.Equal(t, "User <nil>\nName \nContent loginpage", res.Body.String())
 
 	authHandler.AssertExpectations(t)
 }
@@ -139,7 +139,7 @@ func TestHtmlLoginHandlerAlreadyLoggedIn(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User <nil>\nName \nContent loginpage", string(res.Body.Bytes()))
+	assert.Equal(t, "User <nil>\nName \nContent loginpage", res.Body.String())
 
 	authHandler.AssertExpectations(t)
 }
@@ -161,7 +161,7 @@ func TestHtmlFeedHandlerLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User {    }\nName feed\nContent feedpage", string(res.Body.Bytes()))
+	assert.Equal(t, "User {    }\nName feed\nContent feedpage", res.Body.String())
 
 	authHandler.AssertExpectations(t)
 }
@@ -200,7 +200,7 @@ func TestHtmlSettingsHandlerLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User {    }\nName settings\nContent settingspage", string(res.Body.Bytes()))
+	assert.Equal(t, "User {    }\nName settings\nContent settingspage", res.Body.String())
 
 	authHandler.AssertExpectations(t)
 }
@@ -239,7 +239,7 @@ func TestHtmlStatusHandlerLoggedIn(t *testing.T) {
 	router.ServeHTTP(res, req)
 
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, "User {    }\nName status\nContent feedpage", string(res.Body.Bytes()))
+	assert.Equal(t, "User {    }\nName status\nContent feedpage", res.Body.String())
 
 	authHandler.AssertExpectations(t)
 }

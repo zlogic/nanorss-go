@@ -3,7 +3,7 @@ module github.com/zlogic/nanorss-go
 go 1.16
 
 require (
-	github.com/dgraph-io/badger/v3 v3.2011.1
+	github.com/akrylysov/pogreb v0.10.0
 	github.com/go-chi/chi/v5 v5.0.2
 	github.com/go-chi/jwtauth/v5 v5.0.0
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7

@@ -71,14 +71,9 @@ func (m *DBMock) ReadAllPages(ch chan *data.PagemonitorPage) error {
 	return args.Error(0)
 }
 
-func (m *DBMock) GetReadStatus(user *data.User) ([][]byte, error) {
-	args := m.Called(user)
-	readItems := args.Get(0)
-	var returnReadItems [][]byte
-	if readItems != nil {
-		returnReadItems = readItems.([][]byte)
-	}
-	return returnReadItems, args.Error(1)
+func (m *DBMock) GetReadStatus(user *data.User, itemKey []byte) (bool, error) {
+	args := m.Called(user, itemKey)
+	return args.Get(0).(bool), args.Error(1)
 }
 
 func (m *DBMock) SetReadStatus(user *data.User, itemKey []byte, read bool) error {

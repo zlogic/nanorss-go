@@ -50,7 +50,6 @@ func TestFeedListHelperEmptyList(t *testing.T) {
 	}
 
 	dbMock.configureMockForFeedList([]*data.Feeditem{}, []*data.PagemonitorPage{})
-	dbMock.On("GetReadStatus", user).Return(nil, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)
@@ -135,13 +134,12 @@ func TestFeedListHelperOrdering(t *testing.T) {
 		},
 	}
 
-	readItems := [][]byte{
-		pages[0].Config.CreateKey(),
-		feedItems[1].Key.CreateKey(),
-	}
-
 	dbMock.configureMockForFeedList(feedItems, pages)
-	dbMock.On("GetReadStatus", user).Return(readItems, nil).Once()
+	dbMock.On("GetReadStatus", user, pages[0].Config.CreateKey()).Return(true, nil).Once()
+	dbMock.On("GetReadStatus", user, pages[1].Config.CreateKey()).Return(false, nil).Once()
+	dbMock.On("GetReadStatus", user, feedItems[0].Key.CreateKey()).Return(false, nil).Once()
+	dbMock.On("GetReadStatus", user, feedItems[1].Key.CreateKey()).Return(true, nil).Once()
+	dbMock.On("GetReadStatus", user, feedItems[2].Key.CreateKey()).Return(false, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)
@@ -179,7 +177,6 @@ func TestFeedListHelperIgnoreUnknownItems(t *testing.T) {
 	}
 
 	dbMock.configureMockForFeedList(feedItems, pages)
-	dbMock.On("GetReadStatus", user).Return(nil, nil).Once()
 
 	items, err := feedListService.GetAllItems(user)
 	assert.NoError(t, err)

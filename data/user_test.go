@@ -115,6 +115,7 @@ func TestSetUsername(t *testing.T) {
 	assert.Equal(t, "user02", user.username)
 
 	dbUser, err := dbService.GetUser(user.username)
+	assert.NoError(t, err)
 	assert.Equal(t, user, *dbUser)
 
 	dbUsers := []*User{}
@@ -158,6 +159,7 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 	assert.Equal(t, "user02", user.username)
 
 	dbUser, err := dbService.GetUser(user.username)
+	assert.NoError(t, err)
 	assert.Equal(t, user, *dbUser)
 
 	dbUsers := []*User{}
@@ -206,9 +208,11 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 	user1.newUsername = ""
 
 	dbUser1, err := dbService.GetUser("user01")
+	assert.NoError(t, err)
 	assert.Equal(t, user1, *dbUser1)
 
 	dbUser2, err := dbService.GetUser("user02")
+	assert.NoError(t, err)
 	assert.Equal(t, user2, *dbUser2)
 
 	dbUsers := []User{}
@@ -246,6 +250,7 @@ func TestSetUsernameEmptyString(t *testing.T) {
 	assert.NoError(t, err)
 
 	dbUser, err := dbService.GetUser(user.username)
+	assert.NoError(t, err)
 	assert.Equal(t, user, *dbUser)
 
 	dbUsers := []*User{}

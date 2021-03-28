@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -48,106 +48,102 @@ func (feedItem *Feeditem) decode(val []byte) error {
 // If item doesn't exist, returns nil.
 func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 	feeditem := &Feeditem{Key: key}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(key.CreateKey())
-		if err == badger.ErrKeyNotFound {
-			feeditem = nil
-			return nil
-		}
-
-		if err := item.Value(feeditem.decode); err != nil {
-			feeditem = nil
-			return err
-		}
-		return nil
-	})
+	value, err := s.db.Get(key.CreateKey())
 	if err != nil {
-		return nil, fmt.Errorf("cannot read feed item %v: %w", key, err)
+		return nil, fmt.Errorf("cannot get feed item %v: %w", key, err)
 	}
+	if value == nil {
+		return nil, nil
+	}
+
+	if err := feeditem.decode(value); err != nil {
+		return nil, fmt.Errorf("cannot decode feed item %v: %w", key, err)
+	}
+
 	return feeditem, nil
 }
 
 // SaveFeeditems saves feedItems in the database.
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
-	return s.db.Update(func(txn *badger.Txn) error {
-		getPreviousItem := func(key []byte) (*Feeditem, error) {
-			item, err := txn.Get(key)
-			if err != nil && err != badger.ErrKeyNotFound {
-				return nil, fmt.Errorf("failed to get previous feed item %v: %w", string(key), err)
-			}
-			if err == nil {
-				existingFeedItem := &Feeditem{}
-				if err := item.Value(existingFeedItem.decode); err != nil {
-					return nil, fmt.Errorf("failed to read previous value of feed item %v: %w", string(key), err)
-				}
-				return existingFeedItem, nil
-			}
-			// Item doesn't exist
+	getPreviousItem := func(key []byte) (*Feeditem, error) {
+		value, err := s.db.Get(key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get previous feed item %v: %w", string(key), err)
+		}
+		if value == nil {
+			// Item doesn't exist.
 			return nil, nil
 		}
-
-		for _, feedItem := range feedItems {
-			key := feedItem.Key.CreateKey()
-
-			previousItem, err := getPreviousItem(key)
-			if err != nil {
-				log.WithField("key", key).WithError(err).Error("Failed to read previous item")
-			} else if previousItem != nil {
-				feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
-				previousItem.Updated = feedItem.Updated
-				previousItem.Key = feedItem.Key
-			}
-
-			value, err := feedItem.encode()
-			if err != nil {
-				return fmt.Errorf("cannot marshal feed item: %w", err)
-			}
-
-			if err := s.SetLastSeen(key)(txn); err != nil {
-				return fmt.Errorf("cannot set last seen time: %w", err)
-			}
-
-			if previousItem != nil && *feedItem == *previousItem {
-				// Avoid writing to the database if nothing has changed
-				continue
-			} else if previousItem != nil {
-				log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Debug("Item has changed")
-			}
-
-			if err := txn.Set(key, value); err != nil {
-				return fmt.Errorf("cannot save feed item: %w", err)
-			}
+		existingFeedItem := &Feeditem{}
+		if err := existingFeedItem.decode(value); err != nil {
+			return nil, fmt.Errorf("failed to read previous value of feed item %v: %w", string(key), err)
 		}
-		return nil
-	})
+		return existingFeedItem, nil
+	}
+
+	for _, feedItem := range feedItems {
+		key := feedItem.Key.CreateKey()
+
+		previousItem, err := getPreviousItem(key)
+		if err != nil {
+			log.WithField("key", key).WithError(err).Error("Failed to read previous item")
+		} else if previousItem != nil {
+			feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
+			previousItem.Updated = feedItem.Updated
+			previousItem.Key = feedItem.Key
+		}
+
+		value, err := feedItem.encode()
+		if err != nil {
+			return fmt.Errorf("cannot marshal feed item: %w", err)
+		}
+
+		if err := s.SetLastSeen(key); err != nil {
+			return fmt.Errorf("cannot set last seen time: %w", err)
+		}
+
+		if previousItem != nil && *feedItem == *previousItem {
+			// Avoid writing to the database if nothing has changed
+			continue
+		} else if previousItem != nil {
+			log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Debug("Item has changed")
+		}
+
+		if err := s.db.Put(key, value); err != nil {
+			return fmt.Errorf("cannot save feed item: %w", err)
+		}
+	}
+	return nil
 }
 
 // ReadAllFeedItems reads all Feeditem items from database and sends them to the provided channel.
 func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
 	defer close(ch)
-	err = s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(feeditemKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			k := item.Key()
-			key, err := DecodeFeeditemKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
-				continue
-			}
-
-			feedItem := &Feeditem{Key: key}
-			if err := item.Value(feedItem.decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of item")
-				continue
-			}
-			ch <- feedItem
+	it := s.db.Items()
+	for {
+		// TODO: use an index here.
+		k, value, err := it.Next()
+		if err == pogreb.ErrIterationDone {
+			break
+		} else if err != nil {
+			return err
 		}
-		return nil
-	})
-	return
+		if !IsFeeditemKey(k) {
+			continue
+		}
+
+		key, err := DecodeFeeditemKey(k)
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
+			continue
+		}
+
+		feedItem := &Feeditem{Key: key}
+		if err := feedItem.decode(value); err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to read value of item")
+			continue
+		}
+		ch <- feedItem
+	}
+	return nil
 }

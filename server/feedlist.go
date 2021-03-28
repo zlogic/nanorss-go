@@ -53,11 +53,6 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		return nil, err
 	}
 
-	readItems, err := h.db.GetReadStatus(user)
-	if err != nil {
-		return nil, err
-	}
-
 	items := make(itemsSortable, 0)
 
 	findFeedTitle := func(feedURL string) (string, error) {
@@ -67,14 +62,6 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 			}
 		}
 		return "", fmt.Errorf("title for feedURL %v not found", feedURL)
-	}
-	isRead := func(itemKey []byte) bool {
-		for _, readItemKey := range readItems {
-			if bytes.Equal(readItemKey, itemKey) {
-				return true
-			}
-		}
-		return false
 	}
 	feedItemsChan := make(chan *data.Feeditem)
 	feedItemsDone := make(chan bool)
@@ -86,12 +73,17 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				// Probably an orphaned feed.
 				continue
 			}
+			isRead, err := h.db.GetReadStatus(user, feedItem.Key.CreateKey())
+			if err != nil {
+				// Probably an orphaned feed.
+				continue
+			}
 			item := &Item{
 				Title:    feedItem.Title,
 				Origin:   title,
 				FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
 				SortDate: feedItem.Date,
-				IsRead:   isRead(feedItem.Key.CreateKey()),
+				IsRead:   isRead,
 			}
 			items = append(items, item)
 		}
@@ -120,12 +112,17 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 				// Probably an orphaned feed.
 				continue
 			}
+			isRead, err := h.db.GetReadStatus(user, page.Config.CreateKey())
+			if err != nil {
+				// Probably an orphaned feed.
+				continue
+			}
 			item := &Item{
 				Title:    "",
 				Origin:   title,
 				FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),
 				SortDate: page.Updated,
-				IsRead:   isRead(page.Config.CreateKey()),
+				IsRead:   isRead,
 			}
 			items = append(items, item)
 		}

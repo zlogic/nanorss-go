@@ -209,3 +209,23 @@ func IsFeeditemKey(key []byte) bool {
 func IsPagemonitorKey(key []byte) bool {
 	return strings.HasPrefix(string(key), pagemonitorKeyPrefix)
 }
+
+// isFetchStatusKey returns if key is referencing a FetchStatus entry.
+func isFetchStatusKey(key []byte) bool {
+	return strings.HasPrefix(string(key), fetchStatusKeyPrefix)
+}
+
+// isUserKey returns if key is referencing a User entry.
+func isUserKey(key []byte) bool {
+	return strings.HasPrefix(string(key), userKeyPrefix)
+}
+
+// isReadStatusKey returns if key is referencing a read status entry.
+func isReadStatusKey(key []byte) bool {
+	return strings.HasPrefix(string(key), readStatusPrefix)
+}
+
+// isServerConfigKey returns if key is referencing a ServerConfig entry.
+func isServerConfigKey(key []byte) bool {
+	return strings.HasPrefix(string(key), serverConfigKeyPrefix)
+}

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/dgraph-io/badger/v3"
+	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -54,33 +54,33 @@ func (user *User) decode(val []byte) error {
 // ReadAllUsers reads all users from database and sends them to the provided channel.
 func (s *DBService) ReadAllUsers(ch chan *User) error {
 	defer close(ch)
-	err := s.db.View(func(txn *badger.Txn) error {
-		opts := badger.DefaultIteratorOptions
-		opts.Prefix = []byte(userKeyPrefix)
-		it := txn.NewIterator(opts)
-		defer it.Close()
-		for it.Rewind(); it.Valid(); it.Next() {
-			item := it.Item()
-
-			k := item.Key()
-
-			username, err := decodeUserKey(k)
-			if err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
-				continue
-			}
-
-			user := &User{username: *username}
-			if err := item.Value(user.decode); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to read value of user")
-				continue
-			}
-			ch <- user
+	s.userLock.RLock()
+	defer s.userLock.RUnlock()
+	it := s.db.Items()
+	for {
+		// TODO: use an index here.
+		k, value, err := it.Next()
+		if err == pogreb.ErrIterationDone {
+			break
+		} else if err != nil {
+			return err
 		}
-		return nil
-	})
-	if err != nil {
-		return fmt.Errorf("cannot read users: %w", err)
+		if !isUserKey(k) {
+			continue
+		}
+
+		username, err := decodeUserKey(k)
+		if err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
+			continue
+		}
+
+		user := &User{username: *username}
+		if err := user.decode(value); err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to read value of user")
+			continue
+		}
+		ch <- user
 	}
 	return nil
 }
@@ -88,27 +88,30 @@ func (s *DBService) ReadAllUsers(ch chan *User) error {
 // GetUser returns the User by username.
 // If user doesn't exist, returns nil.
 func (s *DBService) GetUser(username string) (*User, error) {
-	user := &User{username: username}
-	err := s.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(user.createKey())
-		if err == badger.ErrKeyNotFound {
-			user = nil
-			return nil
-		}
+	s.userLock.RLock()
+	defer s.userLock.RUnlock()
 
-		if err := item.Value(user.decode); err != nil {
-			user = nil
-		}
-		return err
-	})
+	user := &User{username: username}
+
+	value, err := s.db.Get(user.createKey())
 	if err != nil {
 		return nil, fmt.Errorf("cannot read User %v: %w", username, err)
+	}
+	if value == nil {
+		return nil, nil
+	}
+
+	if err := user.decode(value); err != nil {
+		return nil, err
 	}
 	return user, nil
 }
 
 // SaveUser saves the user in the database.
 func (s *DBService) SaveUser(user *User) (err error) {
+	s.userLock.Lock()
+	defer s.userLock.Unlock()
+
 	if user.newUsername == "" {
 		user.newUsername = user.username
 	}
@@ -118,23 +121,24 @@ func (s *DBService) SaveUser(user *User) (err error) {
 	if err := gob.NewEncoder(&value).Encode(user); err != nil {
 		return fmt.Errorf("cannot marshal user: %w", err)
 	}
-	err = s.db.Update(func(txn *badger.Txn) error {
-		if user.newUsername != user.username {
-			existingUser, err := txn.Get(key)
-			if existingUser != nil || (err != nil && err != badger.ErrKeyNotFound) {
-				return fmt.Errorf("new username %v is already in use", string(key))
-			}
-
-			oldUserKey := createUserKey(user.username)
-			if err := txn.Delete(oldUserKey); err != nil {
-				return err
-			}
-			if err := s.renameReadStatus(user)(txn); err != nil {
-				return err
-			}
+	if user.newUsername != user.username {
+		existingUser, err := s.db.Get(key)
+		if existingUser != nil {
+			return fmt.Errorf("new username %v is already in use", string(user.newUsername))
 		}
-		return txn.Set(key, value.Bytes())
-	})
+		if err != nil {
+			return fmt.Errorf("failed to check if new username %v already in use: %w", string(user.newUsername), err)
+		}
+
+		oldUserKey := createUserKey(user.username)
+		if err := s.db.Delete(oldUserKey); err != nil {
+			return err
+		}
+		if err := s.renameReadStatus(user); err != nil {
+			return err
+		}
+	}
+	err = s.db.Put(key, value.Bytes())
 	if err == nil {
 		user.username = user.newUsername
 		user.newUsername = ""
