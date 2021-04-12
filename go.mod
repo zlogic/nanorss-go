@@ -7,7 +7,7 @@ require (
 	github.com/go-chi/chi/v5 v5.0.2
 	github.com/go-chi/jwtauth/v5 v5.0.1
 	github.com/jaytaylor/html2text v0.0.0-20200412013138-3577fbdbcff7
-	github.com/microcosm-cc/bluemonday v1.0.6
+	github.com/microcosm-cc/bluemonday v1.0.7
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/sirupsen/logrus v1.8.1
