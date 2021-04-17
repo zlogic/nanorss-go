@@ -77,7 +77,7 @@ func TestCleanupStaleFetchStatus(t *testing.T) {
 	err = dbService.SetFetchStatus(key2, fetchStatus2)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteStaleFetchStatuses()
+	err = dbService.deleteStaleFetchStatuses()
 	assert.NoError(t, err)
 
 	dbFetchStatus1, err := dbService.GetFetchStatus(key1)

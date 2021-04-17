@@ -2,8 +2,6 @@ package data
 
 import (
 	"fmt"
-
-	"github.com/akrylysov/pogreb"
 )
 
 // GetOrCreateConfigVariable returns the value for the varName ServerConfig variable,
@@ -25,8 +23,11 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 	if varValue == "" {
 		return "", nil
 	}
-	err = s.db.Put(varKey, []byte(varValue))
-	if err != nil {
+
+	if err := s.addReferencedKey([]byte(serverConfigKeyPrefix), []byte(varName)); err != nil {
+		return "", err
+	}
+	if err := s.db.Put(varKey, []byte(varValue)); err != nil {
 		return "", err
 	}
 	return varValue, nil
@@ -35,6 +36,9 @@ func (s *DBService) GetOrCreateConfigVariable(varName string, generator func() (
 // SetConfigVariable returns the value for the varName ServerConfig variable, or nil if no value is saved.
 func (s *DBService) SetConfigVariable(varName, varValue string) error {
 	varKey := createServerConfigKey(varName)
+	if err := s.addReferencedKey([]byte(serverConfigKeyPrefix), []byte(varName)); err != nil {
+		return err
+	}
 	if err := s.db.Put(varKey, []byte(varValue)); err != nil {
 		return fmt.Errorf("cannot write config key %v: %w", varName, err)
 	}
@@ -43,23 +47,17 @@ func (s *DBService) SetConfigVariable(varName, varValue string) error {
 
 // GetAllConfigVariables returns all ServerConfig variables in a key-value map.
 func (s *DBService) GetAllConfigVariables() (map[string]string, error) {
-	vars := make(map[string]string)
-	it := s.db.Items()
-	for {
-		// TODO: use an index here.
-		k, value, err := it.Next()
-		if err == pogreb.ErrIterationDone {
-			break
-		} else if err != nil {
-			return nil, err
-		}
-		if !isServerConfigKey(k) {
-			continue
-		}
+	indexKeys, err := s.getReferencedKeys([]byte(serverConfigKeyPrefix))
+	if err != nil {
+		return nil, fmt.Errorf("failed to get index for server config keys: %w", err)
+	}
 
-		key, err := decodeServerConfigKey(k)
+	vars := make(map[string]string)
+	for i := range indexKeys {
+		key := string(indexKeys[i])
+		value, err := s.db.Get(createServerConfigKey(key))
 		if err != nil {
-			return nil, fmt.Errorf("error reading config key %v: %w", string(k), err)
+			return nil, fmt.Errorf("error reading config key %v: %w", key, err)
 		}
 
 		vars[key] = string(value)

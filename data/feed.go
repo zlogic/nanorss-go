@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -82,6 +81,10 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 	}
 
 	for _, feedItem := range feedItems {
+		if err := s.addReferencedKey(feedItem.Key.createIndexKey(), []byte(feedItem.Key.GUID)); err != nil {
+			return fmt.Errorf("failed to add feed item %v to feed index: %w", feedItem.Key, err)
+		}
+
 		key := feedItem.Key.CreateKey()
 
 		previousItem, err := getPreviousItem(key)
@@ -116,34 +119,41 @@ func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
 	return nil
 }
 
-// ReadAllFeedItems reads all Feeditem items from database and sends them to the provided channel.
-func (s *DBService) ReadAllFeedItems(ch chan *Feeditem) (err error) {
-	defer close(ch)
-	it := s.db.Items()
-	for {
-		// TODO: use an index here.
-		k, value, err := it.Next()
-		if err == pogreb.ErrIterationDone {
-			break
-		} else if err != nil {
-			return err
-		}
-		if !IsFeeditemKey(k) {
-			continue
-		}
-
-		key, err := DecodeFeeditemKey(k)
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to decode key of item")
-			continue
-		}
-
-		feedItem := &Feeditem{Key: key}
-		if err := feedItem.decode(value); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read value of item")
-			continue
-		}
-		ch <- feedItem
+// GetFeeditems returns all Feeditem items for user.
+func (s *DBService) GetFeeditems(user *User) ([]*Feeditem, error) {
+	feeds, err := user.GetFeeds()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	feedItems := make([]*Feeditem, 0)
+	for i := range feeds {
+		feed := feeds[i]
+
+		indexItems, err := s.getReferencedKeys(feed.createItemsIndexKey())
+		if err != nil {
+			log.WithField("feed", feed.URL).WithError(err).Error("Failed to get index for items of a feed")
+			continue
+		}
+		for j := range indexItems {
+			itemKey := FeeditemKey{
+				FeedURL: feed.URL,
+				GUID:    string(indexItems[j]),
+			}
+
+			value, err := s.db.Get(itemKey.CreateKey())
+			if err != nil {
+				log.WithField("key", itemKey).WithError(err).Error("Failed to read value of item")
+			}
+
+			feedItem := &Feeditem{Key: &itemKey}
+			if err := feedItem.decode(value); err != nil {
+				log.WithField("key", itemKey).WithError(err).Error("Failed to decode value of item")
+				continue
+			}
+
+			feedItems = append(feedItems, feedItem)
+		}
+	}
+	return feedItems, nil
 }

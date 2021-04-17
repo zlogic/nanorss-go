@@ -16,7 +16,8 @@ type DB interface {
 	SaveFeeditems(...*data.Feeditem) (err error)
 	SetFetchStatus([]byte, *data.FetchStatus) error
 	SetReadStatusForAll(k []byte, read bool) error
-	ReadAllUsers(chan *data.User) error
+	GetUsers() ([]string, error)
+	GetUser(username string) (*data.User, error)
 }
 
 // Fetcher contains services needed to fetch items and save them into a database.

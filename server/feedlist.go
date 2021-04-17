@@ -48,7 +48,7 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	pages, err := user.GetPages()
+	userPages, err := user.GetPages()
 	if err != nil {
 		return nil, err
 	}
@@ -63,76 +63,64 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		}
 		return "", fmt.Errorf("title for feedURL %v not found", feedURL)
 	}
-	feedItemsChan := make(chan *data.Feeditem)
-	feedItemsDone := make(chan bool)
-	go func() {
-		for feedItem := range feedItemsChan {
-			title, err := findFeedTitle(feedItem.Key.FeedURL)
-			// TODO: this is not efficient for more than a couple of users.
-			if err != nil {
-				// Probably an orphaned feed.
-				continue
-			}
-			isRead, err := h.db.GetReadStatus(user, feedItem.Key.CreateKey())
-			if err != nil {
-				// Probably an orphaned feed.
-				continue
-			}
-			item := &Item{
-				Title:    feedItem.Title,
-				Origin:   title,
-				FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
-				SortDate: feedItem.Date,
-				IsRead:   isRead,
-			}
-			items = append(items, item)
-		}
-		close(feedItemsDone)
-	}()
-	err = h.db.ReadAllFeedItems(feedItemsChan)
+
+	feedItems, err := h.db.GetFeeditems(user)
 	if err != nil {
 		return nil, err
 	}
-	<-feedItemsDone
+	for _, feedItem := range feedItems {
+		title, err := findFeedTitle(feedItem.Key.FeedURL)
+		if err != nil {
+			// Probably an orphaned feed.
+			continue
+		}
+		isRead, err := h.db.GetReadStatus(user, feedItem.Key.CreateKey())
+		if err != nil {
+			// Probably an orphaned feed.
+			continue
+		}
+		item := &Item{
+			Title:    feedItem.Title,
+			Origin:   title,
+			FetchURL: "api/items/" + escapeKeyForURL(feedItem.Key.CreateKey()),
+			SortDate: feedItem.Date,
+			IsRead:   isRead,
+		}
+		items = append(items, item)
+	}
 
 	findPagemonitorTitle := func(key []byte) (string, error) {
-		for _, page := range pages {
-			if bytes.Equal(key, page.CreateKey()) {
-				return page.Title, nil
+		for _, userPage := range userPages {
+			if bytes.Equal(key, userPage.CreateKey()) {
+				return userPage.Title, nil
 			}
 		}
 		return "", fmt.Errorf("title for page %v not found", string(key))
 	}
-	pagemonitorPageChan := make(chan *data.PagemonitorPage)
-	pagemonitorDone := make(chan bool)
-	go func() {
-		for page := range pagemonitorPageChan {
-			title, err := findPagemonitorTitle(page.Config.CreateKey())
-			if err != nil {
-				// Probably an orphaned feed.
-				continue
-			}
-			isRead, err := h.db.GetReadStatus(user, page.Config.CreateKey())
-			if err != nil {
-				// Probably an orphaned feed.
-				continue
-			}
-			item := &Item{
-				Title:    "",
-				Origin:   title,
-				FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),
-				SortDate: page.Updated,
-				IsRead:   isRead,
-			}
-			items = append(items, item)
+	pages, err := h.db.GetPages(user)
+	for _, page := range pages {
+		title, err := findPagemonitorTitle(page.Config.CreateKey())
+		if err != nil {
+			// Probably an orphaned feed.
+			continue
 		}
-		close(pagemonitorDone)
-	}()
-	err = h.db.ReadAllPages(pagemonitorPageChan)
+		isRead, err := h.db.GetReadStatus(user, page.Config.CreateKey())
+		if err != nil {
+			// Probably an orphaned feed.
+			continue
+		}
+		item := &Item{
+			Title:    "",
+			Origin:   title,
+			FetchURL: "api/items/" + escapeKeyForURL(page.Config.CreateKey()),
+			SortDate: page.Updated,
+			IsRead:   isRead,
+		}
+		items = append(items, item)
+	}
 	if err != nil {
 		return nil, err
 	}
-	<-pagemonitorDone
 
 	sort.Sort(items)
 

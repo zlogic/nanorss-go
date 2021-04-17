@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -76,50 +75,12 @@ func (s *DBService) SetFetchStatus(key []byte, fetchStatus *FetchStatus) error {
 		return fmt.Errorf("failed to encode fetch status: %w", err)
 	}
 
+	if err := s.addReferencedKey([]byte(fetchStatusKeyPrefix), key); err != nil {
+		return fmt.Errorf("failed to add fetch status to index: %w", err)
+	}
+
 	if err := s.db.Put(k, value.Bytes()); err != nil {
 		return fmt.Errorf("failed to save fetch status: %w", err)
-	}
-	return nil
-}
-
-// DeleteStaleFetchStatuses deletes all FetchStatus items which were not updated for itemTTL.
-func (s *DBService) DeleteStaleFetchStatuses() error {
-	now := time.Now()
-
-	it := s.db.Items()
-	for {
-		// TODO: use an index here.
-		k, value, err := it.Next()
-		if err == pogreb.ErrIterationDone {
-			break
-		} else if err != nil {
-			return err
-		}
-		if !isFetchStatusKey(k) {
-			continue
-		}
-
-		fetchStatus := &FetchStatus{}
-		if err := fetchStatus.decode(value); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
-			continue
-		}
-
-		var lastUpdated time.Time
-		if fetchStatus.LastFailure.After(lastUpdated) {
-			lastUpdated = fetchStatus.LastFailure
-		}
-		if fetchStatus.LastSuccess.After(lastUpdated) {
-			lastUpdated = fetchStatus.LastSuccess
-		}
-
-		expires := lastUpdated.Add(itemTTL)
-		if now.After(expires) {
-			log.Debug("Deleting expired fetch status")
-			if err := s.db.Delete(k); err != nil {
-				log.WithField("key", k).WithError(err).Error("Failed to delete fetch status")
-			}
-		}
 	}
 	return nil
 }

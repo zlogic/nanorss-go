@@ -16,9 +16,9 @@ type DB interface {
 	GetUser(username string) (*data.User, error)
 	SaveUser(*data.User) error
 	GetFeeditem(*data.FeeditemKey) (*data.Feeditem, error)
-	ReadAllFeedItems(chan *data.Feeditem) error
+	GetFeeditems(*data.User) ([]*data.Feeditem, error)
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
-	ReadAllPages(chan *data.PagemonitorPage) error
+	GetPages(*data.User) ([]*data.PagemonitorPage, error)
 	GetReadStatus(user *data.User, itemKey []byte) (bool, error)
 	SetReadStatus(user *data.User, itemKey []byte, read bool) error
 	GetFetchStatus(key []byte) (*data.FetchStatus, error)

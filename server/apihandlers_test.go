@@ -238,7 +238,7 @@ func TestFeedItemAuthorized(t *testing.T) {
 
 	router.ServeHTTP(res, req)
 	assert.Equal(t, http.StatusOK, res.Code)
-	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feeditem-aHR0cDovL3NpdGUxL3Jzcw-ZzE"}`+"\n", res.Body.String())
+	assert.Equal(t, `{"URL":"http://site1/link1","Contents":"Text 1","Date":"2019-02-16T23:00:00Z","Plaintext":false,"MarkUnreadURL":"api/items/feed-aHR0cDovL3NpdGUxL3Jzcw-ZzE"}`+"\n", res.Body.String())
 
 	dbMock.AssertExpectations(t)
 	authHandler.AssertExpectations(t)

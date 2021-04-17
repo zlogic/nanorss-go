@@ -2,10 +2,8 @@ package data
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -42,13 +40,21 @@ func (s *DBService) SetLastSeen(key []byte) error {
 	if err != nil {
 		return fmt.Errorf("error marshaling current time: %w", err)
 	}
+
+	if err := s.addReferencedKey([]byte(lastSeenKeyPrefix), key); err != nil {
+		return fmt.Errorf("error adding last seen time to index: %w", err)
+	}
+
 	if err := s.db.Put(lastSeenKey, value); err != nil {
 		return fmt.Errorf("error saving last seen time: %w", err)
 	}
 	return nil
 }
 
-func (s *DBService) deleteExpiredItems(prefix []byte) error {
+// deleteExpiredItems will delete all feedItems for feedKey that have expired.
+func (s *DBService) deleteExpiredItems(feedKey []byte) error {
+	prefix := append(feedKey, []byte(separator)...)
+
 	now := time.Now()
 
 	purgeItem := func(key []byte) {
@@ -56,66 +62,104 @@ func (s *DBService) deleteExpiredItems(prefix []byte) error {
 			log.WithField("key", key).WithError(err).Error("Failed to delete item")
 		}
 
-		key = createLastSeenKey(key)
-		if err := s.db.Delete(key); err != nil {
-			log.WithField("key", string(key)).WithError(err).Error("Failed to delete item last seen time")
+		lastSeenKey := createLastSeenKey(key)
+		if err := s.db.Delete(lastSeenKey); err != nil {
+			log.WithField("key", string(lastSeenKey)).WithError(err).Error("Failed to delete item last seen time")
+		}
+
+		if err := s.deleteReferencedKey(prefix, key); err != nil {
+			log.WithField("key", string(key)).WithError(err).Error("Failed to delete item from index")
 		}
 	}
 
-	it := s.db.Items()
-	for {
-		// TODO: use an index here.
-		k, _, err := it.Next()
-		if err == pogreb.ErrIterationDone {
-			break
-		} else if err != nil {
-			return err
-		}
-		if !strings.HasPrefix(string(k), string(prefix)) {
-			continue
-		}
+	indexKeys, err := s.getReferencedKeys(prefix)
+	if err != nil {
+		return fmt.Errorf("cannot get index for feed key %v: %w", string(feedKey), err)
+	}
+	for _, k := range indexKeys {
+		itemGUID := encodePart(string(k))
 
-		lastSeenKey := createLastSeenKey(k)
+		itemKey := append(prefix, []byte(itemGUID)...)
+		lastSeenKey := createLastSeenKey(itemKey)
 		lastSeenValue, err := s.db.Get(lastSeenKey)
 		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to get last seen time item")
-			purgeItem(k)
+			log.WithField("key", string(itemKey)).WithError(err).Error("Failed to get last seen time item")
+			purgeItem(itemKey)
 			continue
 		}
 
 		lastSeen := time.Time{}
 		if err := lastSeen.UnmarshalBinary(lastSeenValue); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to get last seen time value")
-			purgeItem(k)
+			log.WithField("key", string(itemKey)).WithError(err).Error("Failed to get last seen time value")
+			purgeItem(itemKey)
 			continue
 		}
 
 		expires := lastSeen.Add(itemTTL)
 		if now.After(expires) || now.Equal(expires) {
 			log.Debug("Deleting expired item")
-			purgeItem(k)
+			purgeItem(itemKey)
 		}
 	}
 	return nil
 }
 
-// DeleteExpiredItems deletes all items which SetLastSeen was not called at least itemTTL.
-func (s *DBService) DeleteExpiredItems() error {
-	failed := false
-	err := s.deleteExpiredItems([]byte(feeditemKeyPrefix))
+// deleteStaleFetchStatuses deletes all FetchStatus items which were not updated for itemTTL.
+func (s *DBService) deleteStaleFetchStatuses() error {
+	now := time.Now()
+
+	indexKeys, err := s.getReferencedKeys([]byte(fetchStatusKeyPrefix))
 	if err != nil {
-		failed = true
-		log.WithError(err).Error("Failed to clean up expired feed items")
+		return err
 	}
 
-	err = s.deleteExpiredItems([]byte(pagemonitorKeyPrefix))
-	if err != nil {
-		failed = true
-		log.WithError(err).Error("Failed to clean up expired pages")
-	}
+	for _, k := range indexKeys {
+		fetchStatusKey := createFetchStatusKey(k)
+		value, err := s.db.Get(fetchStatusKey)
+		if err != nil {
+			return err
+		}
 
-	if failed {
-		return fmt.Errorf("failed to delete at least one expired item")
+		fetchStatus := &FetchStatus{}
+		if err := fetchStatus.decode(value); err != nil {
+			log.WithField("key", k).WithError(err).Error("Failed to get fetch status value")
+			continue
+		}
+
+		var lastUpdated time.Time
+		if fetchStatus.LastFailure.After(lastUpdated) {
+			lastUpdated = fetchStatus.LastFailure
+		}
+		if fetchStatus.LastSuccess.After(lastUpdated) {
+			lastUpdated = fetchStatus.LastSuccess
+		}
+
+		expires := lastUpdated.Add(itemTTL)
+		if now.After(expires) {
+			log.Debug("Deleting expired fetch status")
+
+			if IsFeeditemKey(k) {
+				if err := s.deleteExpiredItems(k); err != nil {
+					log.WithField("key", k).WithError(err).Error("Failed to remove expired feed items")
+					continue
+				}
+			}
+
+			if err := s.db.Delete(k); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to delete fetch status item")
+				continue
+			}
+
+			if err := s.db.Delete(fetchStatusKey); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to delete fetch status key")
+				continue
+			}
+
+			if err := s.deleteReferencedKey([]byte(fetchStatusKeyPrefix), k); err != nil {
+				log.WithField("key", k).WithError(err).Error("Failed to remove fetch status from index")
+				continue
+			}
+		}
 	}
 	return nil
 }

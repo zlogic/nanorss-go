@@ -158,18 +158,14 @@ func TestFetchAllFeeds(t *testing.T) {
 		Client: &http.Client{},
 	}
 
-	dbMock.On("ReadAllUsers", mock.AnythingOfType("chan *data.User")).Return(nil).Once().
-		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.User)
-			defer close(ch)
-			user := data.User{Opml: `<opml version="1.0">` +
-				`<body>` +
-				`<outline title="Feed 1" type="rss" xmlUrl="http://site1/rss"/>` +
-				`<outline title="Feed 2" type="rss" xmlUrl="http://site2/rss"/>` +
-				`</body>` +
-				`</opml>`}
-			ch <- &user
-		})
+	user := data.User{Opml: `<opml version="1.0">` +
+		`<body>` +
+		`<outline title="Feed 1" type="rss" xmlUrl="http://site1/rss"/>` +
+		`<outline title="Feed 2" type="rss" xmlUrl="http://site2/rss"/>` +
+		`</body>` +
+		`</opml>`}
+	dbMock.On("GetUsers").Return([]string{"user01"}, nil).Once()
+	dbMock.On("GetUser", "user01").Return(&user, nil).Once()
 
 	beforeUpdate := time.Now()
 	dbSavedItems := make([][]*data.Feeditem, 0, 2)

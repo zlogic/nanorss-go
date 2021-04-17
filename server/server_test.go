@@ -51,9 +51,14 @@ func (m *DBMock) GetFeeditem(key *data.FeeditemKey) (*data.Feeditem, error) {
 	return returnFeeditem, args.Error(1)
 }
 
-func (m *DBMock) ReadAllFeedItems(ch chan *data.Feeditem) error {
-	args := m.Called(ch)
-	return args.Error(0)
+func (m *DBMock) GetFeeditems(user *data.User) ([]*data.Feeditem, error) {
+	args := m.Called(user)
+	return args.Get(0).([]*data.Feeditem), args.Error(1)
+}
+
+func (m *DBMock) GetUsers() ([]string, error) {
+	args := m.Called()
+	return args.Get(0).([]string), args.Error(1)
 }
 
 func (m *DBMock) GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error) {
@@ -66,9 +71,9 @@ func (m *DBMock) GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error
 	return returnPage, args.Error(1)
 }
 
-func (m *DBMock) ReadAllPages(ch chan *data.PagemonitorPage) error {
-	args := m.Called(ch)
-	return args.Error(0)
+func (m *DBMock) GetPages(user *data.User) ([]*data.PagemonitorPage, error) {
+	args := m.Called(user)
+	return args.Get(0).([]*data.PagemonitorPage), args.Error(1)
 }
 
 func (m *DBMock) GetReadStatus(user *data.User, itemKey []byte) (bool, error) {

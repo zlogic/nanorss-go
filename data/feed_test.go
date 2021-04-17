@@ -129,10 +129,14 @@ func TestSaveReadItemTTLExpired(t *testing.T) {
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
+	feedKey := &UserFeed{URL: item.Key.FeedURL}
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
+	err = dbService.SetFetchStatus(feedKey.CreateKey(), &FetchStatus{LastSuccess: time.Time{}})
+	assert.NoError(t, err)
+
+	err = dbService.deleteStaleFetchStatuses()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
@@ -152,10 +156,14 @@ func TestSaveReadItemTTLNotExpired(t *testing.T) {
 		Updated:  time.Date(2019, time.February, 18, 23, 0, 0, 0, time.UTC),
 		Key:      &FeeditemKey{FeedURL: "http://feed1", GUID: "g1"},
 	}
+	feedKey := &UserFeed{URL: item.Key.FeedURL}
 	err = dbService.SaveFeeditems(item)
 	assert.NoError(t, err)
 
-	err = dbService.DeleteExpiredItems()
+	err = dbService.SetFetchStatus(feedKey.CreateKey(), &FetchStatus{LastSuccess: time.Time{}})
+	assert.NoError(t, err)
+
+	err = dbService.deleteStaleFetchStatuses()
 	assert.NoError(t, err)
 
 	dbItem, err := dbService.GetFeeditem(item.Key)
@@ -191,21 +199,28 @@ func TestSaveReadAllItems(t *testing.T) {
 		Updated:  time.Date(2019, time.February, 18, 23, 2, 0, 0, time.UTC),
 		Key:      &FeeditemKey{FeedURL: "http://feed2", GUID: "g2"},
 	}
-	items := []Feeditem{item1, item2, item3}
-	err = dbService.SaveFeeditems(&item1, &item2, &item3)
+	items := []*Feeditem{&item1, &item2, &item3}
+	err = dbService.SaveFeeditems(items...)
 	assert.NoError(t, err)
 
-	dbItems := []Feeditem{}
-	ch := make(chan *Feeditem)
-	done := make(chan bool)
-	go func() {
-		for item := range ch {
-			dbItems = append(dbItems, *item)
-		}
-		close(done)
-	}()
-	err = dbService.ReadAllFeedItems(ch)
-	<-done
+	feedKey1 := UserFeed{URL: "http://feed1"}
+	err = dbService.SetFetchStatus(feedKey1.CreateKey(), &FetchStatus{LastSuccess: time.Time{}})
+	assert.NoError(t, err)
+	feedKey2 := UserFeed{URL: "http://feed2"}
+	err = dbService.SetFetchStatus(feedKey2.CreateKey(), &FetchStatus{LastSuccess: time.Time{}})
+	assert.NoError(t, err)
+
+	user := User{
+		Opml: `<opml version="1.0">` +
+			`<body>` +
+			`<outline text="Updates" title="Updates">` +
+			`<outline text="Site 2" title="Site 2" type="rss" xmlUrl="http://feed1" htmlUrl="http://feed1"/>` +
+			`<outline text="Site 3" title="Site 3" type="rss" xmlUrl="http://feed2" htmlUrl="http://feed2"/>` +
+			`</outline>` +
+			`</body>` +
+			`</opml>`,
+	}
+	dbItems, err := dbService.GetFeeditems(&user)
 	assert.NoError(t, err)
 	assert.EqualValues(t, items, dbItems)
 }

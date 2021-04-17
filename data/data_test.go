@@ -29,3 +29,23 @@ func resetDb() (err error) {
 	dbService, err = Open(opts)
 	return
 }
+
+func getAllUsers(s *DBService) ([]*User, error) {
+	usernames, err := s.GetUsers()
+	if err != nil {
+		return nil, err
+	}
+	users := make([]*User, 0, len(usernames))
+	for _, username := range usernames {
+		user, err := s.GetUser(username)
+		if err != nil {
+			return nil, err
+		}
+		if user == nil {
+			continue
+		}
+
+		users = append(users, user)
+	}
+	return users, nil
+}

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 
@@ -40,42 +41,66 @@ type backupData struct {
 func (service *DBService) Backup() (string, error) {
 	data := backupData{}
 
-	done := make(chan bool)
-	userChan := make(chan *User)
-	go func() {
-		for user := range userChan {
-			backupUser := &backupUser{User: *user, Username: user.username}
-			data.Users = append(data.Users, backupUser)
-		}
-		done <- true
-	}()
-	if err := service.ReadAllUsers(userChan); err != nil {
-		return "", fmt.Errorf("failed to backup users: %w", err)
+	usernames, err := service.GetUsers()
+	if err != nil {
+		return "", fmt.Errorf("failed to get usernames: %w", err)
 	}
-	<-done
 
-	feedChan := make(chan *Feeditem)
-	go func() {
-		for feedItem := range feedChan {
-			// Flatten/reformat data
+	for _, username := range usernames {
+		user, err := service.GetUser(username)
+		if err != nil {
+			return "", fmt.Errorf("failed to get user %v: %w", username, err)
+		}
+		backupUser := &backupUser{User: *user, Username: user.username}
+		data.Users = append(data.Users, backupUser)
+
+		// Extract feeds.
+		feeds, err := service.GetFeeditems(user)
+		if err != nil {
+			return "", fmt.Errorf("failed to get feeds for user %v: %w", username, err)
+		}
+		for _, feedItem := range feeds {
+			// Check if item already exists.
+			exists := false
+			for i := range data.Feeds {
+				if bytes.Equal(data.Feeds[i].FeeditemKey.CreateKey(), feedItem.Key.CreateKey()) {
+					exists = true
+					break
+				}
+			}
+			if exists {
+				continue
+			}
+
+			// Flatten/reformat data.
 			backupFeeditem := &backupFeeditem{
 				Feeditem:    *feedItem,
 				FeeditemKey: *feedItem.Key,
 			}
 			backupFeeditem.Feeditem.Key = nil
+
 			data.Feeds = append(data.Feeds, backupFeeditem)
 		}
-		done <- true
-	}()
-	if err := service.ReadAllFeedItems(feedChan); err != nil {
-		return "", fmt.Errorf("failed to back up feed items: %w", err)
-	}
-	<-done
 
-	pageChan := make(chan *PagemonitorPage)
-	go func() {
-		for page := range pageChan {
-			// Flatten/reformat data
+		// Extract pages.
+		pages, err := service.GetPages(user)
+		if err != nil {
+			return "", fmt.Errorf("failed to get pages for user %v: %w", username, err)
+		}
+		for _, page := range pages {
+			// Check if item already exists.
+			exists := false
+			for i := range data.Pagemonitor {
+				if bytes.Equal(data.Pagemonitor[i].CreateKey(), page.Config.CreateKey()) {
+					exists = true
+					break
+				}
+			}
+			if exists {
+				continue
+			}
+
+			// Flatten/reformat data.
 			backupPagemonitor := &backupPagemonitor{
 				PagemonitorPage: *page,
 				UserPagemonitor: *page.Config,
@@ -83,13 +108,7 @@ func (service *DBService) Backup() (string, error) {
 			backupPagemonitor.PagemonitorPage.Config = nil
 			data.Pagemonitor = append(data.Pagemonitor, backupPagemonitor)
 		}
-		close(done)
-	}()
-
-	if err := service.ReadAllPages(pageChan); err != nil {
-		return "", fmt.Errorf("failed to backup pagemonitor pages: %w", err)
 	}
-	<-done
 
 	serverConfig, err := service.GetAllConfigVariables()
 	if err != nil {

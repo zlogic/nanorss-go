@@ -16,22 +16,12 @@ import (
 )
 
 func createDefaultUser(db *data.DBService) {
-	ch := make(chan *data.User)
-	done := make(chan bool)
-	haveUsers := false
-	go func() {
-		for range ch {
-			haveUsers = true
-		}
-		close(done)
-	}()
-	err := db.ReadAllUsers(ch)
+	users, err := db.GetUsers()
 	if err != nil {
 		log.WithError(err).Error("Failed to check users")
 		return
 	}
-	<-done
-	if haveUsers {
+	if len(users) > 0 {
 		return
 	}
 	log.Warn("Creating default user")

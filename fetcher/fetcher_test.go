@@ -32,9 +32,14 @@ func (m *DBMock) SetReadStatusForAll(k []byte, read bool) error {
 	return args.Error(0)
 }
 
-func (m *DBMock) ReadAllUsers(ch chan *data.User) error {
-	args := m.Called(ch)
-	return args.Error(0)
+func (m *DBMock) GetUsers() ([]string, error) {
+	args := m.Called()
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *DBMock) GetUser(username string) (*data.User, error) {
+	args := m.Called(username)
+	return args.Get(0).(*data.User), args.Error(1)
 }
 
 func (m *DBMock) SetFetchStatus(key []byte, fetchStatus *data.FetchStatus) error {

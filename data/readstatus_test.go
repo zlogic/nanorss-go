@@ -196,7 +196,7 @@ func TestCleanupStaleReadStatus(t *testing.T) {
 	assert.NoError(t, err)
 	assert.False(t, readStatus)
 
-	err = dbService.DeleteStaleReadStatuses()
+	err = dbService.deleteStaleReadStatuses()
 	assert.NoError(t, err)
 
 	readStatus, err = dbService.GetReadStatus(&user1, feedItem1.Key.CreateKey())

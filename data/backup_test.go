@@ -9,16 +9,35 @@ import (
 
 var testBackupUsers = []*User{
 	{
-		Password:    "pass1",
-		Opml:        "opml1",
-		Pagemonitor: "pagemonitor1",
-		username:    "user01",
+		Password: "pass1",
+		Opml: `<opml version="1.0">` +
+			`<body>` +
+			`<outline text="Updates" title="Updates">` +
+			`<outline text="Site 2" title="Site 2" type="rss" xmlUrl="http://feed1" htmlUrl="http://feed1"/>` +
+			`<outline text="Site 3" title="Site 3" type="rss" xmlUrl="http://feed2" htmlUrl="http://feed2"/>` +
+			`</outline>` +
+			`</body>` +
+			`</opml>`,
+		Pagemonitor: `<pages>` +
+			`<page url="http://site1" match="m1" replace="r1">Site 1</page>` +
+			`<page url="http://site2">Site 2</page>` +
+			`</pages>`,
+		username: "user01",
 	},
 	{
-		Password:    "pass2",
-		Opml:        "opml2",
-		Pagemonitor: "pagemonitor2",
-		username:    "user02",
+		Password: "pass2",
+		Opml: `<opml version="1.0">` +
+			`<body>` +
+			`<outline text="Updates" title="Updates">` +
+			`<outline text="Site 2" title="Site 2" type="rss" xmlUrl="http://feed1" htmlUrl="http://feed1"/>` +
+			`<outline text="Site 3" title="Site 3" type="rss" xmlUrl="http://feed2" htmlUrl="http://feed2"/>` +
+			`</outline>` +
+			`</body>` +
+			`</opml>`,
+		Pagemonitor: `<pages>` +
+			`<page url="http://site1" match="m1" replace="r1">Site 1</page>` +
+			`</pages>`,
+		username: "user02",
 	},
 }
 
@@ -54,13 +73,13 @@ var testBackupPagemonitor = []*PagemonitorPage{
 		Contents: "p1",
 		Delta:    "d1",
 		Updated:  time.Date(2019, time.February, 16, 23, 3, 0, 0, time.UTC),
-		Config:   &UserPagemonitor{URL: "http://site1", Match: "m1", Replace: "r1"},
+		Config:   &UserPagemonitor{Title: "Site 1", URL: "http://site1", Match: "m1", Replace: "r1"},
 	},
 	{
 		Contents: "p2",
 		Delta:    "d2",
 		Updated:  time.Date(2019, time.February, 16, 23, 4, 0, 0, time.UTC),
-		Config:   &UserPagemonitor{URL: "http://site2"},
+		Config:   &UserPagemonitor{Title: "Site 2", URL: "http://site2"},
 	},
 }
 
@@ -68,24 +87,24 @@ const testBackupData = `{
   "Users": [
     {
       "Password": "pass1",
-      "Opml": "opml1",
-      "Pagemonitor": "pagemonitor1",
+      "Opml": "<opml version=\"1.0\"><body><outline text=\"Updates\" title=\"Updates\"><outline text=\"Site 2\" title=\"Site 2\" type=\"rss\" xmlUrl=\"http://feed1\" htmlUrl=\"http://feed1\"/><outline text=\"Site 3\" title=\"Site 3\" type=\"rss\" xmlUrl=\"http://feed2\" htmlUrl=\"http://feed2\"/></outline></body></opml>",
+      "Pagemonitor": "<pages><page url=\"http://site1\" match=\"m1\" replace=\"r1\">Site 1</page><page url=\"http://site2\">Site 2</page></pages>",
       "Username": "user01",
       "ReadItems": [
         "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE",
-        "feeditem/aHR0cDovL2ZlZWQx/ZzE",
-        "feeditem/aHR0cDovL2ZlZWQx/ZzI"
+        "feed/aHR0cDovL2ZlZWQx/ZzE",
+        "feed/aHR0cDovL2ZlZWQx/ZzI"
       ]
     },
     {
       "Password": "pass2",
-      "Opml": "opml2",
-      "Pagemonitor": "pagemonitor2",
+      "Opml": "<opml version=\"1.0\"><body><outline text=\"Updates\" title=\"Updates\"><outline text=\"Site 2\" title=\"Site 2\" type=\"rss\" xmlUrl=\"http://feed1\" htmlUrl=\"http://feed1\"/><outline text=\"Site 3\" title=\"Site 3\" type=\"rss\" xmlUrl=\"http://feed2\" htmlUrl=\"http://feed2\"/></outline></body></opml>",
+      "Pagemonitor": "<pages><page url=\"http://site1\" match=\"m1\" replace=\"r1\">Site 1</page></pages>",
       "Username": "user02",
       "ReadItems": [
         "pagemonitor/aHR0cDovL3NpdGUy//",
-        "feeditem/aHR0cDovL2ZlZWQx/ZzE",
-        "feeditem/aHR0cDovL2ZlZWQy/ZzE"
+        "feed/aHR0cDovL2ZlZWQx/ZzE",
+        "feed/aHR0cDovL2ZlZWQy/ZzE"
       ]
     }
   ],
@@ -124,7 +143,7 @@ const testBackupData = `{
       "Delta": "d1",
       "Updated": "2019-02-16T23:03:00Z",
       "URL": "http://site1",
-      "Title": "",
+      "Title": "Site 1",
       "Match": "m1",
       "Replace": "r1"
     },
@@ -133,7 +152,7 @@ const testBackupData = `{
       "Delta": "d2",
       "Updated": "2019-02-16T23:04:00Z",
       "URL": "http://site2",
-      "Title": "",
+      "Title": "Site 2",
       "Match": "",
       "Replace": ""
     }
@@ -168,7 +187,7 @@ func TestBackup(t *testing.T) {
 
 	data, err := dbService.Backup()
 	assert.NoError(t, err)
-	assert.Equal(t, testBackupData, data)
+	assert.JSONEq(t, testBackupData, data)
 }
 
 func TestRestore(t *testing.T) {
@@ -178,18 +197,8 @@ func TestRestore(t *testing.T) {
 	err = dbService.Restore(testBackupData)
 	assert.NoError(t, err)
 
-	done := make(chan bool)
-	userChan := make(chan *User)
-	dbUsers := make([]*User, 0)
-	go func() {
-		for user := range userChan {
-			dbUsers = append(dbUsers, user)
-		}
-		done <- true
-	}()
-	err = dbService.ReadAllUsers(userChan)
+	dbUsers, err := getAllUsers(dbService)
 	assert.NoError(t, err)
-	<-done
 	assert.Equal(t, testBackupUsers, dbUsers)
 
 	readStatus, err := dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[0].Key.CreateKey())
@@ -232,30 +241,13 @@ func TestRestore(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, readStatus)
 
-	feedChan := make(chan *Feeditem)
-	dbFeeditems := make([]*Feeditem, 0)
-	go func() {
-		for feedItem := range feedChan {
-			dbFeeditems = append(dbFeeditems, feedItem)
-		}
-		done <- true
-	}()
-	err = dbService.ReadAllFeedItems(feedChan)
+	user := &User{username: "user01", Opml: testBackupUsers[0].Opml, Pagemonitor: testBackupUsers[0].Pagemonitor}
+	dbFeeditems, err := dbService.GetFeeditems(user)
 	assert.NoError(t, err)
-	<-done
 	assert.Equal(t, testBackupFeeditems, dbFeeditems)
 
-	pageChan := make(chan *PagemonitorPage)
-	dbPages := make([]*PagemonitorPage, 0)
-	go func() {
-		for page := range pageChan {
-			dbPages = append(dbPages, page)
-		}
-		close(done)
-	}()
-	err = dbService.ReadAllPages(pageChan)
+	dbPages, err := dbService.GetPages(user)
 	assert.NoError(t, err)
-	<-done
 	assert.Equal(t, testBackupPagemonitor, dbPages)
 
 	values, err := dbService.GetAllConfigVariables()

@@ -57,33 +57,35 @@ func (fetcher *Fetcher) FetchFeed(feedURL string) error {
 
 // FetchAllFeeds calls FetchFeed for all feeds for all users.
 func (fetcher *Fetcher) FetchAllFeeds() error {
-	ch := make(chan *data.User)
-	done := make(chan bool)
-	go func() {
-		for user := range ch {
-			feeds, err := user.GetFeeds()
-			if err != nil {
-				log.WithError(err).WithField("user", user).Error("Failed to get feeds for user")
-				continue
-			}
-			countFeeds := len(feeds)
-			completed := make(chan int)
-			for i, feed := range feeds {
-				go func(config data.UserFeed, index int) {
-					fetcher.FetchFeed(config.URL)
-					completed <- index
-				}(feed, i)
-			}
-			for i := 0; i < countFeeds; i++ {
-				<-completed
-			}
-		}
-		close(done)
-	}()
-	err := fetcher.DB.ReadAllUsers(ch)
-	<-done
+	usernames, err := fetcher.DB.GetUsers()
 	if err != nil {
+		log.WithError(err).Error("Failed to get list of users")
 		return err
+	}
+	for _, username := range usernames {
+		user, err := fetcher.DB.GetUser(username)
+		if err != nil {
+			log.WithField("username", username).WithError(err).Error("Failed to get user")
+			return err
+		}
+
+		feeds, err := user.GetFeeds()
+		if err != nil {
+			log.WithError(err).WithField("user", user).Error("Failed to get feeds for user")
+			continue
+		}
+		countFeeds := len(feeds)
+		completed := make(chan int)
+		for i, feed := range feeds {
+			go func(config data.UserFeed, index int) {
+				// TODO: skip this page if it was already fetched this round.
+				fetcher.FetchFeed(config.URL)
+				completed <- index
+			}(feed, i)
+		}
+		for i := 0; i < countFeeds; i++ {
+			<-completed
+		}
 	}
 	return nil
 }

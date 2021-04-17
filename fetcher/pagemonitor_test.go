@@ -241,16 +241,13 @@ func TestFetchTwoPages(t *testing.T) {
 		Updated:  time.Date(2019, time.February, 16, 23, 1, 0, 0, time.UTC),
 	}
 	beforeUpdate := time.Now()
-	dbMock.On("ReadAllUsers", mock.AnythingOfType("chan *data.User")).Return(nil).Once().
-		Run(func(args mock.Arguments) {
-			ch := args.Get(0).(chan *data.User)
-			defer close(ch)
-			user := data.User{Pagemonitor: `<pages>` +
-				`<page url="http://site1/1">Site 1</page>` +
-				`<page url="http://site1/2">Site 2</page>` +
-				`</pages>`}
-			ch <- &user
-		})
+
+	user := data.User{Pagemonitor: `<pages>` +
+		`<page url="http://site1/1">Site 1</page>` +
+		`<page url="http://site1/2">Site 2</page>` +
+		`</pages>`}
+	dbMock.On("GetUsers").Return([]string{"user01"}, nil).Once()
+	dbMock.On("GetUser", "user01").Return(&user, nil).Once()
 	dbMock.On("GetPage", &pageConfig1).Return(&existingResult1, nil)
 	dbMock.On("GetPage", &pageConfig2).Return(&existingResult2, nil)
 	dbSavedItems := make([]*data.PagemonitorPage, 0, 2)

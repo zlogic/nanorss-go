@@ -49,6 +49,9 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			return fmt.Errorf("cannot read response for page %v: %w", config, err)
 		}
 		text, err := html2text.FromString(string(respData))
+		if err != nil {
+			return fmt.Errorf("cannot convert HTML to text %v: %w", config, err)
+		}
 
 		var textFiltered, previousTextFiltered string
 		if config.Match != "" {
@@ -107,33 +110,34 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 
 // FetchAllPages calls FetchPage for all pages for all users.
 func (fetcher *Fetcher) FetchAllPages() error {
-	ch := make(chan *data.User)
-	done := make(chan bool)
-	go func() {
-		for user := range ch {
-			pages, err := user.GetPages()
-			if err != nil {
-				log.WithError(err).Error("Failed to get pages")
-				continue
-			}
-			countPages := len(pages)
-			completed := make(chan int)
-			for i, page := range pages {
-				go func(config data.UserPagemonitor, index int) {
-					fetcher.FetchPage(&config)
-					completed <- index
-				}(page, i)
-			}
-			for i := 0; i < countPages; i++ {
-				<-completed
-			}
-		}
-		close(done)
-	}()
-	err := fetcher.DB.ReadAllUsers(ch)
-	<-done
+	usernames, err := fetcher.DB.GetUsers()
 	if err != nil {
+		log.WithError(err).Error("Failed to get list of users")
 		return err
+	}
+	for _, username := range usernames {
+		user, err := fetcher.DB.GetUser(username)
+		if err != nil {
+			log.WithField("username", username).WithError(err).Error("Failed to get user")
+			return err
+		}
+		pages, err := user.GetPages()
+		if err != nil {
+			log.WithError(err).Error("Failed to get pages")
+			continue
+		}
+		countPages := len(pages)
+		completed := make(chan int)
+		for i, page := range pages {
+			go func(config data.UserPagemonitor, index int) {
+				// TODO: skip this page if it was already fetched this round.
+				fetcher.FetchPage(&config)
+				completed <- index
+			}(page, i)
+		}
+		for i := 0; i < countPages; i++ {
+			<-completed
+		}
 	}
 	return nil
 }

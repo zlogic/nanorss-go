@@ -46,9 +46,8 @@ func Open(options pogreb.Options) (*DBService, error) {
 
 // GC deletes expired items and attempts to perform a database cleanup.
 func (service *DBService) GC() {
-	service.DeleteExpiredItems()
-	service.DeleteStaleFetchStatuses()
-	service.DeleteStaleReadStatuses()
+	service.deleteStaleFetchStatuses()
+	service.deleteStaleReadStatuses()
 
 	result, err := service.db.Compact()
 	if err != nil {
@@ -72,4 +71,22 @@ func (service *DBService) Close() {
 		}
 		service.db = nil
 	}
+}
+
+// view will acquire a read lock on the database and execute txn.
+// Returns the error returned by txn.
+func (service *DBService) view(txn func() error) error {
+	service.userLock.RLock()
+	defer service.userLock.RUnlock()
+
+	return txn()
+}
+
+// update will acquire a write lock on the database and execute txn.
+// Returns the error returned by txn.
+func (service *DBService) update(txn func() error) error {
+	service.userLock.Lock()
+	defer service.userLock.Unlock()
+
+	return txn()
 }

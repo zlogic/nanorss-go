@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,9 +58,6 @@ func (s *DBService) GetPage(pm *UserPagemonitor) (*PagemonitorPage, error) {
 // SavePage saves a PagemonitorPage.
 func (s *DBService) SavePage(page *PagemonitorPage) error {
 	key := page.Config.CreateKey()
-	if err := s.SetLastSeen(key); err != nil {
-		return fmt.Errorf("cannot set last seen time: %w", err)
-	}
 
 	getPreviousPage := func(key []byte) (*PagemonitorPage, error) {
 		value, err := s.db.Get(key)
@@ -99,34 +95,32 @@ func (s *DBService) SavePage(page *PagemonitorPage) error {
 	return s.db.Put(key, value)
 }
 
-// ReadAllPages reads all PagemonitorPage items from database and sends them to the provided channel.
-func (s *DBService) ReadAllPages(ch chan *PagemonitorPage) (err error) {
-	defer close(ch)
-	it := s.db.Items()
-	for {
-		// TODO: use an index here.
-		k, value, err := it.Next()
-		if err == pogreb.ErrIterationDone {
-			break
-		} else if err != nil {
-			return err
-		}
-		if !IsPagemonitorKey(k) {
-			continue
-		}
-
-		pm, err := DecodePagemonitorKey(k)
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to decode key of page")
-			continue
-		}
-
-		page := &PagemonitorPage{Config: pm}
-		if err := page.decode(value); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read value of page")
-			continue
-		}
-		ch <- page
+// GetPages returns all PagemonitorPage items ffor user.
+func (s *DBService) GetPages(user *User) ([]*PagemonitorPage, error) {
+	userPages, err := user.GetPages()
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	pages := make([]*PagemonitorPage, 0)
+	for i := range userPages {
+		pm := userPages[i]
+		value, err := s.db.Get(pm.CreateKey())
+		if err != nil {
+			log.WithField("key", pm).WithError(err).Error("Failed to read value of page")
+			continue
+		}
+
+		if value == nil {
+			continue
+		}
+
+		page := &PagemonitorPage{Config: &pm}
+		if err := page.decode(value); err != nil {
+			log.WithField("key", pm).WithError(err).Error("Failed to decode value of page")
+			continue
+		}
+		pages = append(pages, page)
+	}
+	return pages, nil
 }

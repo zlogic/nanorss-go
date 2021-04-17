@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/akrylysov/pogreb"
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -51,94 +50,93 @@ func (user *User) decode(val []byte) error {
 	return gob.NewDecoder(bytes.NewBuffer(val)).Decode(user)
 }
 
-// ReadAllUsers reads all users from database and sends them to the provided channel.
-func (s *DBService) ReadAllUsers(ch chan *User) error {
-	defer close(ch)
-	s.userLock.RLock()
-	defer s.userLock.RUnlock()
-	it := s.db.Items()
-	for {
-		// TODO: use an index here.
-		k, value, err := it.Next()
-		if err == pogreb.ErrIterationDone {
-			break
-		} else if err != nil {
+// GetUsers returns all usernames in the database.
+func (s *DBService) GetUsers() ([]string, error) {
+	var usernames []string
+	err := s.view(func() error {
+		indexKeys, err := s.getReferencedKeys([]byte(userKeyPrefix))
+		if err != nil {
+			log.WithError(err).Error("Failed to decode list of usernames")
 			return err
 		}
-		if !isUserKey(k) {
-			continue
+		usernames = make([]string, 0, len(indexKeys))
+		if len(indexKeys) == 0 {
+			return nil
 		}
+		for i := range indexKeys {
+			username := indexKeys[i]
+			usernames = append(usernames, string(username))
+		}
+		return nil
+	})
 
-		username, err := decodeUserKey(k)
-		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to decode username of user")
-			continue
-		}
-
-		user := &User{username: *username}
-		if err := user.decode(value); err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to read value of user")
-			continue
-		}
-		ch <- user
-	}
-	return nil
+	return usernames, err
 }
 
 // GetUser returns the User by username.
 // If user doesn't exist, returns nil.
 func (s *DBService) GetUser(username string) (*User, error) {
-	s.userLock.RLock()
-	defer s.userLock.RUnlock()
-
 	user := &User{username: username}
+	err := s.view(func() error {
+		value, err := s.db.Get(user.createKey())
+		if err != nil {
+			return fmt.Errorf("cannot read User %v: %w", username, err)
+		}
+		if value == nil {
+			user = nil
+			return nil
+		}
+		if err := user.decode(value); err != nil {
+			user = nil
+			return err
+		}
+		return nil
+	})
 
-	value, err := s.db.Get(user.createKey())
-	if err != nil {
-		return nil, fmt.Errorf("cannot read User %v: %w", username, err)
-	}
-	if value == nil {
-		return nil, nil
-	}
-
-	if err := user.decode(value); err != nil {
-		return nil, err
-	}
-	return user, nil
+	return user, err
 }
 
 // SaveUser saves the user in the database.
-func (s *DBService) SaveUser(user *User) (err error) {
-	s.userLock.Lock()
-	defer s.userLock.Unlock()
-
+func (s *DBService) SaveUser(user *User) error {
 	if user.newUsername == "" {
 		user.newUsername = user.username
 	}
 	key := createUserKey(user.newUsername)
 
-	var value bytes.Buffer
-	if err := gob.NewEncoder(&value).Encode(user); err != nil {
-		return fmt.Errorf("cannot marshal user: %w", err)
-	}
-	if user.newUsername != user.username {
-		existingUser, err := s.db.Get(key)
-		if existingUser != nil {
-			return fmt.Errorf("new username %v is already in use", string(user.newUsername))
+	err := s.update(func() error {
+		var value bytes.Buffer
+		if err := gob.NewEncoder(&value).Encode(user); err != nil {
+			return fmt.Errorf("cannot marshal user: %w", err)
 		}
-		if err != nil {
-			return fmt.Errorf("failed to check if new username %v already in use: %w", string(user.newUsername), err)
+		if user.newUsername != user.username {
+			existingUser, err := s.db.Get(key)
+			if existingUser != nil {
+				return fmt.Errorf("new username %v is already in use", string(user.newUsername))
+			}
+			if err != nil {
+				return fmt.Errorf("failed to check if new username %v already in use: %w", string(user.newUsername), err)
+			}
+
+			if err := s.deleteReferencedKey([]byte(userKeyPrefix), []byte(user.username)); err != nil {
+				return err
+			}
+
+			oldUserKey := createUserKey(user.username)
+			if err := s.db.Delete(oldUserKey); err != nil {
+				return err
+			}
+			if err := s.renameReadStatus(user); err != nil {
+				return err
+			}
 		}
 
-		oldUserKey := createUserKey(user.username)
-		if err := s.db.Delete(oldUserKey); err != nil {
+		if err := s.addReferencedKey([]byte(userKeyPrefix), []byte(user.newUsername)); err != nil {
 			return err
 		}
-		if err := s.renameReadStatus(user); err != nil {
-			return err
-		}
-	}
-	err = s.db.Put(key, value.Bytes())
+
+		return s.db.Put(key, value.Bytes())
+	})
+
 	if err == nil {
 		user.username = user.newUsername
 		user.newUsername = ""
