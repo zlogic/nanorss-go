@@ -83,6 +83,19 @@ var testBackupPagemonitor = []*PagemonitorPage{
 	},
 }
 
+var testBackupReadStatus = [][]itemKey{
+	{
+		testBackupFeeditems[0].Key.CreateKey(),
+		testBackupFeeditems[1].Key.CreateKey(),
+		testBackupPagemonitor[0].Config.CreateKey(),
+	},
+	{
+		testBackupFeeditems[0].Key.CreateKey(),
+		testBackupFeeditems[2].Key.CreateKey(),
+		testBackupPagemonitor[1].Config.CreateKey(),
+	},
+}
+
 const testBackupData = `{
   "Users": [
     {
@@ -91,9 +104,9 @@ const testBackupData = `{
       "Pagemonitor": "<pages><page url=\"http://site1\" match=\"m1\" replace=\"r1\">Site 1</page><page url=\"http://site2\">Site 2</page></pages>",
       "Username": "user01",
       "ReadItems": [
-        "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE",
         "feed/aHR0cDovL2ZlZWQx/ZzE",
-        "feed/aHR0cDovL2ZlZWQx/ZzI"
+        "feed/aHR0cDovL2ZlZWQx/ZzI",
+        "pagemonitor/aHR0cDovL3NpdGUx/bTE/cjE"
       ]
     },
     {
@@ -102,9 +115,9 @@ const testBackupData = `{
       "Pagemonitor": "<pages><page url=\"http://site1\" match=\"m1\" replace=\"r1\">Site 1</page></pages>",
       "Username": "user02",
       "ReadItems": [
-        "pagemonitor/aHR0cDovL3NpdGUy//",
         "feed/aHR0cDovL2ZlZWQx/ZzE",
-        "feed/aHR0cDovL2ZlZWQy/ZzE"
+        "feed/aHR0cDovL2ZlZWQy/ZzE",
+        "pagemonitor/aHR0cDovL3NpdGUy//"
       ]
     }
   ],
@@ -201,45 +214,13 @@ func TestRestore(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, testBackupUsers, dbUsers)
 
-	readStatus, err := dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[0].Key.CreateKey())
+	readStatus, err := dbService.GetReadItems(testBackupUsers[0])
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.Equal(t, testBackupReadStatus[0], readStatus)
 
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[1].Key.CreateKey())
+	readStatus, err = dbService.GetReadItems(testBackupUsers[1])
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupFeeditems[2].Key.CreateKey())
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupPagemonitor[0].Config.CreateKey())
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[0], testBackupPagemonitor[1].Config.CreateKey())
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupFeeditems[0].Key.CreateKey())
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupFeeditems[1].Key.CreateKey())
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupFeeditems[2].Key.CreateKey())
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupPagemonitor[0].Config.CreateKey())
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(testBackupUsers[1], testBackupPagemonitor[1].Config.CreateKey())
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.Equal(t, testBackupReadStatus[1], readStatus)
 
 	user := &User{username: "user01", Opml: testBackupUsers[0].Opml, Pagemonitor: testBackupUsers[0].Pagemonitor}
 	dbFeeditems, err := dbService.GetFeeditems(user)

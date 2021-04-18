@@ -19,7 +19,7 @@ type DB interface {
 	GetFeeditems(*data.User) ([]*data.Feeditem, error)
 	GetPage(pm *data.UserPagemonitor) (*data.PagemonitorPage, error)
 	GetPages(*data.User) ([]*data.PagemonitorPage, error)
-	GetReadStatus(user *data.User, itemKey []byte) (bool, error)
+	GetReadItems(user *data.User) ([][]byte, error)
 	SetReadStatus(user *data.User, itemKey []byte, read bool) error
 	GetFetchStatus(key []byte) (*data.FetchStatus, error)
 }

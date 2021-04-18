@@ -12,9 +12,9 @@ func TestGetReadStatusEmpty(t *testing.T) {
 
 	user := User{username: "user01"}
 
-	readStatus, err := dbService.GetReadStatus(&user, []byte{})
+	dbReadItems, err := dbService.GetReadItems(&user)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.Empty(t, dbReadItems)
 }
 
 func TestSaveGetReadStatus(t *testing.T) {
@@ -32,13 +32,10 @@ func TestSaveGetReadStatus(t *testing.T) {
 	err = dbService.SetReadStatus(&user, key2, true)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user, key1)
+	readItems := [][]byte{key1, key2}
+	dbReadItems, err := dbService.GetReadItems(&user)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user, key2)
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 }
 
 func TestRemoveGetReadStatus(t *testing.T) {
@@ -59,13 +56,10 @@ func TestRemoveGetReadStatus(t *testing.T) {
 	err = dbService.SetReadStatus(&user, key1, false)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user, key1)
+	readItems := [][]byte{key2}
+	dbReadItems, err := dbService.GetReadItems(&user)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user, key2)
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 }
 
 func TestSetStatusDoesntExist(t *testing.T) {
@@ -78,9 +72,9 @@ func TestSetStatusDoesntExist(t *testing.T) {
 	err = dbService.SetReadStatus(&user, key, false)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user, key)
+	dbReadItems, err := dbService.GetReadItems(&user)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.Empty(t, dbReadItems)
 }
 
 func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
@@ -100,22 +94,16 @@ func TestRenameUserTransferReadStatusSuccess(t *testing.T) {
 	err = dbService.SaveUser(&user)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user, key1)
+	readItems := [][]byte{key1, key2}
+	dbReadItems, err := dbService.GetReadItems(&user)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user, key2)
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
 	oldUser := User{username: "user01"}
-	readStatus, err = dbService.GetReadStatus(&oldUser, key1)
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
 
-	readStatus, err = dbService.GetReadStatus(&oldUser, key2)
+	dbReadItems, err = dbService.GetReadItems(&oldUser)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.Empty(t, dbReadItems)
 }
 
 func TestRenameUserTransferReadStatusAlreadyExists(t *testing.T) {
@@ -139,21 +127,14 @@ func TestRenameUserTransferReadStatusAlreadyExists(t *testing.T) {
 	err = dbService.SaveUser(&user1)
 	assert.Error(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user1, key1)
+	readItems := [][]byte{key1, key2}
+	dbReadItems, err := dbService.GetReadItems(&user1)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
-	readStatus, err = dbService.GetReadStatus(&user1, key2)
+	dbReadItems, err = dbService.GetReadItems(&user2)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, key1)
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, key2)
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.Empty(t, dbReadItems)
 }
 
 func TestCleanupStaleReadStatus(t *testing.T) {
@@ -180,40 +161,28 @@ func TestCleanupStaleReadStatus(t *testing.T) {
 	err = dbService.SetReadStatus(&user2, feedItem1.Key.CreateKey(), true)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user1, feedItem1.Key.CreateKey())
+	readItems := [][]byte{feedItem1.Key.CreateKey(), feedItem2.Key.CreateKey()}
+	dbReadItems, err := dbService.GetReadItems(&user1)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
-	readStatus, err = dbService.GetReadStatus(&user1, feedItem2.Key.CreateKey())
+	readItems = [][]byte{feedItem1.Key.CreateKey()}
+	dbReadItems, err = dbService.GetReadItems(&user2)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, feedItem1.Key.CreateKey())
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, feedItem2.Key.CreateKey())
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
 	err = dbService.deleteStaleReadStatuses()
 	assert.NoError(t, err)
 
-	readStatus, err = dbService.GetReadStatus(&user1, feedItem1.Key.CreateKey())
+	readItems = [][]byte{feedItem1.Key.CreateKey()}
+	dbReadItems, err = dbService.GetReadItems(&user1)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
-	readStatus, err = dbService.GetReadStatus(&user1, feedItem2.Key.CreateKey())
+	readItems = [][]byte{feedItem1.Key.CreateKey()}
+	dbReadItems, err = dbService.GetReadItems(&user2)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, feedItem1.Key.CreateKey())
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, feedItem2.Key.CreateKey())
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 }
 
 func TestSetUnreadStatusForAll(t *testing.T) {
@@ -243,21 +212,14 @@ func TestSetUnreadStatusForAll(t *testing.T) {
 	err = dbService.SetReadStatusForAll(key1, false)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user1, key1)
+	readItems := [][]byte{key2}
+	dbReadItems, err := dbService.GetReadItems(&user1)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
-	readStatus, err = dbService.GetReadStatus(&user1, key2)
+	dbReadItems, err = dbService.GetReadItems(&user2)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, key1)
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, key2)
-	assert.NoError(t, err)
-	assert.False(t, readStatus)
+	assert.Empty(t, dbReadItems)
 }
 
 func TestSetReadStatusForAll(t *testing.T) {
@@ -284,19 +246,13 @@ func TestSetReadStatusForAll(t *testing.T) {
 	err = dbService.SetReadStatusForAll(key1, true)
 	assert.NoError(t, err)
 
-	readStatus, err := dbService.GetReadStatus(&user1, key1)
+	readItems := [][]byte{key1}
+	dbReadItems, err := dbService.GetReadItems(&user1)
 	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 
-	readStatus, err = dbService.GetReadStatus(&user1, key2)
+	readItems = [][]byte{key1, key2}
+	dbReadItems, err = dbService.GetReadItems(&user2)
 	assert.NoError(t, err)
-	assert.False(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, key1)
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
-
-	readStatus, err = dbService.GetReadStatus(&user2, key2)
-	assert.NoError(t, err)
-	assert.True(t, readStatus)
+	assert.ElementsMatch(t, readItems, dbReadItems)
 }

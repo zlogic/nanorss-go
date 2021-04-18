@@ -76,9 +76,14 @@ func (m *DBMock) GetPages(user *data.User) ([]*data.PagemonitorPage, error) {
 	return args.Get(0).([]*data.PagemonitorPage), args.Error(1)
 }
 
-func (m *DBMock) GetReadStatus(user *data.User, itemKey []byte) (bool, error) {
-	args := m.Called(user, itemKey)
-	return args.Get(0).(bool), args.Error(1)
+func (m *DBMock) GetReadItems(user *data.User) ([][]byte, error) {
+	args := m.Called(user)
+	items := args.Get(0)
+	var returnItems [][]byte
+	if items != nil {
+		returnItems = items.([][]byte)
+	}
+	return returnItems, args.Error(1)
 }
 
 func (m *DBMock) SetReadStatus(user *data.User, itemKey []byte, read bool) error {

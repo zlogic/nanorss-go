@@ -147,13 +147,8 @@ func DecodeFeeditemKey(key []byte) (*FeeditemKey, error) {
 const readStatusPrefix = "readstatus"
 
 // createReadStatusPrefix creates a read status key prefix for user.
-func (user *User) createReadStatusPrefix() string {
-	return readStatusPrefix + separator + encodePart(user.username)
-}
-
-// createReadStatusKey creates a read status key for an item key.
-func (user *User) createReadStatusKey(itemKey []byte) []byte {
-	return append([]byte(user.createReadStatusPrefix()+separator), itemKey...)
+func (user *User) createReadStatusPrefix() []byte {
+	return []byte(readStatusPrefix + separator + encodePart(user.username))
 }
 
 // serverConfigKeyPrefix is the key prefix for a ServerConfig item.

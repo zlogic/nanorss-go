@@ -117,24 +117,15 @@ func (service *DBService) Backup() (string, error) {
 	data.ServerConfig = serverConfig
 
 	for _, user := range data.Users {
-		user.ReadItems = make([]string, 0)
-		for _, pm := range data.Pagemonitor {
-			isRead, err := service.GetReadStatus(&user.User, pm.CreateKey())
-			if err != nil {
-				return "", fmt.Errorf("failed to backup item read status for user: %w", err)
-			}
-			if isRead {
-				user.ReadItems = append(user.ReadItems, string(pm.CreateKey()))
-			}
+		readItems, err := service.GetReadItems(&user.User)
+		if err != nil {
+			return "", fmt.Errorf("failed to get read status for user: %w", err)
 		}
-		for _, f := range data.Feeds {
-			isRead, err := service.GetReadStatus(&user.User, f.CreateKey())
-			if err != nil {
-				return "", fmt.Errorf("failed to backup feed read status for user: %w", err)
-			}
-			if isRead {
-				user.ReadItems = append(user.ReadItems, string(f.CreateKey()))
-			}
+
+		user.ReadItems = make([]string, 0, len(readItems))
+
+		for _, itemKey := range readItems {
+			user.ReadItems = append(user.ReadItems, string(itemKey))
 		}
 	}
 

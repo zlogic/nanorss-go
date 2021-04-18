@@ -6,36 +6,29 @@ import (
 
 type itemKey = []byte
 
-// GetReadStatus returns true if itemKey is read, otherwise returns false.
-func (s *DBService) GetReadStatus(user *User, key itemKey) (bool, error) {
-	k := user.createReadStatusKey(key)
-
-	var readStatus = false
+// GetReadItems returns a list of items this user has read.
+func (s *DBService) GetReadItems(user *User) ([]itemKey, error) {
+	var items []itemKey
 	err := s.view(func() error {
-		value, err := s.db.Get(k)
+		readStatusPrefix := user.createReadStatusPrefix()
+
+		var err error
+		items, err = s.getReferencedKeys(readStatusPrefix)
 		if err != nil {
-			log.WithField("key", k).WithError(err).Error("Failed to get read status key")
+			log.WithField("username", user.username).WithError(err).Error("Failed to get read status index")
 			return err
 		}
-		readStatus = value != nil
 		return nil
 	})
 
-	return readStatus, err
+	return items, err
 }
 
 // setReadStatus sets the read status for item, true for read, false for unread.
 func (s *DBService) setReadStatus(user *User, k itemKey, read bool) error {
 	readStatusPrefix := user.createReadStatusPrefix()
-	readStatusKey := user.createReadStatusKey(k)
 	if read {
-		if err := s.addReferencedKey([]byte(readStatusPrefix), k); err != nil {
-			return err
-		}
-		return s.db.Put(readStatusKey, []byte{})
-	}
-	if err := s.db.Delete(readStatusKey); err != nil {
-		return err
+		return s.addReferencedKey([]byte(readStatusPrefix), k)
 	}
 	return s.deleteReferencedKey([]byte(readStatusPrefix), k)
 }
@@ -89,20 +82,8 @@ func (s *DBService) renameReadStatus(user *User) error {
 			return err
 		}
 
-		itemKey := user.createReadStatusKey(k)
-		if err := s.db.Delete(itemKey); err != nil {
-			log.WithField("key", k).WithField("user", user.username).WithError(err).Error("Failed to delete read status from old username")
-			return err
-		}
-
 		if err := s.addReferencedKey(newReadStatusIndexKey, k); err != nil {
 			log.WithField("key", k).WithField("user", newUser.username).WithError(err).Error("Failed to create read status to index for new username")
-			return err
-		}
-
-		newItemKey := newUser.createReadStatusKey(k)
-		if err := s.db.Put(newItemKey, []byte{}); err != nil {
-			log.WithField("key", k).WithField("user", newUser.username).WithError(err).Error("Failed to create read status for new username")
 			return err
 		}
 	}
