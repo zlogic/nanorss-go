@@ -2,9 +2,7 @@ package server
 
 import (
 	"context"
-	"io"
 	"net/http"
-	"net/http/httptest"
 
 	"github.com/stretchr/testify/mock"
 
@@ -131,17 +129,4 @@ func (m *AuthHandlerMock) HasAuthenticationCookie(r *http.Request) bool {
 func (m *AuthHandlerMock) AllowUser(user *data.User) *http.Cookie {
 	m.authUser = user
 	return nil
-}
-
-// testRecorder fixes go-chi support in httptest.ResponseRecorder.
-type testRecorder struct {
-	*httptest.ResponseRecorder
-}
-
-func (rec *testRecorder) ReadFrom(r io.Reader) (n int64, err error) {
-	return io.Copy(rec.ResponseRecorder, r)
-}
-
-func newRecorder() *testRecorder {
-	return &testRecorder{ResponseRecorder: httptest.NewRecorder()}
 }
