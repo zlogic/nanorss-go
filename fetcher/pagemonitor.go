@@ -1,15 +1,17 @@
 package fetcher
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
-	"github.com/jaytaylor/html2text"
 	"github.com/pmezard/go-difflib/difflib"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/html"
 
 	"github.com/zlogic/nanorss-go/data"
 )
@@ -44,11 +46,7 @@ func (fetcher *Fetcher) FetchPage(config *data.UserPagemonitor) error {
 			return fmt.Errorf("cannot GET page %v: %w", config, err)
 		}
 
-		respData, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("cannot read response for page %v: %w", config, err)
-		}
-		text, err := html2text.FromString(string(respData))
+		text, err := convertHTMLtoText(resp.Body)
 		if err != nil {
 			return fmt.Errorf("cannot convert HTML to text %v: %w", config, err)
 		}
@@ -140,4 +138,30 @@ func (fetcher *Fetcher) FetchAllPages() error {
 		}
 	}
 	return nil
+}
+
+func convertHTMLtoText(r io.Reader) (string, error) {
+	tokenizer := html.NewTokenizer(r)
+	buff := bytes.Buffer{}
+
+	for {
+		if tokenizer.Next() == html.ErrorToken {
+			err := tokenizer.Err()
+			if err == io.EOF {
+				return buff.String(), nil
+			}
+			return "", err
+		}
+		token := tokenizer.Token()
+		if token.Type == html.TextToken {
+			text := strings.TrimSpace(html.UnescapeString(token.Data))
+			if text == "" {
+				continue
+			}
+			if buff.Len() > 0 {
+				buff.WriteString("\n")
+			}
+			buff.WriteString(text)
+		}
+	}
 }
