@@ -59,61 +59,67 @@ func (s *DBService) GetFeeditem(key *FeeditemKey) (*Feeditem, error) {
 		return nil, fmt.Errorf("cannot decode feed item %v: %w", key, err)
 	}
 
+	contents, err := s.db.Get(key.createContentsKey())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contents of previous feed item %v: %w", key, err)
+	}
+	if contents != nil {
+		feeditem.Contents = string(contents)
+	}
+
 	return feeditem, nil
 }
 
 // SaveFeeditems saves feedItems in the database.
 func (s *DBService) SaveFeeditems(feedItems ...*Feeditem) (err error) {
-	getPreviousItem := func(key []byte) (*Feeditem, error) {
-		value, err := s.db.Get(key)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get previous feed item %v: %w", string(key), err)
-		}
-		if value == nil {
-			// Item doesn't exist.
-			return nil, nil
-		}
-		existingFeedItem := &Feeditem{}
-		if err := existingFeedItem.decode(value); err != nil {
-			return nil, fmt.Errorf("failed to read previous value of feed item %v: %w", string(key), err)
-		}
-		return existingFeedItem, nil
-	}
-
 	for _, feedItem := range feedItems {
 		if err := s.addReferencedKey(feedItem.Key.createIndexKey(), []byte(feedItem.Key.GUID)); err != nil {
 			return fmt.Errorf("failed to add feed item %v to feed index: %w", feedItem.Key, err)
 		}
 
 		key := feedItem.Key.CreateKey()
-
-		previousItem, err := getPreviousItem(key)
-		if err != nil {
-			log.WithField("key", key).WithError(err).Error("Failed to read previous item")
-		} else if previousItem != nil {
-			feedItem.Date = feedItem.Date.In(previousItem.Date.Location())
-			previousItem.Updated = feedItem.Updated
-			previousItem.Key = feedItem.Key
+		saveFeedItem := Feeditem{
+			Title:   feedItem.Title,
+			URL:     feedItem.URL,
+			Date:    feedItem.Date,
+			Key:     feedItem.Key,
+			Updated: feedItem.Updated,
 		}
 
-		value, err := feedItem.encode()
+		previousItem, err := s.GetFeeditem(feedItem.Key)
 		if err != nil {
-			return fmt.Errorf("cannot marshal feed item: %w", err)
+			log.WithField("key", feedItem.Key).WithError(err).Error("Failed to read previous item")
+		} else if previousItem != nil {
+			saveFeedItem.Date = feedItem.Date.In(previousItem.Date.Location())
 		}
 
 		if err := s.SetLastSeen(key); err != nil {
 			return fmt.Errorf("cannot set last seen time: %w", err)
 		}
 
-		if previousItem != nil && *feedItem == *previousItem {
-			// Avoid writing to the database if nothing has changed
+		if previousItem != nil &&
+			feedItem.Title == previousItem.Title &&
+			feedItem.URL == previousItem.URL &&
+			saveFeedItem.Date == previousItem.Date &&
+			feedItem.Contents == previousItem.Contents {
+			// Avoid writing to the database if nothing has changed.
 			continue
 		} else if previousItem != nil {
 			log.WithField("previousItem", previousItem).WithField("feedItem", feedItem).Debug("Item has changed")
 		}
 
+		value, err := saveFeedItem.encode()
+		if err != nil {
+			return fmt.Errorf("cannot marshal feed item: %w", err)
+		}
+
 		if err := s.db.Put(key, value); err != nil {
 			return fmt.Errorf("cannot save feed item: %w", err)
+		}
+
+		contentsKey := feedItem.Key.createContentsKey()
+		if err := s.db.Put(contentsKey, []byte(feedItem.Contents)); err != nil {
+			return fmt.Errorf("cannot save feed item contents: %w", err)
 		}
 	}
 	return nil

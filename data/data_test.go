@@ -30,14 +30,14 @@ func resetDb() (err error) {
 	return
 }
 
-func getAllUsers(s *DBService) ([]*User, error) {
-	usernames, err := s.GetUsers()
+func getAllUsers() ([]*User, error) {
+	usernames, err := dbService.GetUsers()
 	if err != nil {
 		return nil, err
 	}
 	users := make([]*User, 0, len(usernames))
 	for _, username := range usernames {
-		user, err := s.GetUser(username)
+		user, err := dbService.GetUser(username)
 		if err != nil {
 			return nil, err
 		}
@@ -48,4 +48,20 @@ func getAllUsers(s *DBService) ([]*User, error) {
 		users = append(users, user)
 	}
 	return users, nil
+}
+
+func getFeedItems(user *User) ([]*Feeditem, error) {
+	feedItems, err := dbService.GetFeeditems(user)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, feedItem := range feedItems {
+		fullItem, err := dbService.GetFeeditem(feedItem.Key)
+		if err != nil {
+			return nil, err
+		}
+		*feedItem = *fullItem
+	}
+	return feedItems, nil
 }

@@ -220,7 +220,7 @@ func TestSaveReadAllItems(t *testing.T) {
 			`</body>` +
 			`</opml>`,
 	}
-	dbItems, err := dbService.GetFeeditems(&user)
+	dbItems, err := getFeedItems(&user)
 	assert.NoError(t, err)
 	assert.EqualValues(t, items, dbItems)
 }

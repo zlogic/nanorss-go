@@ -1,8 +1,6 @@
 package server
 
 import (
-	"bytes"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -44,38 +42,20 @@ func (a itemsSortable) Less(i, j int) bool {
 
 // GetAllItems returns all Items for user.
 func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
-	feeds, err := user.GetFeeds()
+	feedTitles, err := getFeedTitles(user)
 	if err != nil {
 		return nil, err
 	}
-	userPages, err := user.GetPages()
+	pageTitles, err := getPageTitles(user)
 	if err != nil {
 		return nil, err
 	}
 
 	items := make(itemsSortable, 0)
 
-	findFeedTitle := func(feedURL string) (string, error) {
-		for _, feed := range feeds {
-			if feed.URL == feedURL {
-				return feed.Title, nil
-			}
-		}
-		return "", fmt.Errorf("title for feedURL %v not found", feedURL)
-	}
-
-	readStatuses, err := h.db.GetReadItems(user)
+	readStatuses, err := h.getReadStatuses(user)
 	if err != nil {
 		return nil, err
-	}
-
-	isRead := func(itemKey []byte) bool {
-		for i := range readStatuses {
-			if bytes.Equal(readStatuses[i], itemKey) {
-				return true
-			}
-		}
-		return false
 	}
 
 	feedItems, err := h.db.GetFeeditems(user)
@@ -83,12 +63,12 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		return nil, err
 	}
 	for _, feedItem := range feedItems {
-		title, err := findFeedTitle(feedItem.Key.FeedURL)
-		if err != nil {
+		title, ok := feedTitles[feedItem.Key.FeedURL]
+		if !ok {
 			// Probably an orphaned feed.
 			continue
 		}
-		isRead := isRead(feedItem.Key.CreateKey())
+		isRead := readStatuses[string(feedItem.Key.CreateKey())]
 		item := &Item{
 			Title:    feedItem.Title,
 			Origin:   title,
@@ -99,22 +79,14 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 		items = append(items, item)
 	}
 
-	findPagemonitorTitle := func(key []byte) (string, error) {
-		for _, userPage := range userPages {
-			if bytes.Equal(key, userPage.CreateKey()) {
-				return userPage.Title, nil
-			}
-		}
-		return "", fmt.Errorf("title for page %v not found", string(key))
-	}
 	pages, err := h.db.GetPages(user)
 	for _, page := range pages {
-		title, err := findPagemonitorTitle(page.Config.CreateKey())
-		if err != nil {
+		title, ok := pageTitles[string(page.Config.CreateKey())]
+		if !ok {
 			// Probably an orphaned feed.
 			continue
 		}
-		isRead := isRead(page.Config.CreateKey())
+		isRead := readStatuses[string(page.Config.CreateKey())]
 		item := &Item{
 			Title:    "",
 			Origin:   title,
@@ -131,4 +103,50 @@ func (h *FeedListService) GetAllItems(user *data.User) ([]*Item, error) {
 	sort.Sort(items)
 
 	return items, nil
+}
+
+// getFeedTitles returns a map of user's feed titles.
+func getFeedTitles(user *data.User) (map[string]string, error) {
+	feeds, err := user.GetFeeds()
+	if err != nil {
+		return nil, err
+	}
+
+	feedTitles := make(map[string]string, len(feeds))
+	for i := range feeds {
+		url := feeds[i].URL
+		feedTitles[url] = feeds[i].Title
+	}
+	return feedTitles, nil
+}
+
+// getFeedTitles returns a map of user's page titles.
+func getPageTitles(user *data.User) (map[string]string, error) {
+	userPages, err := user.GetPages()
+	if err != nil {
+		return nil, err
+	}
+
+	pageTitles := make(map[string]string, len(userPages))
+	for i := range userPages {
+		url := string(userPages[i].CreateKey())
+		pageTitles[url] = userPages[i].Title
+	}
+	return pageTitles, nil
+}
+
+// getFeedTitles returns a map with item read statuses.
+func (h *FeedListService) getReadStatuses(user *data.User) (map[string]bool, error) {
+	userReadItems, err := h.db.GetReadItems(user)
+	if err != nil {
+		return nil, err
+	}
+
+	readStatuses := make(map[string]bool, len(userReadItems))
+	for i := range userReadItems {
+		itemKey := string(userReadItems[i])
+		readStatuses[itemKey] = true
+	}
+
+	return readStatuses, nil
 }

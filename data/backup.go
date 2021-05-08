@@ -72,6 +72,16 @@ func (service *DBService) Backup() (string, error) {
 				continue
 			}
 
+			// Get contents.
+			contentsKey := feedItem.Key.createContentsKey()
+			contents, err := service.db.Get(contentsKey)
+			if err != nil {
+				return "", fmt.Errorf("failed to get contents for feed item %v: %w", feedItem.Key, err)
+			}
+			if contents != nil {
+				feedItem.Contents = string(contents)
+			}
+
 			// Flatten/reformat data.
 			backupFeeditem := &backupFeeditem{
 				Feeditem:    *feedItem,

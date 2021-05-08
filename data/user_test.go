@@ -65,7 +65,7 @@ func TestReadAllUsers(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	dbUsers, err := getAllUsers(dbService)
+	dbUsers, err := getAllUsers()
 	assert.NoError(t, err)
 	assert.EqualValues(t, users, dbUsers)
 }
@@ -108,7 +108,7 @@ func TestSetUsername(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, user, *dbUser)
 
-	dbUsers, err := getAllUsers(dbService)
+	dbUsers, err := getAllUsers()
 	assert.NoError(t, err)
 	assert.EqualValues(t, users, dbUsers)
 }
@@ -142,7 +142,7 @@ func TestSetUsernameAndOtherFields(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, user, *dbUser)
 
-	dbUsers, err := getAllUsers(dbService)
+	dbUsers, err := getAllUsers()
 	assert.NoError(t, err)
 	assert.EqualValues(t, users, dbUsers)
 }
@@ -185,7 +185,7 @@ func TestSetUsernameAlreadyExists(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, user2, *dbUser2)
 
-	dbUsers, err := getAllUsers(dbService)
+	dbUsers, err := getAllUsers()
 	assert.NoError(t, err)
 	assert.EqualValues(t, users, dbUsers)
 }
@@ -213,7 +213,7 @@ func TestSetUsernameEmptyString(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, user, *dbUser)
 
-	dbUsers, err := getAllUsers(dbService)
+	dbUsers, err := getAllUsers()
 	assert.NoError(t, err)
 	assert.EqualValues(t, users, dbUsers)
 }

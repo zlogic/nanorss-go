@@ -210,7 +210,7 @@ func TestRestore(t *testing.T) {
 	err = dbService.Restore(testBackupData)
 	assert.NoError(t, err)
 
-	dbUsers, err := getAllUsers(dbService)
+	dbUsers, err := getAllUsers()
 	assert.NoError(t, err)
 	assert.Equal(t, testBackupUsers, dbUsers)
 
@@ -223,7 +223,7 @@ func TestRestore(t *testing.T) {
 	assert.Equal(t, testBackupReadStatus[1], readStatus)
 
 	user := &User{username: "user01", Opml: testBackupUsers[0].Opml, Pagemonitor: testBackupUsers[0].Pagemonitor}
-	dbFeeditems, err := dbService.GetFeeditems(user)
+	dbFeeditems, err := getFeedItems(user)
 	assert.NoError(t, err)
 	assert.Equal(t, testBackupFeeditems, dbFeeditems)
 

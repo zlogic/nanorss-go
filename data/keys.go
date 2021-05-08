@@ -93,6 +93,9 @@ func DecodePagemonitorKey(key []byte) (*UserPagemonitor, error) {
 // feedKeyPrefix is the key prefix for a UserFeed.
 const feedKeyPrefix = "feed"
 
+// feedContentsSuffix is the key suffix used to access contents of a Feeditem.
+const feedContentsSuffix = separator + "contents"
+
 // CreateKey creates a key for a UserFeed entry.
 func (feed *UserFeed) CreateKey() []byte {
 	keyURL := encodePart(feed.URL)
@@ -111,6 +114,12 @@ func (key *FeeditemKey) CreateKey() []byte {
 	keyURL := encodePart(key.FeedURL)
 	keyGUID := encodePart(key.GUID)
 	return []byte(feedKeyPrefix + separator + keyURL + separator + keyGUID)
+}
+
+// createContentsKey creates a key for a Feeditem entry.
+func (key *FeeditemKey) createContentsKey() []byte {
+	feedItemKey := key.CreateKey()
+	return append(feedItemKey, []byte(feedContentsSuffix)...)
 }
 
 // createIndexKey creates an index key for a Feeditem entry.

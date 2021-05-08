@@ -58,6 +58,11 @@ func (s *DBService) deleteExpiredItems(feedKey []byte) error {
 	now := time.Now()
 
 	purgeItem := func(key []byte) {
+		contentsKey := append(key, []byte(feedContentsSuffix)...)
+		if err := s.db.Delete(contentsKey); err != nil {
+			log.WithField("key", key).WithError(err).Error("Failed to delete item contents")
+		}
+
 		if err := s.db.Delete(key); err != nil {
 			log.WithField("key", key).WithError(err).Error("Failed to delete item")
 		}
