@@ -104,6 +104,8 @@ func HTMLLoginHandler(s *Services) func(w http.ResponseWriter, r *http.Request) 
 			handleError(w, r, err)
 			return
 		}
+
+		w.Header().Add("Content-Type", "text/html")
 		t.ExecuteTemplate(w, "layout", &viewData{})
 	}
 }
@@ -123,6 +125,8 @@ func HTMLFeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			handleError(w, r, err)
 			return
 		}
+
+		w.Header().Add("Content-Type", "text/html")
 		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: user.GetUsername(), Name: templateName})
 	}
 }
@@ -142,6 +146,8 @@ func HTMLSettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Reques
 			handleError(w, r, err)
 			return
 		}
+
+		w.Header().Add("Content-Type", "text/html")
 		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: user.GetUsername(), Name: templateName})
 	}
 }
@@ -161,6 +167,8 @@ func HTMLStatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request)
 			handleError(w, r, err)
 			return
 		}
+
+		w.Header().Add("Content-Type", "text/html")
 		t.ExecuteTemplate(w, "layout", &viewData{User: user, Username: user.GetUsername(), Name: templateName})
 	}
 }

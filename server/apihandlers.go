@@ -91,6 +91,8 @@ func FeedHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			handleError(w, r, err)
 			return
 		}
+
+		w.Header().Add("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(items)
 		if err != nil {
 			handleError(w, r, err)
@@ -268,6 +270,7 @@ func SettingsHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 
 		returnUser := &clientUser{Username: user.GetUsername(), Opml: user.Opml, Pagemonitor: user.Pagemonitor}
 
+		w.Header().Add("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(returnUser); err != nil {
 			handleError(w, r, err)
 		}
@@ -353,6 +356,7 @@ func StatusHandler(s *Services) func(w http.ResponseWriter, r *http.Request) {
 			itemStatuses[len(feeds)+i] = *convertItemStatus(page.Title, fetchStatus)
 		}
 
+		w.Header().Add("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(itemStatuses); err != nil {
 			handleError(w, r, err)
 		}
