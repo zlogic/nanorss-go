@@ -6,7 +6,7 @@ require (
 	github.com/akrylysov/pogreb v0.10.1
 	github.com/go-chi/chi/v5 v5.0.4
 	github.com/go-chi/jwtauth/v5 v5.0.2
-	github.com/microcosm-cc/bluemonday v1.0.15
+	github.com/microcosm-cc/bluemonday v1.0.16
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
