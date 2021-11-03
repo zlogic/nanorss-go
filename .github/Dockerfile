@@ -1,21 +1,9 @@
-FROM alpine:latest as builder
-
-# Install runtime dependencies
-RUN apk add --no-cache --update ca-certificates
-
-# Copy build artifact
-COPY . /usr/src/nanorss
-
-# Create bin directory
-RUN mkdir -p /usr/local/nanorss && \
-  cd /usr/src/nanorss && \
-  cp nanorss-go /usr/local/nanorss
-
-# Copy into a fresh image
 FROM scratch
 
-COPY --from=builder /usr/local/nanorss /usr/local/nanorss
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --chown=1001:1001 nanorss-go  /usr/local/nanorss/
+COPY --from=registry.access.redhat.com/ubi8/ubi-minimal \
+    /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+    /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
 
 WORKDIR /usr/local/nanorss
 
