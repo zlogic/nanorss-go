@@ -9,7 +9,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.18
 	github.com/pmezard/go-difflib v1.0.0
 	github.com/sirupsen/logrus v1.8.1
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.7.3
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20220531201128-c960675eff93
 	gopkg.in/h2non/gock.v1 v1.1.2
