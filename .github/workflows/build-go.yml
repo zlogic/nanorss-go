@@ -13,14 +13,14 @@ jobs:
         arch: [amd64, arm64]
     steps:
 
-    - name: Set up Go 1.19
-      uses: actions/setup-go@v2
-      with:
-        go-version: 1.19
-      id: go
-
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version-file: go.mod
+      id: go
 
     - name: Get dependencies
       run: |
@@ -41,7 +41,7 @@ jobs:
       run: podman save ghcr.io/zlogic/nanorss-go:${{ github.ref_name }}-${{ matrix.arch }} > nanorss-go.tar
 
     - name: Upload image artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: nanorss-go-${{ matrix.arch }}
         path: nanorss-go.tar
@@ -55,7 +55,7 @@ jobs:
 
     - name: Download image artifacts
       id: download
-      uses: actions/download-artifact@v2
+      uses: actions/download-artifact@v3
 
     - name: Create manifest
       run: podman manifest create nanorss-go:${{ github.ref_name }}
